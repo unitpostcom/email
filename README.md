@@ -11,7 +11,7 @@ npm install @unitpost/email zod
 No account. No API key. `zod` is a peer (`^4`). Node 18+.
 
 <p align="center">
-  <img src="docs/examples/welcome.png" width="520" alt="Welcome email rendered by @unitpost/email" />
+  <img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/welcome.png" width="520" alt="Welcome email rendered by @unitpost/email" />
 </p>
 
 ## Quick start
@@ -48,11 +48,11 @@ Unresolved `{{tokens}}` render literally. Values are HTML-escaped; `javascript:`
 Same renderer as the samples above — copy one from the [gallery](https://unitpost.com/templates/gallery) or `getSampleTemplate`.
 
 <p align="center">
-  <a href="https://unitpost.com/templates/gallery"><img src="docs/examples/receipt.png" width="48%" alt="Payment receipt" /></a>
-  <a href="https://unitpost.com/templates/gallery"><img src="docs/examples/product-announcement.png" width="48%" alt="Product announcement" /></a>
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/receipt.png" width="48%" alt="Payment receipt" /></a>
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/product-announcement.png" width="48%" alt="Product announcement" /></a>
 </p>
 <p align="center">
-  <a href="https://unitpost.com/templates/gallery"><img src="docs/examples/newsletter.png" width="48%" alt="Newsletter" /></a>
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/newsletter.png" width="48%" alt="Newsletter" /></a>
 </p>
 
 ```ts

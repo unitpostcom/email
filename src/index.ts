@@ -3,9 +3,10 @@
 // `./public`) PLUS editor-only machinery we don't publish to npm — the TipTap
 // bridge, document tree-op helpers, and editor diagnostics.
 //
-// External consumers import the package root (`@unitpost/email`), which resolves
-// to `./public`. In-repo code that needs the editor internals imports
-// `@unitpost/email/internal` (this file).
+// External npm consumers import `@unitpost/email`, which resolves to `./public`
+// (built to dist/). In-repo apps import the same package name — workspace
+// `exports["."]` and tsconfig paths point at THIS file, so they get the full
+// surface without switching to the npm tarball or the `/internal` subpath.
 
 // Everything in the published public surface.
 export * from "./public";

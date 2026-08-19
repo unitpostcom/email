@@ -2,6 +2,17 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
+## 0.1.5 — 2026-08-19
+
+### Fixed
+
+- **Broken package entry points (again).** `0.1.4` published with `main`/`exports` still pointing at `./src/index.ts`, which is not in the tarball — the same bug as `0.1.0`. This release points at `dist/`. `0.1.4` is unimportable; use `0.1.5`.
+
+### Changed
+
+- Public source lives at [`github.com/unitpostcom/email`](https://github.com/unitpostcom/email). The npm `repository` / `bugs` fields now point there.
+- README rewritten for GitHub and npm (same file): install first, playground / gallery / components links, rendered example screenshots.
+
 ## 0.1.4 — 2026-07-17
 
 ### Changed
