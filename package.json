@@ -1,0 +1,77 @@
+{
+  "name": "@unitpost/email",
+  "version": "0.1.4",
+  "description": "JSON document model and cross-client HTML renderer for email. Constrained TSX, a component catalog, and layouts that render the same in Outlook, Gmail, and Apple Mail.",
+  "license": "MIT",
+  "homepage": "https://unitpost.com/components",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unitpostcom/email.git"
+  },
+  "bugs": "https://github.com/unitpostcom/email/issues",
+  "keywords": [
+    "unitpost",
+    "email",
+    "email-template",
+    "html-email",
+    "renderer",
+    "transactional-email",
+    "email-components",
+    "email-builder",
+    "marketing-email"
+  ],
+  "private": false,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./internal": "./src/index.ts"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs/examples"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "email:check": "npm run typecheck && npm run test",
+    "test": "node --import tsx --test $(find src -name '*.test.ts')",
+    "preview": "tsx scripts/preview.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/sanitize-html": "^2.16.1",
+    "tsup": "^8.5.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.2",
+    "zod": "^4.0.0"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "dependencies": {
+    "sanitize-html": "^2.17.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      }
+    }
+  }
+}
