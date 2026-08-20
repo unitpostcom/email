@@ -1,12 +1,16 @@
 # @unitpost/email
 
-Author email as JSON or a tiny TSX dialect. Render table-based HTML that actually works in Outlook, Gmail, and Apple Mail.
+Email component library that works in Outlook, Gmail, and Apple Mail.
+
+```bash
+npx skills add unitpostcom/email
+```
 
 ```bash
 npm install @unitpost/email zod
 ```
 
-**[Playground](https://unitpost.com/playground)** · **[Template gallery](https://unitpost.com/templates/gallery)** · **[Components](https://unitpost.com/components)** · **[npm](https://www.npmjs.com/package/@unitpost/email)**
+**[Landing](https://unitpost.com/email)** · **[Playground](https://unitpost.com/playground)** · **[Template gallery](https://unitpost.com/templates/gallery)** · **[Components](https://unitpost.com/components)** · **[npm](https://www.npmjs.com/package/@unitpost/email)**
 
 No account. No API key. `zod` is a peer (`^4`). Node 18+.
 
@@ -105,7 +109,7 @@ Footer bands are chrome only (logo, nav, a reply line). If you send marketing ma
 | **Interactive** | [`Button`](https://unitpost.com/components#button) · [`Link`](https://unitpost.com/components#link) |
 | **Advanced** | [`Html`](https://unitpost.com/components#html) (sanitized) |
 
-Every block accepts [common props](https://unitpost.com/components#common-props) (spacing, alignment, Tailwind-style `className` compiled to inline CSS). Document chrome (`<html>`, `<head>`, preheader, the centered paper) is the renderer’s job — not missing components.
+Every block accepts [common props](https://unitpost.com/components#common-props) (spacing, alignment, Tailwind-style `className` or CSS via `custom-css` — both compile to inline CSS). Document chrome (`<html>`, `<head>`, preheader, the centered paper) is the renderer’s job — not missing components.
 
 Or skip TSX and build the JSON:
 
@@ -148,6 +152,8 @@ npm run preview   # HTML of every sample, open locally
 ```
 
 A change to the HTML a published document renders to is a **breaking change**. See [CHANGELOG.md](./CHANGELOG.md).
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports: [SECURITY.md](./SECURITY.md).
 
 ## License
 

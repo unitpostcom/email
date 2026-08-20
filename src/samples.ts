@@ -594,7 +594,9 @@ const receipt: EmailDocument = EmailDocumentSchema.parse({
     { type: "spacer", id: makeId("receipt", 6), height: 20 },
     keyValueRow("receipt", 1, [
       { label: "Order", value: "{{order_number}}" },
-      { label: "Item", value: "{{item_name}}" },
+      { label: "{{item_name}}", value: "$49.00" },
+      { label: "Editor seats × 3", value: "$27.00" },
+      { label: "Usage overage", value: "$8.00" },
       { label: "Total paid", value: "{{amount}}" },
     ]),
     { type: "spacer", id: makeId("receipt", 9), height: 24 },

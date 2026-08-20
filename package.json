@@ -1,9 +1,9 @@
 {
   "name": "@unitpost/email",
   "version": "0.1.5",
-  "description": "JSON document model and cross-client HTML renderer for email. Constrained TSX, a component catalog, and layouts that render the same in Outlook, Gmail, and Apple Mail.",
+  "description": "Email component library that works in Outlook, Gmail, and Apple Mail.",
   "license": "MIT",
-  "homepage": "https://unitpost.com/components",
+  "homepage": "https://unitpost.com/email",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/unitpostcom/email.git"

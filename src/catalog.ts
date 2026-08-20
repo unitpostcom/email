@@ -531,22 +531,6 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
     ],
   },
   {
-    tag: "Divider",
-    blockType: "divider",
-    slug: "divider",
-    summary: "A thin horizontal rule to separate sections.",
-    group: "Content",
-    snippet: `<Divider />`,
-    props: [
-      {
-        name: "color",
-        type: "color",
-        defaultKey: "color",
-        description: "Line color.",
-      },
-    ],
-  },
-  {
     tag: "Spacer",
     blockType: "spacer",
     slug: "spacer",
@@ -562,6 +546,22 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
         defaultKey: "height",
         required: true,
         description: "Gap height (px).",
+      },
+    ],
+  },
+  {
+    tag: "Divider",
+    blockType: "divider",
+    slug: "divider",
+    summary: "A thin horizontal rule to separate sections.",
+    group: "Content",
+    snippet: `<Divider />`,
+    props: [
+      {
+        name: "color",
+        type: "color",
+        defaultKey: "color",
+        description: "Line color.",
       },
     ],
   },
@@ -638,11 +638,13 @@ export function getComponentDoc(tag: string): ComponentDoc | undefined {
 }
 
 // Stable group order for rendering nav / pill rails.
+// Content (Heading/Text) sits next to Interactive (Button) — those are the
+// blocks almost every send uses. Media and Advanced trail.
 export const COMPONENT_GROUPS = [
   "Layout",
   "Content",
-  "Media",
   "Interactive",
+  "Media",
   "Advanced",
 ] as const;
 
