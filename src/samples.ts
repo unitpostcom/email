@@ -76,6 +76,11 @@ const STOCK = {
   // Event / calendar vibe — webinars, invites.
   event:
     "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1120&q=80",
+  // Apparel still-lifes — abandoned cart line items.
+  product:
+    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=400&h=400&q=80",
+  jacket:
+    "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&h=400&q=80",
 } as const;
 
 // Shared light-mode theme: white paper centered on a soft zinc backdrop, our
@@ -172,18 +177,109 @@ function keyValueRow(
     paddingX: 24,
     paddingY: 20,
     columnGap: 8,
+    // Same as `content-key-value`: never stack. A 520–560px iframe (thumbs)
+    // is under the renderer's 600px mobile query; stacking dumps every label
+    // into one block and every value into another, which is how receipts and
+    // shipping summaries fall apart in gallery/marketing previews.
+    stackOnMobile: false,
     columns: [
       {
         type: "column",
         id: makeId(`${prefix}-kv${n}-col`, 1),
-        width: 60,
+        width: 48,
         children: lines.map(labelCell),
       },
       {
         type: "column",
         id: makeId(`${prefix}-kv${n}-col`, 2),
-        width: 40,
+        width: 52,
         children: lines.map(valueCell),
+      },
+    ],
+  } as SampleBlocksInput[number];
+}
+
+// A compact cart line — thumbnail + name/meta + price. Receipt-like, stays
+// side-by-side in thumbs (stackOnMobile off so 640px previews don't collapse).
+function cartLine(
+  prefix: string,
+  n: number,
+  item: { src: string; name: string; meta: string; price: string },
+): SampleBlocksInput[number] {
+  return {
+    type: "row",
+    id: makeId(`${prefix}-line`, n),
+    backgroundColor: BRAND.tint,
+    border: { radius: 12 },
+    paddingX: 16,
+    paddingY: 12,
+    columnGap: 12,
+    stackOnMobile: false,
+    columns: [
+      {
+        type: "column",
+        id: makeId(`${prefix}-line${n}-col`, 1),
+        width: 22,
+        paddingX: 0,
+        children: [
+          {
+            type: "image",
+            id: makeId(`${prefix}-line${n}-img`, 1),
+            src: item.src,
+            alt: item.name,
+            width: 72,
+            height: 72,
+            borderRadius: 8,
+            objectFit: "cover",
+            align: "left",
+            marginBottom: 0,
+          },
+        ],
+      },
+      {
+        type: "column",
+        id: makeId(`${prefix}-line${n}-col`, 2),
+        width: 53,
+        paddingX: 0,
+        children: [
+          {
+            type: "text",
+            id: makeId(`${prefix}-line${n}-name`, 1),
+            fontSize: 15,
+            fontWeight: "600",
+            color: BRAND.ink,
+            text: item.name,
+            align: "left",
+            marginBottom: 4,
+          },
+          {
+            type: "text",
+            id: makeId(`${prefix}-line${n}-meta`, 1),
+            fontSize: 13,
+            color: BRAND.muted,
+            text: item.meta,
+            align: "left",
+            marginBottom: 0,
+          },
+        ],
+      },
+      {
+        type: "column",
+        id: makeId(`${prefix}-line${n}-col`, 3),
+        width: 25,
+        paddingX: 0,
+        children: [
+          {
+            type: "text",
+            id: makeId(`${prefix}-line${n}-price`, 1),
+            align: "right",
+            fontSize: 15,
+            fontWeight: "600",
+            color: BRAND.ink,
+            text: item.price,
+            marginBottom: 0,
+          },
+        ],
       },
     ],
   } as SampleBlocksInput[number];
@@ -595,8 +691,8 @@ const receipt: EmailDocument = EmailDocumentSchema.parse({
     keyValueRow("receipt", 1, [
       { label: "Order", value: "{{order_number}}" },
       { label: "{{item_name}}", value: "$49.00" },
-      { label: "Editor seats × 3", value: "$27.00" },
-      { label: "Usage overage", value: "$8.00" },
+      { label: "Additional seats × 3", value: "$27.00" },
+      { label: "Tax", value: "$8.00" },
       { label: "Total paid", value: "{{amount}}" },
     ]),
     { type: "spacer", id: makeId("receipt", 9), height: 24 },
@@ -1587,11 +1683,11 @@ const waitlistInvite: EmailDocument = EmailDocumentSchema.parse({
   ],
 });
 
-// An abandoned-cart nudge — a gentle reminder of a left-behind item with a
-// quick-facts strip and a return-to-cart CTA.
+// An abandoned-cart nudge — a compact receipt of left-behind items (thumb +
+// name + price) and a return-to-cart CTA.
 const abandonedCart: EmailDocument = EmailDocumentSchema.parse({
   category: "marketing",
-  previewText: "You left something behind — it's still in your cart.",
+  previewText: "You left 3 items behind — they're still in your cart.",
   theme: BRAND_THEME,
   variables: [
     { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
@@ -1601,7 +1697,7 @@ const abandonedCart: EmailDocument = EmailDocumentSchema.parse({
   ],
   blocks: [
     logo(makeId("cart", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("cart", 2), height: 24 },
+    { type: "spacer", id: makeId("cart", 2), height: 20 },
     {
       type: "heading",
       id: makeId("cart", 3),
@@ -1615,15 +1711,25 @@ const abandonedCart: EmailDocument = EmailDocumentSchema.parse({
       id: makeId("cart", 4),
       align: "center",
       color: BRAND.body,
-      text: "Hi {{first_name}}, {{item_name}} is still in your cart. We saved it for you — pick up right where you left off.",
+      text: "Hi {{first_name}}, {{item_name}} and 2 more are still in your cart.",
     },
-    { type: "spacer", id: makeId("cart", 5), height: 24 },
-    featureColumns("cart", 1, [
-      { title: "Free returns", caption: "30 days, no questions asked." },
-      { title: "Fast shipping", caption: "Out the door in 24 hours." },
-      { title: "Secure checkout", caption: "Encrypted end to end." },
-    ]),
-    { type: "spacer", id: makeId("cart", 6), height: 24 },
+    { type: "spacer", id: makeId("cart", 5), height: 16 },
+    cartLine("cart", 1, {
+      src: STOCK.product,
+      name: "{{item_name}}",
+      meta: "Navy · M",
+      price: "$78",
+    }),
+    { type: "spacer", id: makeId("cart", 14), height: 8 },
+    cartLine("cart", 2, {
+      src: STOCK.jacket,
+      name: "Wool overshirt",
+      meta: "Camel · S",
+      price: "$128",
+    }),
+    { type: "spacer", id: makeId("cart", 16), height: 8 },
+    keyValueRow("cart", 1, [{ label: "Subtotal", value: "$248" }]),
+    { type: "spacer", id: makeId("cart", 6), height: 20 },
     brandButton(makeId("cart", 7), "Return to your cart", "{{cart_url}}"),
     { type: "spacer", id: makeId("cart", 8), height: 12 },
     {
