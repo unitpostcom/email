@@ -3,7 +3,8 @@
 // This is the curated, documented API we support for external consumers: the
 // document model + schema, the cross-client HTML renderer, the component
 // catalog, the constrained-TSX codec, ready-made samples, and the HTML
-// sanitizer. It is deliberately a NARROWER surface than the workspace-internal
+// sanitizer. React authoring lives on `@unitpost/email/react` so this entry
+// stays React-free. It is deliberately a NARROWER surface than the workspace-internal
 // entry (`./internal`) — editor-only machinery (the TipTap bridge, the
 // tree-op helpers, and the editor diagnostics) is intentionally NOT exported
 // here, so we don't ship (and have to support forever) internal tooling.

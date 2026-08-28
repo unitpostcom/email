@@ -7,15 +7,15 @@ import { defineConfig } from "tsup";
 // `.`/`./internal` source `exports`, and `publishConfig` (in package.json)
 // repoints the published `.` at this built public bundle.
 export default defineConfig({
-  entry: { index: "src/public.ts" },
+  entry: { index: "src/public.ts", react: "src/react.ts" },
   format: ["esm", "cjs"],
   dts: true,
   clean: true,
   sourcemap: true,
   treeshake: true,
-  // zod is a peer, sanitize-html a runtime dep — keep both external so we don't
-  // inline a second copy into consumers' bundles.
-  external: ["zod", "sanitize-html"],
+  // zod is a peer, sanitize-html a runtime dep, react is an optional peer for
+  // the ./react authoring entry — keep all external.
+  external: ["zod", "sanitize-html", "react"],
   outExtension({ format }) {
     return { js: format === "cjs" ? ".cjs" : ".js" };
   },

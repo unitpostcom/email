@@ -12,7 +12,7 @@ npm install @unitpost/email zod
 
 **[Landing](https://unitpost.com/email)** · **[Playground](https://unitpost.com/playground)** · **[Template gallery](https://unitpost.com/templates/gallery)** · **[Components](https://unitpost.com/components)** · **[npm](https://www.npmjs.com/package/@unitpost/email)**
 
-No account. No API key. `zod` is a peer (`^4`). Node 18+.
+No account. No API key. `zod` is a peer (`^4`). Node 18+. `react` is an optional peer — only if you import `@unitpost/email/react`.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/welcome.png" width="520" alt="Welcome email rendered by @unitpost/email" />
@@ -20,28 +20,50 @@ No account. No API key. `zod` is a peer (`^4`). Node 18+.
 
 ## Quick start
 
-```ts
-import { parseTsx, renderToHtml, resolveVariables } from "@unitpost/email";
+Import the components and call `render`. Same tags as [react-email](https://react.email); the HTML is inbox-safe.
 
-const doc = parseTsx(`
-  <Section padding-x={24} padding-y={32}>
-    <Heading level={1}>Hi {{first_name}} 👋</Heading>
-    <Text>Welcome to {{product_name}}.</Text>
-    <Button href="{{cta_url}}">Get started</Button>
-  </Section>
-`);
+```tsx
+import {
+  Section,
+  Heading,
+  Text,
+  Button,
+  Image,
+  render,
+} from "@unitpost/email/react";
 
-const { values, missing } = resolveVariables(doc, {
-  first_name: "Ada",
-  product_name: "Northwind",
-  cta_url: "https://example.com",
-});
-if (missing.length > 0) throw new Error(`Unresolved: ${missing.join(", ")}`);
+export function Welcome({ name }: { name: string }) {
+  return (
+    <Section paddingY={32}>
+      <Image src="https://example.com/logo.png" alt="Acme" width={120} />
+      <Heading level={1}>Hi {name}</Heading>
+      <Text>You're in.</Text>
+      <Button href="https://example.com">Get started</Button>
+    </Section>
+  );
+}
 
-const html = renderToHtml(doc, values);
+const html = render(<Welcome name="Mike" />);
 ```
 
-Paste that markup into the [playground](https://unitpost.com/playground) to see the HTML before you install.
+Copy is JSX children (`<Heading>Hi Mike</Heading>`). Props are camelCase (`paddingY`, `href`). Pass `html` to any sender.
+
+Send-time `{{tokens}}` in JSX must be a string: `{"{{first_name}}"}` or `href="{{cta_url}}"`. Bare `{{first_name}}` is invalid JS. Compose-time values use `{name}`.
+
+No React? Same catalog as a string — what the visual editor and agents use:
+
+```ts
+import { parseTsx, renderToHtml } from "@unitpost/email";
+
+const html = renderToHtml(parseTsx(`
+  <Section padding-y={32}>
+    <Heading level={1}>Hi {{first_name}}</Heading>
+    <Button href="{{cta_url}}">Get started</Button>
+  </Section>
+`));
+```
+
+Paste markup into the [playground](https://unitpost.com/playground) before you install.
 
 Unresolved `{{tokens}}` render literally. Values are HTML-escaped; `javascript:` URLs are dropped; a value containing `{{other}}` is never re-interpolated.
 
@@ -111,19 +133,6 @@ Footer bands are chrome only (logo, nav, a reply line). If you send marketing ma
 
 Every block accepts [common props](https://unitpost.com/components#common-props) (spacing, alignment, Tailwind-style `className` or CSS via `custom-css` — both compile to inline CSS). Document chrome (`<html>`, `<head>`, preheader, the centered paper) is the renderer’s job — not missing components.
 
-Or skip TSX and build the JSON:
-
-```ts
-import { emptyDocument, createBlock, renderToHtml } from "@unitpost/email";
-
-const doc = emptyDocument();
-doc.blocks.push(
-  createBlock("heading", { text: "Hello", level: 1 }),
-  createBlock("text", { text: "Built as data, rendered as email." }),
-);
-const html = renderToHtml(doc, {});
-```
-
 ---
 
 ## API
@@ -133,6 +142,7 @@ const html = renderToHtml(doc, {});
 | Document | `EmailDocument`, `EmailDocumentSchema`, `parseDocument`, `migrateDocument`, `COMPONENT_DEFAULTS`, `STYLE_TOKENS`, `TEMPLATE_CATEGORIES` |
 | Rendering | `renderToHtml`, `resolveVariables`, `resolveVariablesWithContact`, `collectVariables`, `documentHasPerRecipientVariables` |
 | Codec | `parseTsx`, `printTsx`, `printFragmentTsx`, `TsxParseError` |
+| React (`@unitpost/email/react`) | `Section`, `Heading`, `Text`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render` |
 | Catalog | `COMPONENT_CATALOG`, `COMPONENT_GROUPS`, `COMMON_PROPS`, `getComponentDoc`, `resolvePropDefault` |
 | Layouts | `SECTION_LAYOUTS`, `LAYOUT_GROUPS`, `getSectionLayout` |
 | Samples | `SAMPLE_TEMPLATES`, `getSampleTemplate` |

@@ -1,16 +1,17 @@
 ---
 name: unitpost-email
 description: >-
-  Use when authoring HTML email with @unitpost/email — components, layouts,
-  parseTsx, renderToHtml, Tailwind className, {{variables}}. No account.
-  Works in Outlook, Gmail, and Apple Mail. Playground at unitpost.com/playground.
+  Use when authoring HTML email with @unitpost/email — React components
+  (@unitpost/email/react), parseTsx, renderToHtml, layouts, Tailwind className,
+  {{variables}}. No account. Works in Outlook, Gmail, and Apple Mail.
+  Playground at unitpost.com/playground.
 ---
 
 # @unitpost/email
 
 Email component library that works in Outlook, Gmail, and Apple Mail.
 
-MIT. No account. No API key. `zod` is a peer (`^4`). Node 18+.
+MIT. No account. No API key. `zod` is a peer (`^4`). Node 18+. React 18+ only if you import `@unitpost/email/react`.
 
 Landing: https://unitpost.com/email
 Docs: https://unitpost.com/components
@@ -24,47 +25,61 @@ Source: https://github.com/unitpostcom/email
 npm install @unitpost/email zod
 ```
 
-This skill is enough for agents. Humans can also paste markup into the playground without installing.
+This skill is enough for agents. Humans can paste markup into the playground without installing.
 
 ## Author
 
-Constrained TSX (a small, fixed vocabulary — not a React app) or `EmailDocument` JSON. Always use this library. Never hand-roll table HTML.
+One catalog, two ways to write it. Always use this library. Never hand-roll table HTML.
 
-```ts
-import { parseTsx, renderToHtml, resolveVariables } from "@unitpost/email";
+**React** — use this when the project already has React (Next, Vite, etc.). Real imports, types, and JSX:
 
-const doc = parseTsx(`
-  <Section padding-x={24} padding-y={32}>
-    <Heading level={1}>Hi {{first_name}}</Heading>
-    <Text>Welcome to {{product_name}}.</Text>
-    <Button href="{{cta_url}}">Get started</Button>
-  </Section>
-`);
+```tsx
+import { Section, Heading, Text, Button, render } from "@unitpost/email/react";
 
-const { values, missing } = resolveVariables(doc, {
-  first_name: "Ada",
-  product_name: "Northwind",
-  cta_url: "https://example.com",
-});
-if (missing.length > 0) throw new Error(`Unresolved: ${missing.join(", ")}`);
+export function Welcome({ name }: { name: string }) {
+  return (
+    <Section paddingY={32}>
+      <Heading level={1}>Hi {name}</Heading>
+      <Text>You're in.</Text>
+      <Button href="https://example.com">Get started</Button>
+    </Section>
+  );
+}
 
-const html = renderToHtml(doc, values);
+const html = render(<Welcome name="Mike" />);
 ```
 
-Pass `html` to any sender. Unresolved `{{tokens}}` render literally. Values are HTML-escaped; `javascript:` URLs are dropped.
+`render` lowers JSX to the same `EmailDocument` the visual editor uses, then the same inbox-safe HTML.
 
-Prefer starting from a **layout** (`getSectionLayout`) or a **sample** (`getSampleTemplate`) over inventing structure.
+**String TSX** — no React. Visual editor, this skill in a non-React repo, or agents writing a `.ts` file:
+
+```ts
+import { parseTsx, renderToHtml } from "@unitpost/email";
+
+const html = renderToHtml(parseTsx(`
+  <Section padding-y={32}>
+    <Heading level={1}>Hi {{first_name}}</Heading>
+    <Button href="{{cta_url}}">Get started</Button>
+  </Section>
+`));
+```
+
+Send-time `{{tokens}}` work in parseTsx strings and in quoted attrs
+(`href="{{cta_url}}"`). In real JSX they must be a string expression:
+`{"{{first_name}}"}` — bare `{{first_name}}` is invalid JS. Compose-time
+values use `{name}`. Unresolved tokens render literally. Values are HTML-escaped.
+
+Prefer a **layout** (`getSectionLayout`) or **sample** (`getSampleTemplate`) over inventing structure.
 
 ```ts
 import { getSectionLayout, printFragmentTsx, getSampleTemplate } from "@unitpost/email";
 
 const hero = getSectionLayout("hero-simple")!;
 const tsx = printFragmentTsx(hero.build());
-
 const welcome = getSampleTemplate("welcome")!;
 ```
 
-Look up every component, layout, and sample (with TSX) on https://unitpost.com/components or via the catalog exports below. Do not invent tags or layout keys.
+Look up every component, layout, and sample at https://unitpost.com/components. Do not invent tags or layout keys.
 
 ## Components
 
@@ -76,35 +91,27 @@ Look up every component, layout, and sample (with TSX) on https://unitpost.com/c
 | Interactive | `Button`, `Link` |
 | Advanced | `Html` (sanitized) |
 
-Common props on every block: spacing, alignment, Tailwind-style `className` or CSS via `custom-css` (both compile to inline CSS). Document chrome (`<html>`, `<head>`, preheader) is the renderer’s job.
-
-Props and live snippets: https://unitpost.com/components#`<slug>` (e.g. `#button`).
+Common props: spacing, alignment, Tailwind-style `className` or `custom-css` (both compile to inline CSS). Document chrome is the renderer’s job.
 
 ## Layouts
 
-Pre-built bands. Keys (use these exactly):
-
-- Header: `header-logo`, `header-logo-nav`
-- Hero: `hero-simple`, `hero-image`, `hero-badge`
-- Content: `content-card`, `content-key-value`, `content-code`, `content-quote`, `content-action`, `content-announcement`, `content-article`
-- Columns: `columns-split`, `columns-cards`, `columns-features`, `columns-steps`
-- CTA: `cta-band`, `cta-centered`
-- Footer: `footer-simple`, `footer-rich`, `footer-social`
-
-Full preview + TSX: https://unitpost.com/components#layouts
+Keys (use these exactly): `header-logo`, `header-logo-nav`, `hero-simple`, `hero-image`, `hero-badge`, `content-card`, `content-key-value`, `content-code`, `content-quote`, `content-action`, `content-announcement`, `content-article`, `columns-split`, `columns-cards`, `columns-features`, `columns-steps`, `cta-band`, `cta-centered`, `footer-simple`, `footer-rich`, `footer-social`.
 
 ## Samples
 
-`getSampleTemplate(key)` — keys include `welcome`, `email-verification`, `magic-link`, `password-reset`, `receipt`, `invoice`, `newsletter`, `product-announcement`. Full list: https://unitpost.com/templates/gallery
+`getSampleTemplate(key)` — `welcome`, `email-verification`, `magic-link`, `password-reset`, `receipt`, `invoice`, `newsletter`, `product-announcement`, …. Full list: https://unitpost.com/templates/gallery
 
-## Public API (npm)
+## Public API
 
-`parseTsx`, `printTsx`, `printFragmentTsx`, `renderToHtml`, `resolveVariables`, `COMPONENT_CATALOG`, `getComponentDoc`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
+`@unitpost/email`: `parseTsx`, `printTsx`, `renderToHtml`, `resolveVariables`, `COMPONENT_CATALOG`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
 
-Do not import editor-only internals (`@unitpost/email/internal`).
+`@unitpost/email/react`: `Section`, `Heading`, `Text`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render`. Optional `react` peer.
+
+Do not import `@unitpost/email/internal`.
 
 ## Do not
 
 - Invent component tags, layout keys, or sample keys.
 - Author raw `<table>` email HTML when this library can express it.
-- Require a Unitpost account, API key, or MCP server to render HTML. Those are for *sending* with Unitpost, not for this library.
+- Require a Unitpost account to render HTML. Accounts are for *sending*.
+- Put `{{tokens}}` as a JSX expression (`{{first_name}}` is invalid JS). Use a string, or `{name}` for compose-time values.
