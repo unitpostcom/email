@@ -1,6 +1,6 @@
 {
   "name": "@unitpost/email",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Email component library that works in Outlook, Gmail, and Apple Mail.",
   "license": "MIT",
   "homepage": "https://unitpost.com/email",
@@ -52,11 +52,11 @@
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^19.1.8",
+    "@types/react": "^19.2.18",
     "@types/sanitize-html": "^2.16.1",
-    "react": "^19.1.0",
+    "react": "^19.2.8",
     "tsup": "^8.5.0",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.2",
     "zod": "^4.0.0"
   },
@@ -65,7 +65,9 @@
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true }
+    "react": {
+      "optional": true
+    }
   },
   "dependencies": {
     "sanitize-html": "^2.17.5"

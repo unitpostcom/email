@@ -4,6 +4,8 @@ Notable changes to `@unitpost/email`. A change to the HTML a published document 
 
 ## Unreleased
 
+## 0.2.0 — 2026-08-28
+
 ### Added
 
 - **`@unitpost/email/react`** — import `Section`, `Heading`, `Button`, … and `render(<Email />)`. Lowers to the same `EmailDocument` as `parseTsx` and the visual editor. `react` is an optional peer; the core package stays React-free.
