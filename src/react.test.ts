@@ -5,6 +5,7 @@ import {
   Button,
   Column,
   Heading,
+  List,
   Row,
   Section,
   Text,
@@ -86,4 +87,15 @@ test("Row requires Column children", () => {
     ),
   );
   assert.equal(doc.blocks[0]?.type, "row");
+});
+
+test("List host reads <li> children as items", () => {
+  const doc = fromJsx(
+    h(List, { ordered: true }, h("li", null, "first"), h("li", null, "second {{name}}")),
+  );
+  const block = doc.blocks[0]!;
+  assert.equal(block.type, "list");
+  if (block.type !== "list") return;
+  assert.equal(block.ordered, true);
+  assert.deepEqual(block.items.map((i) => i.text), ["first", "second {{name}}"]);
 });

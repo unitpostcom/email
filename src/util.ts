@@ -55,6 +55,7 @@ export type RenderInlineRun = {
     bold?: boolean;
     italic?: boolean;
     underline?: boolean;
+    strike?: boolean;
     link?: string;
     color?: string;
     background?: string;
@@ -75,11 +76,13 @@ export function renderInlineRuns(
 ): string {
   return runs
     .map((run) => {
-      let html = renderText(run.text, variables);
+      // Soft line breaks (Shift+Enter) live as "\n" in run text → <br />.
+      let html = renderText(run.text, variables).replace(/\n/g, "<br />");
       const m = run.marks ?? {};
       if (m.bold) html = `<strong>${html}</strong>`;
       if (m.italic) html = `<em>${html}</em>`;
       if (m.underline) html = `<u>${html}</u>`;
+      if (m.strike) html = `<s>${html}</s>`;
       const spanStyle = inlineStyle({
         color: m.color,
         "background-color": m.background,

@@ -5,6 +5,7 @@ import {
   ColumnBlockSchema,
   DividerBlockSchema,
   HeadingBlockSchema,
+  ListBlockSchema,
   HtmlBlockSchema,
   ImageBlockSchema,
   LeafBlockSchema,
@@ -62,6 +63,7 @@ const TAG_TO_TYPE: Record<string, Block["type"] | "column"> = {
   Spacer: "spacer",
   Markdown: "markdown",
   Code: "code",
+  List: "list",
 };
 
 const TYPE_TO_TAG: Record<Block["type"] | "column", string> = {
@@ -77,6 +79,7 @@ const TYPE_TO_TAG: Record<Block["type"] | "column", string> = {
   spacer: "Spacer",
   markdown: "Markdown",
   code: "Code",
+  list: "List",
   // `html` blocks don't have a component tag; their content IS raw markup and
   // is emitted verbatim (see printBlock).
   html: "",
@@ -135,6 +138,7 @@ function printInlineRuns(runs: InlineRun[]): string {
       if (m.bold) html = `<strong>${html}</strong>`;
       if (m.italic) html = `<em>${html}</em>`;
       if (m.underline) html = `<u>${html}</u>`;
+      if (m.strike) html = `<s>${html}</s>`;
       const styles: string[] = [];
       if (m.color) styles.push(`color: ${m.color}`);
       if (m.background) styles.push(`background-color: ${m.background}`);
@@ -183,6 +187,7 @@ function parseInlineRuns(html: string): InlineRun[] {
     if (tag === "strong" || tag === "b") mark.bold = true;
     else if (tag === "em" || tag === "i") mark.italic = true;
     else if (tag === "u") mark.underline = true;
+    else if (tag === "s" || tag === "del" || tag === "strike") mark.strike = true;
     else if (tag === "a") {
       const href = /href\s*=\s*"([^"]*)"/.exec(attrs ?? "");
       mark.link = href ? decodeInline(href[1]) : "";
@@ -583,9 +588,34 @@ function attrsToBlock(
       base.markdown = text;
     } else if (type === "code") {
       base.code = text;
+    } else if (type === "list" && attrs.items == null) {
+      base.items = parseListItems(text);
     }
   }
   return base as unknown as Block;
+}
+
+// <List> inner content is one <li>…</li> per item (the printer's shape; also
+// what people naturally type in Code mode). Each item is parsed like a Text
+// block's inner content: inline HTML becomes runs, plain text stays plain.
+// Anything outside <li> tags is ignored.
+function parseListItems(inner: string): Array<{ text: string; content?: InlineRun[] }> {
+  const items: Array<{ text: string; content?: InlineRun[] }> = [];
+  const re = /<li(?:\s[^>]*)?>([\s\S]*?)<\/li>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(inner))) {
+    const body = m[1] ?? "";
+    if (/<[a-zA-Z]/.test(body)) {
+      const runs = parseInlineRuns(body.trim());
+      const text = runs.map((r) => r.text).join("");
+      items.push(
+        runs.some((r) => r.marks || r.variable) ? { text, content: runs } : { text },
+      );
+    } else {
+      items.push({ text: decodeInline(body).replace(/\s+/g, " ").trim() });
+    }
+  }
+  return items;
 }
 
 export function parseTsx(code: string, base?: EmailDocument): EmailDocument {
@@ -945,6 +975,7 @@ const SKIP_ATTRS = new Set([
   "id",
   "text",
   "content",
+  "items",
   "children",
   "columns",
   "markdown",
@@ -1031,14 +1062,26 @@ function printBlock(block: Block | ColumnBlock, indent: string): string {
   const paired =
     (TEXT_BEARING.has(tag) && "text" in rec) ||
     block.type === "markdown" ||
-    block.type === "code";
+    block.type === "code" ||
+    block.type === "list";
   if (paired) {
     let content =
       block.type === "markdown"
         ? block.markdown
         : block.type === "code"
           ? block.code
-          : ((rec.text as string) ?? "");
+          : block.type === "list"
+            ? block.items
+                .map(
+                  (item) =>
+                    `<li>${
+                      runsHaveMarks(item.content) || item.content?.some((r) => r.variable)
+                        ? printInlineRuns(item.content as InlineRun[])
+                        : escapeInline(item.text)
+                    }</li>`,
+                )
+                .join("\n")
+            : ((rec.text as string) ?? "");
     // Text/Heading with inline formatting print their runs as inline HTML so
     // marks (bold/link/color/highlight) round-trip through code mode.
     if (

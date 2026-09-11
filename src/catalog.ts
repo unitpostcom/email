@@ -309,6 +309,39 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
     ],
   },
   {
+    tag: "List",
+    blockType: "list",
+    slug: "list",
+    summary:
+      "A bulleted or numbered list. One <li> per item; inline formatting and {{variables}} work inside items.",
+    group: "Content",
+    snippet: `<List>
+  <li>Set up your sending domain</li>
+  <li>Import your contacts</li>
+  <li>Send your first campaign</li>
+</List>`,
+    props: [
+      {
+        name: "ordered",
+        type: "boolean",
+        defaultKey: "ordered",
+        description: "Numbered (true) instead of bulleted.",
+      },
+      { name: "color", type: "color", description: "Text color." },
+      {
+        name: "font-size",
+        type: "number",
+        defaultKey: "fontSize",
+        description: "Font size (px).",
+      },
+      {
+        name: "line-height",
+        type: "string",
+        description: "Line height — a unitless multiplier (e.g. 1.5) or CSS length.",
+      },
+    ],
+  },
+  {
     tag: "Text",
     blockType: "text",
     slug: "text",

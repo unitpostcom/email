@@ -15,6 +15,7 @@ import {
   type DividerBlock,
   type EmailDocument,
   type HeadingBlock,
+  type ListBlock,
   type HtmlBlock,
   type ImageBlock,
   type LeafBlock,
@@ -74,6 +75,9 @@ export type HeadingProps = WithChildren<Omit<HeadingBlock, "text" | "content">> 
 export type TextProps = WithChildren<Omit<TextBlock, "text" | "content">> & {
   text?: string;
 };
+export type ListProps = WithChildren<Omit<ListBlock, "items">> & {
+  items?: ListBlock["items"];
+};
 export type ButtonProps = WithChildren<Omit<ButtonBlock, "text">> & { text?: string };
 export type LinkProps = WithChildren<Omit<LinkBlock, "text">> & { text?: string };
 export type ImageProps = Omit<ImageBlock, "type" | "id">;
@@ -92,6 +96,7 @@ export const Heading = host<HeadingProps>("Heading", "heading");
 export const Text = host<TextProps>("Text", "text");
 export const Button = host<ButtonProps>("Button", "button");
 export const Link = host<LinkProps>("Link", "link");
+export const List = host<ListProps>("List", "list");
 export const Image = host<ImageProps>("Image", "image");
 export const Divider = host<DividerProps>("Divider", "divider");
 export const Spacer = host<SpacerProps>("Spacer", "spacer");
@@ -222,6 +227,22 @@ function toBlock(node: ReactNode): Block {
     return createBlock("row", {
       ...attrs,
       columns: expand(children).map(toColumn),
+    });
+  }
+
+  if (kind === "list" && attrs.items == null) {
+    // <List><li>…</li><li>…</li></List> — each <li> element (or plain string
+    // child) is one item.
+    attrs.items = expand(children).flatMap((c) => {
+      if (typeof c === "string" || typeof c === "number") {
+        const t = String(c).trim();
+        return t ? [{ text: t }] : [];
+      }
+      if (isValidElement(c)) {
+        const t = textOf((c.props as { children?: ReactNode }).children).trim();
+        return t ? [{ text: t }] : [];
+      }
+      return [];
     });
   }
 

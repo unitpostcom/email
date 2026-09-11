@@ -79,6 +79,7 @@ const pxIntMin1 = () => numeric((n) => n.int().min(1), { round: true });
 export const COMPONENT_DEFAULTS = {
   text: { align: "left", fontSize: 16, marginBottom: 16 },
   heading: { level: 2, align: "left", marginBottom: 16 },
+  list: { ordered: false, fontSize: 16, marginBottom: 16 },
   button: {
     text: "Click here",
     href: "#",
@@ -253,6 +254,7 @@ export const InlineMarkSchema = z.object({
   bold: z.boolean().optional(),
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
+  strike: z.boolean().optional(),
   // Hyperlink href ({{variables}} allowed). Presence means the run is a link.
   link: z.string().optional(),
   // Foreground text color (any CSS color).
@@ -409,6 +411,34 @@ export const HeadingBlockSchema = z.object({
   componentRef: ComponentRefSchema.optional(),
 });
 export type HeadingBlock = z.infer<typeof HeadingBlockSchema>;
+
+// List — bulleted or numbered items of inline-formatted copy (the mail-client
+// list). Each item is a line: `text` is the plain mirror, `content` the runs
+// (marks/variables), exactly like a Text block. Flat only: nested lists are
+// not modelled (they render poorly across email clients anyway).
+export const ListItemSchema = z.object({
+  text: z.string().default(""),
+  content: z.array(InlineRunSchema).optional(),
+});
+export type ListItem = z.infer<typeof ListItemSchema>;
+
+export const ListBlockSchema = z.object({
+  type: z.literal("list"),
+  id: z.string(),
+  ordered: z.boolean().default(COMPONENT_DEFAULTS.list.ordered),
+  items: z.array(ListItemSchema).default([]),
+  color: Color.optional(),
+  fontSize: pxIntPositive().default(COMPONENT_DEFAULTS.list.fontSize),
+  fontFamily: z.string().optional(),
+  lineHeight: z.union([z.number(), z.string()]).optional(),
+  marginBottom: pxInt().default(COMPONENT_DEFAULTS.list.marginBottom),
+  margin: BoxSpacingSchema.optional(),
+  padding: BoxSpacingSchema.optional(),
+  customCss: CustomCss.optional(),
+  className: ClassName.optional(),
+  componentRef: ComponentRefSchema.optional(),
+});
+export type ListBlock = z.infer<typeof ListBlockSchema>;
 
 export const ButtonBlockSchema = z.object({
   type: z.literal("button"),
@@ -583,6 +613,7 @@ export type HtmlBlock = z.infer<typeof HtmlBlockSchema>;
 export const LeafBlockSchema = z.discriminatedUnion("type", [
   TextBlockSchema,
   HeadingBlockSchema,
+  ListBlockSchema,
   ButtonBlockSchema,
   ImageBlockSchema,
   DividerBlockSchema,
@@ -686,6 +717,7 @@ export const BlockSchema: z.ZodType<Block> = z.union([
   RowBlockSchema,
   TextBlockSchema,
   HeadingBlockSchema,
+  ListBlockSchema,
   ButtonBlockSchema,
   ImageBlockSchema,
   DividerBlockSchema,
@@ -700,6 +732,7 @@ export const BlockSchema: z.ZodType<Block> = z.union([
 export const LEAF_BLOCK_TYPES = [
   "text",
   "heading",
+  "list",
   "button",
   "image",
   "divider",
@@ -887,6 +920,11 @@ export const CURRENT_DOCUMENT_VERSION = 5 as const;
 
 export const EmailDocumentSchema = z.object({
   version: z.literal(CURRENT_DOCUMENT_VERSION).default(CURRENT_DOCUMENT_VERSION),
+  // Authoring experience last chosen for this template. This is editor
+  // metadata, not a delivery format: both modes render HTML and a generated
+  // text/plain alternative. Keeping it inside the versioned document avoids a
+  // database enum/migration and lets old documents default to the full builder.
+  compositionMode: z.enum(["simple", "designed"]).default("designed"),
   // Inbox preview text (the snippet shown after the subject in most clients).
   // Injected as a hidden preheader span at the top of the body.
   previewText: z.string().default(""),
@@ -1162,4 +1200,3 @@ export function blockToFragment(block: unknown): ComponentFragment {
   }
   return ComponentFragmentSchema.parse({ blocks: cleaned ? [cleaned] : [] });
 }
-

@@ -7,6 +7,7 @@ import { SAMPLE_TEMPLATES } from "./samples";
 import type {
   Block,
   ColumnBlock,
+  EmailDocument,
   ImageBlock,
   RowBlock,
   SectionBlock,
@@ -425,4 +426,33 @@ describe("codec — resilient prop coercion + graceful degradation", () => {
     for (let i = 0; i < 5; i++) doc = parseTsx(printTsx(doc), doc);
     assert.deepEqual(stripIds(doc), first);
   });
+});
+
+test("List prints as <List> with <li> items and parses back", () => {
+  const doc: EmailDocument = {
+    version: 5,
+    theme: SAMPLE_TEMPLATES[0]!.design.theme,
+    blocks: [
+      {
+        type: "list",
+        id: "l1",
+        ordered: true,
+        items: [
+          { text: "plain" },
+          { text: "bold item", content: [{ text: "bold", marks: { bold: true } }, { text: " item" }] },
+        ],
+      },
+    ],
+  };
+  const tsx = printTsx(doc);
+  assert.match(tsx, /<List[^>]*ordered/);
+  assert.match(tsx, /<li>plain<\/li>/);
+  assert.match(tsx, /<li><(b|strong)>bold<\/(b|strong)> item<\/li>/);
+  const back = parseTsx(tsx);
+  const block = back.blocks[0]!;
+  assert.equal(block.type, "list");
+  if (block.type !== "list") return;
+  assert.equal(block.ordered, true);
+  assert.deepEqual(block.items.map((i) => i.text), ["plain", "bold item"]);
+  assert.deepEqual(block.items[1]!.content, [{ text: "bold", marks: { bold: true } }, { text: " item" }]);
 });

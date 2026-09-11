@@ -18,6 +18,8 @@ export * from "./schema";
 // Cross-client HTML renderer + variable resolution (the same code path the
 // send engine uses).
 export * from "./render";
+export * from "./text";
+export * from "./simple";
 
 // Marketing footer derived from workspace branding (editor preview + send
 // path share this so link/text/band colors never drift).

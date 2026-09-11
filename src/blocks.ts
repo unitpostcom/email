@@ -4,6 +4,7 @@ import {
   ColumnBlockSchema,
   DividerBlockSchema,
   HeadingBlockSchema,
+  ListBlockSchema,
   HtmlBlockSchema,
   ImageBlockSchema,
   LinkBlockSchema,
@@ -82,6 +83,10 @@ export function createBlock(
       );
     case "heading":
       return HeadingBlockSchema.parse(withOverrides({ text: "Heading" }));
+    case "list":
+      return ListBlockSchema.parse(
+        withOverrides({ items: [{ text: "First item" }, { text: "Second item" }] }),
+      );
     case "button":
       return ButtonBlockSchema.parse(withOverrides({}));
     case "image":
@@ -131,6 +136,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   row: "Columns",
   text: "Text",
   heading: "Heading",
+  list: "List",
   button: "Button",
   image: "Image",
   divider: "Divider",

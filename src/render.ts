@@ -7,6 +7,7 @@ import type {
   DividerBlock,
   EmailDocument,
   HeadingBlock,
+  ListBlock,
   HtmlBlock,
   ImageBlock,
   LeafBlock,
@@ -254,6 +255,8 @@ function renderLeaf(block: LeafBlock, ctx: RenderCtx): string {
       return renderTextBlock(block, ctx);
     case "heading":
       return renderHeadingBlock(block, ctx);
+    case "list":
+      return renderListBlock(block, ctx);
     case "button":
       return renderButtonBlock(block, ctx);
     case "image":
@@ -299,9 +302,12 @@ function renderTextBlock(block: TextBlock, ctx: RenderCtx): string {
   const inner =
     block.content && block.content.length
       ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor)
-      : renderText(block.text, ctx.vars);
+      : renderText(block.text, ctx.vars).replace(/\n/g, "<br />");
   if (ctx.dropEmptyText && isEffectivelyEmpty(inner)) return "";
-  return `<p${idAttr(block.id, ctx)}${classAttr} style="${style}">${inner}</p>`;
+  // An intentionally blank paragraph (Enter twice, Gmail-style spacing) must
+  // keep its line height in every client — an empty <p> collapses to nothing.
+  const body = inner.trim() === "" ? "&nbsp;" : inner;
+  return `<p${idAttr(block.id, ctx)}${classAttr} style="${style}">${body}</p>`;
 }
 
 function renderHeadingBlock(block: HeadingBlock, ctx: RenderCtx): string {
@@ -332,8 +338,45 @@ function renderHeadingBlock(block: HeadingBlock, ctx: RenderCtx): string {
   const inner =
     block.content && block.content.length
       ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor)
-      : renderText(block.text, ctx.vars);
+      : renderText(block.text, ctx.vars).replace(/\n/g, "<br />");
   return `<${tag}${idAttr(block.id, ctx)}${classAttr} style="${style}">${inner}</${tag}>`;
+}
+
+// Bulleted / numbered list. Plain <ul>/<ol> with inline styles is the most
+// portable list markup in email: every major client renders native markers.
+// We pin the indent (padding-left) and zero the outer margins so Outlook and
+// Gmail agree; item spacing is a small bottom margin per <li>.
+function renderListBlock(block: ListBlock, ctx: RenderCtx): string {
+  const { style, classAttr } = composeStyle(
+    ctx,
+    block.className,
+    {
+      margin: resolveMargin(block),
+      padding: resolvePadding(block) ?? "0 0 0 24px",
+      color: block.color,
+      "font-size": `${block.fontSize}px`,
+      "line-height": block.lineHeight ?? STYLE_TOKENS.bodyLineHeight,
+      "font-family": block.fontFamily,
+    },
+    block.customCss,
+    undefined,
+    {
+      color: ctx.theme.textColor,
+      "font-family": ctx.theme.fontFamily,
+    },
+  );
+  const items = block.items
+    .map((item) => {
+      const inner =
+        item.content && item.content.length
+          ? renderInlineRuns(item.content, ctx.vars, ctx.theme.linkColor)
+          : renderText(item.text, ctx.vars).replace(/\n/g, "<br />");
+      return `<li style="margin:0 0 4px 0;">${inner.trim() === "" ? "&nbsp;" : inner}</li>`;
+    })
+    .join("");
+  if (ctx.dropEmptyText && block.items.every((i) => isEffectivelyEmpty(i.text))) return "";
+  const tag = block.ordered ? "ol" : "ul";
+  return `<${tag}${idAttr(block.id, ctx)}${classAttr} style="${style}">${items}</${tag}>`;
 }
 
 function renderButtonBlock(block: ButtonBlock, ctx: RenderCtx): string {

@@ -65,6 +65,12 @@ export const TIPTAP_NODE_TYPES = {
   markdown: "emailMarkdown",
   code: "emailCode",
   html: "emailHtml",
+  // Lists use TipTap's own list machinery (toggle/split/lift commands come
+  // free): a `list` block is a bulletList or orderedList of listItems, each
+  // holding one emailText line.
+  bulletList: "bulletList",
+  orderedList: "orderedList",
+  listItem: "listItem",
 } as const;
 
 // Map a block `type` to its TipTap node name.
@@ -83,9 +89,14 @@ const BLOCK_TO_NODE: Record<string, string> = {
   code: TIPTAP_NODE_TYPES.code,
   html: TIPTAP_NODE_TYPES.html,
 };
-const NODE_TO_BLOCK: Record<string, string> = Object.fromEntries(
-  Object.entries(BLOCK_TO_NODE).map(([block, node]) => [node, block]),
-);
+const NODE_TO_BLOCK: Record<string, string> = {
+  ...Object.fromEntries(
+    Object.entries(BLOCK_TO_NODE).map(([block, node]) => [node, block]),
+  ),
+  // Both list node types read back as the one `list` block (ordered flag).
+  [TIPTAP_NODE_TYPES.bulletList]: "list",
+  [TIPTAP_NODE_TYPES.orderedList]: "list",
+};
 
 // `data` holds everything about a block EXCEPT its children/columns (which live
 // in TipTap node content). We strip those before stashing so the source of
@@ -103,6 +114,8 @@ function dataAttrs(
   if (textField) delete rest[textField];
   // Inline runs live in ProseMirror inline content, not in data attrs.
   delete rest.content;
+  // List items are listItem child nodes, not data.
+  delete rest.items;
   return rest;
 }
 
@@ -128,6 +141,7 @@ function marksToPm(marks: InlineRun["marks"]): PmMark[] {
   if (marks.bold) out.push({ type: "bold" });
   if (marks.italic) out.push({ type: "italic" });
   if (marks.underline) out.push({ type: "underline" });
+  if (marks.strike) out.push({ type: "strike" });
   // color + background both live on the single `textStyle` mark.
   if (marks.color || marks.background || marks.fontFamily || marks.fontSize) {
     const attrs: Record<string, unknown> = {};
@@ -149,6 +163,7 @@ function pmToMarks(pm: PmMark[] | undefined): InlineRun["marks"] | undefined {
     if (m.type === "bold") marks.bold = true;
     else if (m.type === "italic") marks.italic = true;
     else if (m.type === "underline") marks.underline = true;
+    else if (m.type === "strike") marks.strike = true;
     else if (m.type === "textStyle") {
       const c = m.attrs?.color;
       if (typeof c === "string" && c) marks.color = c;
@@ -178,6 +193,24 @@ function pmToMarks(pm: PmMark[] | undefined): InlineRun["marks"] | undefined {
 // `text`. ProseMirror text nodes carry their string in the top-level `text`
 // property (NOT attrs). We also mirror it under attrs.text so readInline can
 // recover from either shape. Empty content is allowed (empty textblock).
+// A soft line break (Shift+Enter) is a `hardBreak` atom in ProseMirror and a
+// literal "\n" inside a run's text in the document — the renderer turns it
+// into <br /> and the text/plain renderer keeps the newline. Splitting here
+// (and merging in readRuns) keeps the stored contract free of a new node type.
+function textNodesWithBreaks(text: string, marks: PmMark[]): TiptapNode[] {
+  const out: TiptapNode[] = [];
+  const parts = text.split("\n");
+  parts.forEach((part, i) => {
+    if (part.length > 0) {
+      const node: TiptapNode = { type: "text", text: part, attrs: { text: part } };
+      if (marks.length) node.marks = marks;
+      out.push(node);
+    }
+    if (i < parts.length - 1) out.push({ type: "hardBreak" });
+  });
+  return out;
+}
+
 function inlineContentFor(
   runs: InlineRun[] | undefined,
   plain: string,
@@ -185,7 +218,7 @@ function inlineContentFor(
   if (runs && runs.length) {
     return runs
       .filter((r) => r.variable || r.text.length > 0)
-      .map((r) => {
+      .flatMap((r) => {
         // A variable run becomes a single inline atom node carrying the name +
         // its styling marks; round-trips back to a variable run in readRuns.
         if (r.variable) {
@@ -195,21 +228,12 @@ function inlineContentFor(
           };
           const marks = marksToPm(r.marks);
           if (marks.length) node.marks = marks;
-          return node;
+          return [node];
         }
-        const node: TiptapNode = {
-          type: "text",
-          text: r.text,
-          attrs: { text: r.text },
-        };
-        const marks = marksToPm(r.marks);
-        if (marks.length) node.marks = marks;
-        return node;
+        return textNodesWithBreaks(r.text, marksToPm(r.marks));
       });
   }
-  return plain
-    ? [{ type: "text", text: plain, attrs: { text: plain } } as TiptapNode]
-    : [];
+  return plain ? textNodesWithBreaks(plain, []) : [];
 }
 
 // Read inline content back as runs. Concatenated plain text is derived by the
@@ -218,6 +242,9 @@ function readRuns(node: TiptapNode): InlineRun[] {
   return (node.content ?? [])
     .map((c): InlineRun | null => {
       const withText = c as TiptapNode & { text?: string; marks?: PmMark[] };
+      // Soft line break (Shift+Enter) → a newline run. Unmarked so it merges
+      // with neighbours only when they are unmarked too (see below).
+      if (c.type === "hardBreak") return { text: "\n" };
       // Variable atom -> variable run. `text` mirrors the canonical {{name}}
       // form so the renderer interpolates it and plain consumers keep working.
       if (c.type === "emailVariable") {
@@ -239,7 +266,38 @@ function readRuns(node: TiptapNode): InlineRun[] {
       const marks = pmToMarks(withText.marks);
       return marks ? { text, marks } : { text };
     })
-    .filter((r): r is InlineRun => r != null);
+    .filter((r): r is InlineRun => r != null)
+    // Fold a "\n" run into the neighbouring run with identical marks so a
+    // break inside a bold sentence stays one bold run ("a\nb"), and adjacent
+    // same-marked text nodes (PM sometimes splits them) merge too.
+    .reduce<InlineRun[]>((acc, run) => {
+      const prev = acc[acc.length - 1];
+      if (
+        prev &&
+        !prev.variable &&
+        !run.variable &&
+        (run.text === "\n" || prev.text.endsWith("\n") || sameMarks(prev.marks, run.marks))
+      ) {
+        if (run.text === "\n" || prev.text.endsWith("\n")) {
+          // A break adopts its neighbour's marks so the renderer wraps it
+          // consistently; the marks of the FOLLOWING text win for the merge.
+          const marks = run.text === "\n" ? prev.marks : run.marks;
+          if (sameMarks(marks, prev.marks)) {
+            prev.text += run.text;
+            return acc;
+          }
+        } else {
+          prev.text += run.text;
+          return acc;
+        }
+      }
+      acc.push({ ...run });
+      return acc;
+    }, []);
+}
+
+function sameMarks(a: InlineRun["marks"], b: InlineRun["marks"]): boolean {
+  return JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
 }
 
 function runsToPlainText(runs: InlineRun[]): string {
@@ -251,6 +309,22 @@ function runsToPlainText(runs: InlineRun[]): string {
 // ---------------------------------------------------------------------------
 
 function nodeFromBlock(block: Block | ColumnBlock | SectionChild): TiptapNode {
+  if (block.type === "list") {
+    return {
+      type: block.ordered ? TIPTAP_NODE_TYPES.orderedList : TIPTAP_NODE_TYPES.bulletList,
+      attrs: { id: block.id, data: dataAttrs(block) },
+      content: block.items.map((item) => ({
+        type: TIPTAP_NODE_TYPES.listItem,
+        content: [
+          {
+            type: TIPTAP_NODE_TYPES.text,
+            attrs: { id: null, data: { type: "text" } },
+            content: inlineContentFor(item.content, item.text),
+          },
+        ],
+      })),
+    };
+  }
   const type = BLOCK_TO_NODE[block.type];
   const node: TiptapNode = {
     type,
@@ -323,12 +397,29 @@ function isEmptyTextNode(node: TiptapNode): boolean {
 // tiptapToDoc
 // ---------------------------------------------------------------------------
 
-function blockFromNode(node: TiptapNode): Block | ColumnBlock | null {
+// Simple mode is a mail-client composer: Enter is "next line", not "next
+// paragraph with spacing" — spacing comes from blank lines, exactly like Gmail
+// and Outlook. So a text line created on the canvas (no explicit margin yet)
+// gets marginBottom 0 there; the Designed editor keeps the schema default (16).
+const SIMPLE_TEXT_MARGIN = 0;
+
+function blockFromNode(
+  node: TiptapNode,
+  mode: "simple" | "designed" = "designed",
+): Block | ColumnBlock | null {
   const blockType = NODE_TO_BLOCK[node.type];
   if (!blockType) return null;
 
   const attrs = node.attrs ?? {};
   const data = (attrs.data as Record<string, unknown> | undefined) ?? {};
+  if (
+    mode === "simple" &&
+    (blockType === "text" || blockType === "heading") &&
+    data.marginBottom === undefined &&
+    data.margin === undefined
+  ) {
+    data.marginBottom = SIMPLE_TEXT_MARGIN;
+  }
   const id =
     typeof attrs.id === "string" && attrs.id
       ? attrs.id
@@ -339,17 +430,43 @@ function blockFromNode(node: TiptapNode): Block | ColumnBlock | null {
   const base = { ...data, type: blockType, id } as Record<string, unknown>;
   const childNodes = node.content ?? [];
 
+  if (blockType === "list") {
+    base.ordered = node.type === TIPTAP_NODE_TYPES.orderedList;
+    // Each listItem holds text lines; a nested list inside an item (TipTap
+    // allows it) is flattened into following items — the block model is flat.
+    const items: Array<{ text: string; content?: InlineRun[] }> = [];
+    const pushLine = (line: TiptapNode) => {
+      const runs = readRuns(line);
+      const plain = runsToPlainText(runs);
+      const needsRuns = runs.some((r) => r.marks || r.variable);
+      items.push(needsRuns ? { text: plain, content: runs } : { text: plain });
+    };
+    const walk = (n: TiptapNode) => {
+      if (n.type === TIPTAP_NODE_TYPES.text || n.type === TIPTAP_NODE_TYPES.heading) {
+        pushLine(n);
+      } else {
+        for (const c of n.content ?? []) walk(c);
+      }
+    };
+    for (const item of childNodes) walk(item);
+    base.items = items;
+    if (mode === "simple" && data.marginBottom === undefined && data.margin === undefined) {
+      base.marginBottom = SIMPLE_TEXT_MARGIN;
+    }
+    return base as unknown as Block;
+  }
+
   if (blockType === "section") {
     base.children = childNodes
-      .map(blockFromNode)
+      .map((n) => blockFromNode(n, mode))
       .filter((b): b is SectionChild => b != null) as SectionChild[];
   } else if (blockType === "row") {
     base.columns = childNodes
-      .map(blockFromNode)
+      .map((n) => blockFromNode(n, mode))
       .filter((b): b is ColumnBlock => b != null && b.type === "column");
   } else if (blockType === "column") {
     base.children = childNodes
-      .map(blockFromNode)
+      .map((n) => blockFromNode(n, mode))
       .filter((b): b is SectionChild => b != null && b.type !== "column");
   } else {
     const textField = textFieldFor(blockType);
@@ -393,11 +510,12 @@ export function tiptapToDoc(
   while (end > 1 && isEmptyTextNode(content[end - 1])) end--;
   const trimmed = end === content.length ? content : content.slice(0, end);
   const blocks = trimmed
-    .map(blockFromNode)
+    .map((n) => blockFromNode(n, prevDoc.compositionMode))
     .filter((b): b is Block => b != null && b.type !== "column");
 
   return EmailDocumentSchema.parse({
     version: prevDoc.version,
+    compositionMode: prevDoc.compositionMode,
     previewText: prevDoc.previewText,
     category: prevDoc.category,
     openTracking: prevDoc.openTracking,
