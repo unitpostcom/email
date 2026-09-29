@@ -1,3 +1,4 @@
+import { POWERED_BY_TEXT } from "./render";
 import sanitizeHtml from "sanitize-html";
 import {
   normalizeMarketingFooterFragment,
@@ -254,6 +255,25 @@ export function renderToText(
 ): string {
   const parts = doc.blocks.flatMap((block) => nodeToParts(block, variables));
 
+  if (doc.compositionMode === "simple") {
+    // Simple: the footer is ONE line, mirroring the HTML fragment's single
+    // muted line — a signature, not a footer block.
+    const fv: Vars = { company_name: "", company_address: "", ...variables, ...(options.footerVars ?? {}) };
+    const pieces: string[] = [];
+    if (doc.category === "marketing") {
+      const who = [interpolate("{{company_name}}", fv).trim(), interpolate("{{company_address}}", fv).trim()]
+        .filter((x) => x && !/^\{\{/.test(x))
+        .join(", ");
+      if (who) pieces.push(`Sent by ${who}`);
+      const unsub = safeUrl(interpolate("{{unsubscribe_url}}", fv)).trim();
+      if (unsub && unsub !== "{{unsubscribe_url}}") pieces.push(`Unsubscribe: ${unsub}`);
+    }
+    // Same URL family as the HTML line, so the mark sentinel (utm_medium=powered_by) makes every layer idempotent.
+    if (options.showPoweredBy ?? true) pieces.push("Sent with Unitpost (https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by_simple)");
+    if (pieces.length) parts.push(pieces.join(" · "));
+    return cleanLines(parts.filter(Boolean).join("\n\n"));
+  }
+
   if (doc.category === "marketing") {
     const footerVars: Vars = {
       company_name: "",
@@ -279,9 +299,7 @@ export function renderToText(
   }
 
   if (options.showPoweredBy ?? true) {
-    parts.push(
-      "Powered by Unitpost\nhttps://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by",
-    );
+    parts.push(POWERED_BY_TEXT);
   }
 
   return cleanLines(parts.filter(Boolean).join("\n\n"));

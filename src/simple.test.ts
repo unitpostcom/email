@@ -139,7 +139,8 @@ test("Shift+Enter (hardBreak) round-trips as a newline inside the run and render
   }
   // HTML keeps it as a soft break; text/plain keeps the newline.
   const html = renderToHtml(back, {}, { showPoweredBy: false });
-  assert.match(html, /Hi Sam,<br \/>quick one:/);
+  // Simple renders the mail-client fragment: Gmail's <br>, not XHTML <br />.
+  assert.match(html, /Hi Sam,<br>quick one:/);
   assert.match(renderToText(back, {}, { showPoweredBy: false }), /Hi Sam,\nquick one:/);
 });
 
@@ -169,9 +170,11 @@ test("an intentionally blank paragraph keeps its line height in HTML", () => {
     ],
   });
   const html = renderToHtml(doc, {}, { showPoweredBy: false });
-  const paragraphs = html.match(/<p[^>]*>[\s\S]*?<\/p>/g) ?? [];
-  assert.equal(paragraphs.length, 3);
-  assert.match(paragraphs[1]!, />&nbsp;<\/p>$/);
+  // Simple renders one <div> per line; a blank line is Gmail's <div><br></div>.
+  const inner = html.replace(/^<div dir="ltr">/, "").replace(/<\/div>$/, "");
+  const lines = inner.match(/<div(?: [^>]*)?>[\s\S]*?<\/div>/g) ?? [];
+  assert.equal(lines.length, 3);
+  assert.equal(lines[1], "<div><br></div>");
   // A paragraph holding only a dash is content, not a spacer.
   const dash = parseDocument({ version: 5, blocks: [{ type: "text", id: "d", text: "—" }] });
   assert.match(renderToHtml(dash, {}, { showPoweredBy: false }), />—<\/p>/);
@@ -338,5 +341,6 @@ test("an indent (left padding) survives Design → Simple and does not trigger t
   assert.deepEqual(h!.type === "heading" ? h.padding : null, { left: 40 });
   // Rendered HTML carries the indent as padding on the line.
   const html = renderToHtml(simple, {}, { showPoweredBy: false });
-  assert.match(html, /padding:\s*0(px)? 0(px)? 0(px)? 80px/);
+  // Gmail expresses indent as margin-left in 40px steps.
+  assert.match(html, /margin-left:80px/);
 });

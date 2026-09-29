@@ -25,6 +25,7 @@ import { escapeHtml, inlineStyle, interpolate, renderText, renderInlineRuns } fr
 import { sanitizeEmailHtml, safeUrl, safeImageUrl } from "./sanitize";
 import { compileClasses, rulesToCss, type CssRule } from "./tw-compile";
 import { resolveImageSrc } from "./library-image-url";
+import { renderSimpleHtml } from "./render-simple";
 
 // Cross-client email HTML renderer.
 //
@@ -915,22 +916,80 @@ function defaultFooterHtml(theme: Theme, vars: Vars): string {
 // inside the paper). Rendered as a wordmark inside a subtle pill so it reads as
 // a brand badge rather than fine print. Links to the marketing site. Suppressed
 // only for paid workspaces that turned branding off.
-function poweredByHtml(theme: Theme): string {
+/**
+ * "Powered by Unitpost" — the mark a workspace shows until it may remove it.
+ *
+ * HARDENED (2026-09-26): customer templates may carry sanitized <style> blocks,
+ * so the mark must not be hideable from author CSS. Therefore:
+ *   • no class / id on any element (nothing to select by);
+ *   • every visual property is INLINE with !important — inline !important wins
+ *     over stylesheet !important, so display/visibility/opacity/height/
+ *     colour/size cannot be overridden by a rule;
+ *   • transparent: no chip, no border, no background — it sits on whatever the
+ *     template's backdrop is (light or dark) in a mid grey that reads on both,
+ *     so it "fits into any template" instead of overriding the row's colour.
+ * Responsiveness comes from width:100% + max-width (no media-query class).
+ */
+export function poweredByHtml(theme: Theme): string {
+  const imp = (css: string) => css.split(";").filter(Boolean).map((d) => `${d.trim()} !important`).join(";");
+  const td = imp(`padding:14px 24px 10px;text-align:center;font-family:${theme.fontFamily};display:table-cell;visibility:visible;opacity:1;height:auto;overflow:visible`);
+  const a = imp("display:inline-block;visibility:visible;opacity:1;text-decoration:none;color:#8a8a8a;font-size:11px;line-height:1;background:transparent;border:0;padding:0");
+  const muted = imp("color:#8a8a8a;font-size:11px;vertical-align:middle;display:inline");
+  const mark = imp("color:#8a8a8a;font-size:11px;font-weight:700;letter-spacing:0.02em;vertical-align:middle;display:inline");
+  const img = imp("width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:4px;display:inline;opacity:0.9");
   return [
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:16px 24px 8px;font-family:${theme.fontFamily};">`,
-    `<a href="https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by" style="display:inline-block;text-decoration:none;color:#71717a;font-size:11px;line-height:1;padding:6px 12px;border:1px solid #e4e4e7;border-radius:9999px;background-color:#fafafa;">`,
-    `<span style="color:#a1a1aa;vertical-align:middle;">Powered by </span>`,
-    // Logo mark as a hosted PNG (the app icon, which carries its own background
-    // chip so it reads on any surface). SVG is stripped by Gmail/Outlook, so we
-    // use a raster favicon at an absolute URL that resolves in every inbox.
-    // vertical-align:middle keeps it centered against the text baseline; it sits
-    // right before the wordmark.
-    `<img src="https://www.unitpost.com/web-app-manifest-192x192.png" width="14" height="14" alt="" style="width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:5px;" />`,
-    `<span style="color:#18181b;font-weight:700;letter-spacing:0.02em;vertical-align:middle;">Unitpost</span>`,
+    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="${imp("width:100%;display:table;visibility:visible;opacity:1;height:auto;background:transparent")}"><tr><td style="${td}">`,
+    `<a href="https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by" target="_blank" style="${a}">`,
+    `<span style="${muted}">Powered by </span>`,
+    // Raster mark (SVG is stripped by Gmail/Outlook), hosted at an absolute URL.
+    `<img src="https://www.unitpost.com/web-app-manifest-192x192.png" width="12" height="12" alt="" style="${img}" />`,
+    `<span style="${mark}">Unitpost</span>`,
     `</a>`,
     `</td></tr></table>`,
   ].join("");
 }
+
+/**
+ * Append the mark to CUSTOMER-SUPPLIED HTML (raw `html` sends through the API
+ * / SMTP, which never pass through the designed shell). Inserted just before
+ * </body> when there is one, else appended — inside a width-fluid, transparent
+ * row so it fits the sender's own layout. Same hardened markup as above.
+ */
+/**
+ * Both marks (the designed pill and Simple's "Sent with Unitpost" line) link
+ * to this URL — the one stable thing about them (the pill deliberately has no
+ * class/id hooks). Any HTML that already contains it has been branded by our
+ * renderer; appending again would show the mark twice (test-send → engine
+ * raw path, 2026-09-27 report).
+ */
+export const POWERED_BY_SENTINEL = "utm_medium=powered_by";
+
+export function hasPoweredByMark(html: string): boolean {
+  return html.includes(POWERED_BY_SENTINEL);
+}
+
+/** Plain-text counterpart of the mark, for text-only raw sends. */
+export const POWERED_BY_TEXT =
+  "Powered by Unitpost\nhttps://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by";
+
+export function appendPoweredByText(text: string): string {
+  if (text.includes(POWERED_BY_SENTINEL)) return text;
+  return `${text.replace(/\s+$/, "")}\n\n${POWERED_BY_TEXT}\n`;
+}
+
+export function appendPoweredBy(html: string, theme: Theme = DEFAULT_MARK_THEME): string {
+  // Idempotent: HTML our renderer already branded (pill or Simple line) is
+  // returned untouched — the same input can flow through more than one layer.
+  if (hasPoweredByMark(html)) return html;
+  const row = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100% !important;max-width:${theme.contentWidth}px !important;margin:0 auto !important;display:table !important;visibility:visible !important;opacity:1 !important;background:transparent !important"><tr><td style="padding:0 !important">${poweredByHtml(theme)}</td></tr></table>`;
+  const i = html.search(/<\/body\s*>/i);
+  return i >= 0 ? `${html.slice(0, i)}${row}${html.slice(i)}` : `${html}${row}`;
+}
+
+const DEFAULT_MARK_THEME: Theme = {
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  contentWidth: 600,
+} as Theme;
 
 // Whether a component fragment contains the mandatory unsubscribe link — i.e.
 // any block references the {{unsubscribe_url}} token (typically a link block's
@@ -975,6 +1034,25 @@ export function renderToHtml(
   variables: Vars = {},
   options: RenderOptions = {},
 ): string {
+  // SIMPLE emails never go through the designed shell: they render as the
+  // mail-client fragment (render-simple.ts) so they arrive looking like a
+  // message typed in Gmail / Outlook / Spark. The footer collapses to one
+  // muted text line (marketing only) and the Powered-by mark to a text link.
+  if (doc.compositionMode === "simple") {
+    const fv = { ...variables, ...(options.footerVars ?? {}) };
+    const unsub = fv.unsubscribe_url;
+    return renderSimpleHtml(doc, {
+      variables,
+      footer: needsUnsubscribeFooter(doc)
+        ? {
+            unsubscribeUrl: unsub && unsub !== "{{unsubscribe_url}}" ? unsub : undefined,
+            companyName: fv.company_name || undefined,
+            companyAddress: fv.company_address || undefined,
+          }
+        : null,
+      showPoweredBy: options.showPoweredBy ?? true,
+    });
+  }
   const theme = doc.theme;
   const ctx: RenderCtx = {
     theme,
@@ -1094,7 +1172,6 @@ export function renderToHtml(
     // The powered-by wrapper carries the same fixed inline width as the body
     // card (to align with it) and needs the same fluid override, or IT becomes
     // the element pinning the layout wider than a phone viewport.
-    `.ee-pby-wrap{width:100% !important;}`,
     `}`,
     `@media only screen and (max-width:600px){`,
     // Stack columns: the whole column table (table + row + cells) must become
@@ -1165,7 +1242,8 @@ export function renderToHtml(
     // and forces a horizontal scroll on phones.
     poweredBy
       ? [
-          `<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="ee-pby-wrap" style="width:${theme.contentWidth}px;max-width:100%;margin:0 auto;">`,
+          // No class hook (see poweredByHtml): fluid via width:100% + max-width.
+          `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100% !important;max-width:${theme.contentWidth}px !important;margin:0 auto !important;display:table !important;visibility:visible !important;opacity:1 !important;">`,
           `<tr><td>`,
           poweredBy,
           `</td></tr>`,

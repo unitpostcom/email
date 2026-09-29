@@ -15,3 +15,8 @@ export * from "./public";
 export * from "./ops";
 export * from "./tiptap";
 export * from "./diagnostics";
+export { renderSimpleHtml, renderSimpleRuns, simpleQuote, wrapSimplePreview, isSimpleFragment, SIMPLE_ALLOWED_TAGS, type SimpleRenderOptions } from "./render-simple";
+export { appendPoweredBy, poweredByHtml } from "./render";
+export { textToSimpleDocument, parseSimpleInline, type SimpleTextOptions } from "./simple-text";
+export { SIMPLE_EMAIL_MAX_CHARS } from "./simple";
+export { hasPoweredByMark, appendPoweredByText, POWERED_BY_SENTINEL, POWERED_BY_TEXT } from "./render";
