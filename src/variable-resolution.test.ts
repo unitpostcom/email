@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { parseDocument, safeParseDocument } from "./schema";
-import { collectVariables, resolveVariablesWithContact } from "./render";
+import { collectVariables, renderToHtml, resolveVariablesWithContact } from "./render";
 
 // Regression coverage for the data-integrity gate: a template that references a
 // {{variable}} with no provided value and no contact field is REPORTED AS
@@ -31,6 +31,30 @@ function docRef(name: string, decl: Record<string, unknown> = {}) {
 test("collectVariables sees the referenced token", () => {
   const doc = docRef("first_name", { source: "contact" });
   assert.deepEqual(collectVariables(doc), ["first_name"]);
+});
+
+test("collectVariables sees tokens inside list items (text and inline runs)", () => {
+  const doc = parseDocument({
+    blocks: [
+      {
+        type: "list",
+        id: "l1",
+        items: [
+          { text: "Plain {{plain_var}} item" },
+          {
+            text: "{{run_var}} teammates",
+            content: [{ text: "{{run_var}} teammates", marks: { bold: true } }],
+          },
+          { text: "", content: [{ text: "docs", marks: { link: "{{link_var}}" } }] },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(collectVariables(doc), ["link_var", "plain_var", "run_var"]);
+  // And a provided value now resolves instead of shipping literally.
+  const { values, missing } = resolveVariablesWithContact(doc, { plain_var: "a", run_var: "5", link_var: "https://x" });
+  assert.deepEqual(missing, []);
+  assert.equal(values.run_var, "5");
 });
 
 test("collectVariables sees tokens inside raw-HTML blocks (TPL-034)", () => {
@@ -189,4 +213,53 @@ test("subject-only variable resolves from the contact", () => {
   );
   assert.deepEqual(missing, []);
   assert.equal(values.first_name, "Ada");
+});
+
+// SCAN / RENDER PARITY. The send pipeline resolves ONLY the tokens
+// collectVariables reports, then renders with that map — so any field the
+// renderer interpolates but the scan does not see ships a literal {{token}}
+// with no "missing variable" error (the list-item hole, Oct 2026). This doc
+// puts a distinct token in every text-bearing field of every leaf block type,
+// nested in a section and a row, plus the preview text; resolving exactly the
+// scanned set must leave no literal token in the HTML. A new block type or a
+// new interpolated field that the scan misses fails here.
+test("scan/render parity: every interpolated field is seen by collectVariables", () => {
+  const doc = parseDocument({
+    previewText: "{{t_preview}}",
+    blocks: [
+      { type: "text", id: "t", text: "{{t_text}} {{t_text_run}}", content: [{ text: "{{t_text}} " }, { text: "{{t_text_run}}", marks: { bold: true, link: "{{t_text_link}}" } }] },
+      { type: "heading", id: "h", level: 2, text: "{{t_heading}}", content: [{ text: "{{t_heading}}", marks: { link: "{{t_heading_link}}" } }] },
+      { type: "list", id: "l", items: [{ text: "{{t_list_text}}" }, { text: "x", content: [{ text: "{{t_list_run}}", marks: { link: "{{t_list_link}}" } }] }] },
+      { type: "button", id: "b", text: "{{t_button_text}}", href: "{{t_button_href}}" },
+      { type: "link", id: "k", text: "{{t_link_text}}", href: "{{t_link_href}}" },
+      { type: "image", id: "i", src: "{{t_image_src}}", alt: "{{t_image_alt}}", href: "{{t_image_href}}" },
+      { type: "code", id: "c", code: "{{t_code}}" },
+      { type: "html", id: "m", html: "<p>{{t_html}}</p>" },
+      { type: "markdown", id: "d", markdown: "{{t_markdown}}" },
+      { type: "divider", id: "v" },
+      { type: "spacer", id: "s", height: 8 },
+      {
+        type: "section",
+        id: "sec",
+        children: [
+          { type: "text", id: "st", text: "{{t_section_text}}" },
+          { type: "list", id: "sl", items: [{ text: "{{t_section_list}}" }] },
+        ],
+      },
+      {
+        type: "row",
+        id: "row",
+        columns: [{ type: "column", id: "col", children: [{ type: "text", id: "rt", text: "{{t_row_text}}" }] }],
+      },
+    ],
+  });
+  const referenced = collectVariables(doc);
+  // Provide a value ONLY for what the scan found — the pipeline's behaviour.
+  const values = Object.fromEntries(referenced.map((name) => [name, name.startsWith("t_") && /link|href|src/.test(name) ? `https://example.com/${name}` : `V_${name}`]));
+  const html = renderToHtml(doc, values);
+  const leftovers = [...html.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((m) => m[1]);
+  assert.deepEqual(leftovers, [], `renderer interpolated fields the scan never saw: ${leftovers.join(", ")}`);
+  // And the scan found every token we planted (no silent over-coverage either).
+  const planted = ["t_preview","t_text","t_text_run","t_text_link","t_heading","t_heading_link","t_list_text","t_list_run","t_list_link","t_button_text","t_button_href","t_link_text","t_link_href","t_image_src","t_image_alt","t_image_href","t_code","t_html","t_markdown","t_section_text","t_section_list","t_row_text"];
+  for (const name of planted) assert.ok(referenced.includes(name), `scan missed ${name}`);
 });

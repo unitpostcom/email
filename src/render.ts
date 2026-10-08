@@ -1284,6 +1284,21 @@ export function collectVariables(
         scan(run.marks?.link);
       });
     }
+    // List items carry their own text + inline runs (no block-level `text`),
+    // so without this they were invisible to the scan: a {{token}} in a bullet
+    // was never resolved into `values`, never reported missing, and shipped
+    // literally — the Startups approval email's "{{team_seats}} teammates"
+    // line (Oct 2026). The renderer already interpolates list runs; the scan
+    // just has to see them.
+    if (b.type === "list") {
+      b.items.forEach((item) => {
+        scan(item.text);
+        item.content?.forEach((run) => {
+          scan(run.text);
+          scan(run.marks?.link);
+        });
+      });
+    }
     if (b.type === "markdown") scan(b.markdown);
     if (b.type === "code") scan(b.code);
     // Raw-HTML blocks interpolate {{vars}} at render time (renderHtmlBlock),
