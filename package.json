@@ -29,7 +29,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./internal": "./src/index.ts",
-    "./react": "./src/react.ts"
+    "./react": "./src/react.ts",
+    "./brand-mark": "./src/brand-mark.ts"
   },
   "files": [
     "dist",

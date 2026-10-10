@@ -1,4 +1,4 @@
-import { POWERED_BY_TEXT } from "./render";
+import { POWERED_BY_SENTINEL, POWERED_BY_TEXT } from "./brand-mark";
 import sanitizeHtml from "sanitize-html";
 import {
   normalizeMarketingFooterFragment,
@@ -123,6 +123,11 @@ export function htmlToPlainText(input: string): string {
         sanitizeHtml(rawLabel, { allowedTags: [], allowedAttributes: {} }),
       ).trim();
       const href = safeUrl(decodeEntities(rawHref)).trim();
+      // Our own mark keeps its words and drops the URL — never "Sent with
+      // Unitpost (https://www.unitpost.com?utm_source=…)". The pill links the
+      // whole phrase; Simple's line links only "Unitpost" ("Sent with " sits
+      // outside the <a>), so the label alone is right for both.
+      if (href.includes(POWERED_BY_SENTINEL)) return label.replace(/\s+/g, " ") || POWERED_BY_TEXT;
       if (!href || href === "#" || href === label) return label || href;
       return label ? `${label} (${href})` : href;
     },
@@ -268,8 +273,8 @@ export function renderToText(
       const unsub = safeUrl(interpolate("{{unsubscribe_url}}", fv)).trim();
       if (unsub && unsub !== "{{unsubscribe_url}}") pieces.push(`Unsubscribe: ${unsub}`);
     }
-    // Same URL family as the HTML line, so the mark sentinel (utm_medium=powered_by) makes every layer idempotent.
-    if (options.showPoweredBy ?? true) pieces.push("Sent with Unitpost (https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by_simple)");
+    // The same one-line mark as every other text part (POWERED_BY_TEXT).
+    if (options.showPoweredBy ?? true) pieces.push(POWERED_BY_TEXT);
     if (pieces.length) parts.push(pieces.join(" · "));
     return cleanLines(parts.filter(Boolean).join("\n\n"));
   }

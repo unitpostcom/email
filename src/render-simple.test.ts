@@ -110,7 +110,7 @@ describe("Simple email — mail-client fragment", () => {
   });
 });
 
-describe("Powered by Unitpost — cannot be hidden by author CSS, fits any template", () => {
+describe("Sent with Unitpost — cannot be hidden by author CSS, fits any template", () => {
   it("designed shell: the mark has no class/id hook and every visual property is inline !important", async () => {
     const { poweredByHtml, appendPoweredBy } = await import("./render");
     const mark = poweredByHtml({ fontFamily: "Arial", contentWidth: 600 } as never);
@@ -120,9 +120,10 @@ describe("Powered by Unitpost — cannot be hidden by author CSS, fits any templ
     }
     assert.ok(!mark.includes("background-color:#"), "transparent — no chip background");
     assert.ok(!mark.includes("border:1px"), "no chip border");
-    assert.match(mark, /Powered by /);
+    assert.match(mark, /Sent with /);
+    assert.doesNotMatch(mark, /Powered by/);
     const html = appendPoweredBy("<html><body><p>hi</p></body></html>");
-    assert.ok(html.indexOf("Powered by") < html.indexOf("</body>"), "inserted before </body>");
+    assert.ok(html.indexOf("Sent with") < html.indexOf("</body>"), "inserted before </body>");
     assert.ok(appendPoweredBy("<p>fragment</p>").endsWith("</table>"), "appended when there is no body");
   });
   it("the designed renderer no longer exposes a media-query class for the mark", () => {
@@ -132,7 +133,7 @@ describe("Powered by Unitpost — cannot be hidden by author CSS, fits any templ
       { showPoweredBy: true },
     );
     assert.ok(!html.includes("ee-pby-wrap"));
-    assert.match(html, /Powered by /);
+    assert.match(html, /Sent with /);
   });
 });
 
@@ -171,14 +172,14 @@ describe("textToSimpleDocument — what agents write (Gmail-style text, no Markd
 // line — the engine re-branded HTML the web had already rendered. The mark is
 // now idempotent on its URL sentinel in every layer (HTML pill, Simple line,
 // text), so no combination of renderer + raw-path can show it twice.
-describe("Powered-by mark is idempotent across layers", () => {
+describe("Sent-with mark is idempotent across layers", () => {
   it("appendPoweredBy on an already-branded designed email is a no-op", async () => {
     const { appendPoweredBy, hasPoweredByMark, renderToHtml, EmailDocumentSchema } = await import("./index");
     const d = EmailDocumentSchema.parse({ category: "transactional", blocks: [] });
     const html = renderToHtml(d, {}, { showPoweredBy: true });
     assert.equal(hasPoweredByMark(html), true);
     assert.equal(appendPoweredBy(html), html);
-    assert.equal((html.match(/Powered by/g) ?? []).length, 1);
+    assert.equal((html.match(/Sent with/g) ?? []).length, 1);
   });
   it("appendPoweredBy on a Simple fragment with its text line is a no-op (no pill on Simple)", async () => {
     const { appendPoweredBy, hasPoweredByMark } = await import("./index");
@@ -192,10 +193,10 @@ describe("Powered-by mark is idempotent across layers", () => {
     const { appendPoweredBy, appendPoweredByText } = await import("./index");
     const once = appendPoweredBy("<html><body><p>hi</p></body></html>");
     assert.equal(appendPoweredBy(once), once);
-    assert.equal((once.match(/Powered by/g) ?? []).length, 1);
+    assert.equal((once.match(/Sent with/g) ?? []).length, 1);
     const t = appendPoweredByText("hi");
     assert.equal(appendPoweredByText(t), t);
-    assert.match(t, /Powered by Unitpost/);
+    assert.equal(t, "hi\n\nSent with Unitpost\n");
   });
   it("renderToText for Simple emits the sentinel too, so a text-only re-append is a no-op", async () => {
     const { renderToText, appendPoweredByText } = await import("./index");
@@ -205,3 +206,56 @@ describe("Powered-by mark is idempotent across layers", () => {
     assert.equal(appendPoweredByText(text), text);
   });
 });
+
+// 2026-10-09: "Powered by" read as if Unitpost powered the customer's product,
+// and every text part printed the full tracked URL. Every surface now says
+// "Sent with Unitpost"; text parts end in that line, words only — no URL,
+// no "(unitpost.com)". Plain text cannot embed a link.
+describe("Sent with Unitpost — copy and text mark", () => {
+  const longUrl = /https?:\/\/www\.unitpost\.com\?utm_/;
+
+  it("every text part ends in the one-line mark, never the tracked URL", async () => {
+    const { renderToText, htmlToPlainText, appendPoweredBy, appendPoweredByText, EmailDocumentSchema, POWERED_BY_TEXT } = await import("./index");
+    assert.equal(POWERED_BY_TEXT, "Sent with Unitpost");
+    const designed = (category: string) => EmailDocumentSchema.parse({ category, blocks: [t("Body")] });
+    const footerVars = { unsubscribe_url: "https://u.example/x", company_name: "Acme" };
+    const texts = {
+      designedTransactional: renderToText(designed("transactional"), {}, { showPoweredBy: true }),
+      designedMarketing: renderToText(designed("marketing"), {}, { showPoweredBy: true, footerVars }),
+      simpleTransactional: renderToText(doc([t("Body")]), {}, { showPoweredBy: true }),
+      simpleMarketing: renderToText(doc([t("Body")], { category: "marketing" }), {}, { showPoweredBy: true, footerVars }),
+      rawText: appendPoweredByText("Body"),
+      // An html-only API send: the engine derives text from the branded HTML.
+      derivedFromRawHtml: htmlToPlainText(appendPoweredBy("<html><body><p>Body</p></body></html>")),
+      derivedFromSimple: htmlToPlainText(renderSimpleHtml(doc([t("Body")]), { showPoweredBy: true })),
+    };
+    for (const [name, text] of Object.entries(texts)) {
+      assert.match(text, /Sent with Unitpost$/m, name);
+      assert.doesNotMatch(text, longUrl, `${name} prints no tracked URL`);
+      assert.doesNotMatch(text, /unitpost\.com/, `${name} prints no domain`);
+      assert.doesNotMatch(text, /Powered by/, name);
+      assert.equal((text.match(/Sent with Unitpost/g) ?? []).length, 1, `${name} has one mark`);
+    }
+  });
+
+  it("text parts branded before this change are still recognised (no second mark mid-deploy)", async () => {
+    const { appendPoweredByText, hasPoweredByText } = await import("./index");
+    const legacy = "hi\n\nPowered by Unitpost\nhttps://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by\n";
+    assert.equal(hasPoweredByText(legacy), true);
+    assert.equal(appendPoweredByText(legacy), legacy);
+  });
+
+  it("Simple's 'Unitpost' link is the footer grey, not white (it vanished on white panes)", () => {
+    const html = renderSimpleHtml(doc([t("Hi")]), { showPoweredBy: true });
+    assert.doesNotMatch(html, /#ffffff/i);
+    assert.match(html, /Sent with <a [^>]*style="color:#888888/);
+  });
+
+  it("the mark module is dependency-free (client previews import it directly)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("./brand-mark.ts", import.meta.url), "utf8");
+    const imports = src.match(/^import .*$/gm) ?? [];
+    assert.ok(imports.every((line) => line.startsWith("import type ")), `only type imports: ${imports.join(" | ")}`);
+  });
+});
+

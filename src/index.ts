@@ -19,4 +19,4 @@ export { renderSimpleHtml, renderSimpleRuns, simpleQuote, wrapSimplePreview, isS
 export { appendPoweredBy, poweredByHtml } from "./render";
 export { textToSimpleDocument, parseSimpleInline, type SimpleTextOptions } from "./simple-text";
 export { SIMPLE_EMAIL_MAX_CHARS } from "./simple";
-export { hasPoweredByMark, appendPoweredByText, POWERED_BY_SENTINEL, POWERED_BY_TEXT } from "./render";
+export { hasPoweredByMark, hasPoweredByText, appendPoweredByText, POWERED_BY_SENTINEL, POWERED_BY_TEXT } from "./render";

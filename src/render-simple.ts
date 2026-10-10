@@ -11,7 +11,7 @@
 //
 // The designed renderer (render.ts) produces the opposite — a backdrop table,
 // a 640px centred content table, a forced font stack, media queries, a
-// managed footer and the Powered-by pill — which is why a "Simple" email used
+// managed footer and the "Sent with Unitpost" pill — which is why a "Simple" email used
 // to arrive looking like a template (Mike, 2026-09-26, Spark ↔ Gmail compare).
 //
 // Rules, in order of how much they matter:
@@ -21,8 +21,8 @@
 //  2. Nothing structural. No tables, no widths, no backgrounds, no fonts.
 //  3. The footer is TEXT. Marketing gets one muted line with the unsubscribe
 //     link and the sender's name/address (Substack / Superhuman shape);
-//     transactional gets nothing. The Powered-by mark, when shown, is one
-//     short text link — never the pill.
+//     transactional gets nothing. The "Sent with Unitpost" mark, when shown,
+//     is one short text link — never the pill.
 //  4. The text/plain alternative comes from the same blocks (text.ts).
 
 import type { Block, EmailDocument, InlineRun, ListBlock, TextBlock, HeadingBlock } from "./schema";
@@ -167,9 +167,11 @@ function footerLine(opts: SimpleRenderOptions, variables: Record<string, string>
   }
   if (opts.showPoweredBy) {
     // "Sent with" stays muted text. Only the word is the link, so a mail
-    // client that recolours anchors does not paint the whole phrase.
+    // client that recolours anchors does not paint the whole phrase. The link
+    // carries the footer grey too: it was #ffffff, which vanished on every
+    // white reading pane (2026-10-09).
     pieces.push(
-      `Sent with <a href="https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by_simple" target="_blank" style="color:#ffffff;text-decoration:underline"><span style="color:#ffffff;text-decoration:underline">Unitpost</span></a>`,
+      `Sent with <a href="https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by_simple" target="_blank" style="color:${FOOTER_COLOR};text-decoration:underline"><span style="color:${FOOTER_COLOR};text-decoration:underline">Unitpost</span></a>`,
     );
   }
   if (pieces.length === 0) return "";

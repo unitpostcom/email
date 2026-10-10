@@ -1,3 +1,4 @@
+import { poweredByHtml } from "./brand-mark";
 import type {
   Block,
   ButtonBlock,
@@ -46,7 +47,7 @@ type Vars = Record<string, string>;
 export type RenderOptions = {
   editor?: boolean;
   marketingFooter?: ComponentFragment;
-  // Append a prominent "Powered by Unitpost" mark at the very bottom of the
+  // Append a prominent "Sent with Unitpost" mark at the very bottom of the
   // email, on the outer backdrop BELOW the body card (a sibling row under the
   // paper, not inside it). Resolved by the caller from the workspace's plan
   // entitlement + stored preference (free plans can't remove it; paid plans that
@@ -106,6 +107,17 @@ function isEffectivelyEmpty(html: string): boolean {
     .replace(/\s+/g, "") // drop whitespace
     .trim();
   return text.length === 0;
+}
+
+// The marketing-footer company line is `{{company_name}} · {{company_address}}`.
+// isEffectivelyEmpty drops it when BOTH are empty; when only one is, this trims
+// the separator left hanging at either end (it shipped as "Unitpost System ·",
+// 2026-10-09). Tags around the text are kept.
+const SEP = String.raw`(?:\s|&nbsp;)*[·|•](?:\s|&nbsp;)*`;
+const LEADING_SEP = new RegExp(`^((?:<[^>]+>)*)${SEP}`);
+const TRAILING_SEP = new RegExp(`${SEP}((?:<\/[^>]+>)*)$`);
+export function trimDanglingSeparators(html: string): string {
+  return html.trim().replace(LEADING_SEP, "$1").replace(TRAILING_SEP, "$1");
 }
 
 // `data-block-id="<id>"` attribute string (only in editor mode), with a leading
@@ -300,10 +312,13 @@ function renderTextBlock(block: TextBlock, ctx: RenderCtx): string {
       "font-family": ctx.theme.fontFamily,
     },
   );
-  const inner =
+  const resolved =
     block.content && block.content.length
       ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor)
       : renderText(block.text, ctx.vars).replace(/\n/g, "<br />");
+  // Footer band only: a company line with one side empty ("Acme · " when no
+  // postal address is set) loses its dangling separator.
+  const inner = ctx.dropEmptyText ? trimDanglingSeparators(resolved) : resolved;
   if (ctx.dropEmptyText && isEffectivelyEmpty(inner)) return "";
   // An intentionally blank paragraph (Enter twice, Gmail-style spacing) must
   // keep its line height in every client — an empty <p> collapses to nothing.
@@ -887,7 +902,7 @@ function previewSpan(previewText: string, vars: Vars): string {
 // transactional does not. The managed compliance footer is ALWAYS appended to
 // marketing sends — we no longer suppress it when the author happens to inline
 // their own {{unsubscribe_url}}, so the workspace-controlled unsubscribe +
-// postal address + "powered by" mark are guaranteed on every marketing email.
+// postal address + "Sent with Unitpost" mark are guaranteed on every marketing email.
 function needsUnsubscribeFooter(doc: EmailDocument): boolean {
   return doc.category === "marketing";
 }
@@ -911,85 +926,18 @@ function defaultFooterHtml(theme: Theme, vars: Vars): string {
   ].join("");
 }
 
-// A prominent, logo-like "Powered by Unitpost" mark pinned at the very bottom of
-// the email, on the OUTER backdrop BELOW the body card (a sibling row, not
-// inside the paper). Rendered as a wordmark inside a subtle pill so it reads as
-// a brand badge rather than fine print. Links to the marketing site. Suppressed
-// only for paid workspaces that turned branding off.
-/**
- * "Powered by Unitpost" — the mark a workspace shows until it may remove it.
- *
- * HARDENED (2026-09-26): customer templates may carry sanitized <style> blocks,
- * so the mark must not be hideable from author CSS. Therefore:
- *   • no class / id on any element (nothing to select by);
- *   • every visual property is INLINE with !important — inline !important wins
- *     over stylesheet !important, so display/visibility/opacity/height/
- *     colour/size cannot be overridden by a rule;
- *   • transparent: no chip, no border, no background — it sits on whatever the
- *     template's backdrop is (light or dark) in a mid grey that reads on both,
- *     so it "fits into any template" instead of overriding the row's colour.
- * Responsiveness comes from width:100% + max-width (no media-query class).
- */
-export function poweredByHtml(theme: Theme): string {
-  const imp = (css: string) => css.split(";").filter(Boolean).map((d) => `${d.trim()} !important`).join(";");
-  const td = imp(`padding:14px 24px 10px;text-align:center;font-family:${theme.fontFamily};display:table-cell;visibility:visible;opacity:1;height:auto;overflow:visible`);
-  const a = imp("display:inline-block;visibility:visible;opacity:1;text-decoration:none;color:#8a8a8a;font-size:11px;line-height:1;background:transparent;border:0;padding:0");
-  const muted = imp("color:#8a8a8a;font-size:11px;vertical-align:middle;display:inline");
-  const mark = imp("color:#8a8a8a;font-size:11px;font-weight:700;letter-spacing:0.02em;vertical-align:middle;display:inline");
-  const img = imp("width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:4px;display:inline;opacity:0.9");
-  return [
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="${imp("width:100%;display:table;visibility:visible;opacity:1;height:auto;background:transparent")}"><tr><td style="${td}">`,
-    `<a href="https://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by" target="_blank" style="${a}">`,
-    `<span style="${muted}">Powered by </span>`,
-    // Raster mark (SVG is stripped by Gmail/Outlook), hosted at an absolute URL.
-    `<img src="https://www.unitpost.com/web-app-manifest-192x192.png" width="12" height="12" alt="" style="${img}" />`,
-    `<span style="${mark}">Unitpost</span>`,
-    `</a>`,
-    `</td></tr></table>`,
-  ].join("");
-}
-
-/**
- * Append the mark to CUSTOMER-SUPPLIED HTML (raw `html` sends through the API
- * / SMTP, which never pass through the designed shell). Inserted just before
- * </body> when there is one, else appended — inside a width-fluid, transparent
- * row so it fits the sender's own layout. Same hardened markup as above.
- */
-/**
- * Both marks (the designed pill and Simple's "Sent with Unitpost" line) link
- * to this URL — the one stable thing about them (the pill deliberately has no
- * class/id hooks). Any HTML that already contains it has been branded by our
- * renderer; appending again would show the mark twice (test-send → engine
- * raw path, 2026-09-27 report).
- */
-export const POWERED_BY_SENTINEL = "utm_medium=powered_by";
-
-export function hasPoweredByMark(html: string): boolean {
-  return html.includes(POWERED_BY_SENTINEL);
-}
-
-/** Plain-text counterpart of the mark, for text-only raw sends. */
-export const POWERED_BY_TEXT =
-  "Powered by Unitpost\nhttps://www.unitpost.com?utm_source=email_footer&utm_medium=powered_by";
-
-export function appendPoweredByText(text: string): string {
-  if (text.includes(POWERED_BY_SENTINEL)) return text;
-  return `${text.replace(/\s+$/, "")}\n\n${POWERED_BY_TEXT}\n`;
-}
-
-export function appendPoweredBy(html: string, theme: Theme = DEFAULT_MARK_THEME): string {
-  // Idempotent: HTML our renderer already branded (pill or Simple line) is
-  // returned untouched — the same input can flow through more than one layer.
-  if (hasPoweredByMark(html)) return html;
-  const row = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100% !important;max-width:${theme.contentWidth}px !important;margin:0 auto !important;display:table !important;visibility:visible !important;opacity:1 !important;background:transparent !important"><tr><td style="padding:0 !important">${poweredByHtml(theme)}</td></tr></table>`;
-  const i = html.search(/<\/body\s*>/i);
-  return i >= 0 ? `${html.slice(0, i)}${row}${html.slice(i)}` : `${html}${row}`;
-}
-
-const DEFAULT_MARK_THEME: Theme = {
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-  contentWidth: 600,
-} as Theme;
+// The "Sent with Unitpost" mark and its helpers live in brand-mark.ts — a
+// dependency-free module so client previews can render the exact markup
+// without pulling this renderer into their bundle.
+export {
+  poweredByHtml,
+  POWERED_BY_SENTINEL,
+  POWERED_BY_TEXT,
+  hasPoweredByMark,
+  hasPoweredByText,
+  appendPoweredByText,
+  appendPoweredBy,
+} from "./brand-mark";
 
 // Whether a component fragment contains the mandatory unsubscribe link — i.e.
 // any block references the {{unsubscribe_url}} token (typically a link block's
@@ -1144,7 +1092,7 @@ export function renderToHtml(
       : defaultFooterHtml(theme, footerCtx.vars)
     : "";
 
-  // "Powered by Unitpost" mark: a brand badge pinned at the very bottom of EVERY
+  // "Sent with Unitpost" mark: a brand badge pinned at the very bottom of EVERY
   // email — marketing AND transactional — unless the caller (which resolved the
   // plan entitlement + stored preference) opted out. On marketing emails it sits
   // just below the compliance footer; on transactional it's the only appended
@@ -1224,7 +1172,7 @@ export function renderToHtml(
     //      flush to the bottom edge (inheriting the card's rounded bottom corners
     //      via the container's overflow:hidden). Omitted for transactional / when
     //      no footer is needed — then the body row's own bottom padding remains.
-    // The "Powered by Unitpost" brand mark is emitted AFTER this card in its own
+    // The "Sent with Unitpost" brand mark is emitted AFTER this card in its own
     // row so it sits on the outer backdrop, below the body — not inside the paper.
     `<table role="presentation" border="0" cellpadding="0" cellspacing="0"${containerClassAttr} style="${containerStyle}">`,
     `<tr><td style="${bodyTdStyle}">`,
@@ -1232,7 +1180,7 @@ export function renderToHtml(
     `</td></tr>`,
     footer ? `<tr><td style="padding:0;">${footer}</td></tr>` : "",
     `</table>`,
-    // "Powered by Unitpost": a sibling row on the outer backdrop, centered under
+    // "Sent with Unitpost": a sibling row on the outer backdrop, centered under
     // the body card. Constrained to the same content width so it aligns with the
     // paper above it. Omitted entirely when the workspace opted out.
     // `ee-pby-wrap` matters: like `.ee-body`, the fixed inline width must be

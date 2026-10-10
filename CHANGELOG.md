@@ -4,6 +4,21 @@ Notable changes to `@unitpost/email`. A change to the HTML a published document 
 
 ## Unreleased
 
+### Changed (breaking: rendered HTML and text differ)
+
+- **The branding mark reads "Sent with Unitpost"**, not "Powered by Unitpost", in the designed shell, Simple emails and `appendPoweredBy`. Same look, link and `utm_medium=powered_by` sentinel.
+- **Text parts end in one line, `Sent with Unitpost`** (words only, no URL), instead of "Powered by Unitpost" plus the full tracked URL (`POWERED_BY_TEXT`, `renderToText`, `appendPoweredByText`). `htmlToPlainText` turns the HTML mark into the same line.
+
+### Fixed
+
+- Simple emails: the "Unitpost" link in "Sent with Unitpost" was white (`#ffffff`) and invisible on white reading panes. It now uses the footer grey.
+- `appendPoweredByText` skipped the mark when the body merely mentioned "Sent with Unitpost" anywhere; only a text part whose last line ends with the mark (or the previous URL line) counts as branded now.
+- Marketing footer: the company line `{{company_name}} · {{company_address}}` no longer ends (or starts) with a dangling `·` when only one of the two is set.
+
+### Added
+
+- `hasPoweredByText(text)` — whether a text part already carries the mark (new line or the previous URL), used by `appendPoweredByText` for idempotency.
+
 ## 0.2.0 — 2026-08-28
 
 ### Added

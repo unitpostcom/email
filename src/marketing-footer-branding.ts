@@ -80,7 +80,7 @@ export function readableOn(color: string, bg: string, min = 4.5): string {
 }
 
 /**
- * Whether the "Powered by Unitpost" pill should render.
+ * Whether the "Sent with Unitpost" mark should render.
  *
  * Protected workspaces (`isProtected: true`, used for the platform's own
  * system mail) ALWAYS show the mark — they can hold hide-branding
