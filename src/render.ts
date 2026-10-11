@@ -1142,8 +1142,12 @@ export function renderToHtml(
   // Body row padding lives on the body <td> (moved off the container table) so
   // the managed footer row below can span the FULL card width, ignoring this
   // padding and attaching flush to the bottom edge. Default 24px when unset.
+  // An explicit 0 means edge-to-edge (schema: "applied identically in the
+  // canvas and renderer"). resolveBodyPadding returns undefined for 0, and the
+  // old `?? "24px"` turned every edge-to-edge template into a 24px-padded send
+  // while the editor showed it flush. 24px stays the default only when unset.
   const bodyTdStyle = inlineStyle({
-    padding: resolveBodyPadding(theme) ?? "24px",
+    padding: resolveBodyPadding(theme) ?? (theme.bodyPadding === 0 ? "0" : "24px"),
   });
 
   return [

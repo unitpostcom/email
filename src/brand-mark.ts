@@ -43,7 +43,11 @@ export function poweredByHtml(theme: Pick<Theme, "fontFamily">): string {
   // inside the attribute and can at most add a CSS declaration, never markup.
   // Substituted AFTER imp(): the escaped value carries `;` (entities) and a
   // theme value may too, and neither must split the declaration list.
-  const td = imp("padding:14px 24px 10px;text-align:center;font-family:__FONT__;display:table-cell;visibility:visible;opacity:1;height:auto;overflow:visible").replace(
+  // The cell carries its own font-size + line-height: without them it inherits
+  // the client's (or editor's) text line box — a 16px/1.5 strut put ~2x the
+  // space above the 12px mark as below it, varying by client. With them the
+  // row is exactly padding + 12px everywhere, so the padding is symmetric.
+  const td = imp("padding:12px 24px 12px;font-size:11px;line-height:12px;text-align:center;font-family:__FONT__;display:table-cell;visibility:visible;opacity:1;height:auto;overflow:visible").replace(
     "__FONT__",
     () => escapeStyleAttr(theme.fontFamily),
   );
