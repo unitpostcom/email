@@ -3,15 +3,19 @@ import { createElement as h, Fragment } from "react";
 import { test } from "node:test";
 import {
   Button,
+  Code,
   Column,
   Heading,
   List,
+  Markdown,
   Row,
   Section,
   Text,
   fromJsx,
   render,
 } from "./react";
+import { parseTsx } from "./codec";
+import { renderToHtml } from "./render";
 
 test("fromJsx maps catalog components to a document", () => {
   const doc = fromJsx(
@@ -98,4 +102,88 @@ test("List host reads <li> children as items", () => {
   if (block.type !== "list") return;
   assert.equal(block.ordered, true);
   assert.deepEqual(block.items.map((i) => i.text), ["first", "second {{name}}"]);
+});
+
+test("inline <a>, <strong> and <span style> become marked runs", () => {
+  const doc = fromJsx(
+    h(
+      Text,
+      null,
+      "Read the ",
+      h("a", { href: "https://example.com/docs", style: { color: "#71717a" } }, "docs"),
+      " or ",
+      h("strong", null, "reply"),
+      ".",
+    ),
+  );
+  const block = doc.blocks[0]!;
+  assert.equal(block.type, "text");
+  if (block.type !== "text") return;
+  assert.equal(block.text, "Read the docs or reply.");
+  assert.deepEqual(block.content, [
+    { text: "Read the " },
+    { text: "docs", marks: { link: "https://example.com/docs", color: "#71717a" } },
+    { text: " or " },
+    { text: "reply", marks: { bold: true } },
+    { text: "." },
+  ]);
+});
+
+test("inline formatting renders the same as the TSX dialect", () => {
+  const jsx = render(
+    h(
+      Section,
+      null,
+      h(Text, null, h("a", { href: "https://example.com" }, "Blog"), " · ", h("em", null, "Help")),
+    ),
+  );
+  const tsx = renderToHtml(
+    parseTsx(`<Section><Text><a href="https://example.com">Blog</a> · <em>Help</em></Text></Section>`),
+  );
+  assert.equal(jsx, tsx);
+  assert.match(jsx, /<a href="https:\/\/example\.com"/);
+});
+
+test("plain text stays unformatted (no content runs)", () => {
+  const block = fromJsx(h(Heading, null, "Hi ", "Ada")).blocks[0]!;
+  assert.equal(block.type, "heading");
+  if (block.type !== "heading") return;
+  assert.equal(block.text, "Hi Ada");
+  assert.equal(block.content, undefined);
+});
+
+test("multi-line Markdown and Code keep their newlines and dedent", () => {
+  const doc = fromJsx(
+    h(
+      Section,
+      null,
+      h(Markdown, null, `
+        **1. First step** — do this.
+
+        **2. Second step** — then this.
+      `),
+      h(Code, null, `
+        npm install @unitpost/email
+        npm run build
+      `),
+    ),
+  );
+  const section = doc.blocks[0]!;
+  assert.equal(section.type, "section");
+  if (section.type !== "section") return;
+  const [md, code] = section.children;
+  assert.equal(md?.type === "markdown" && md.markdown, "**1. First step** — do this.\n\n**2. Second step** — then this.");
+  assert.equal(code?.type === "code" && code.code, "npm install @unitpost/email\nnpm run build");
+});
+
+test("List items keep inline formatting", () => {
+  const block = fromJsx(
+    h(List, null, h("li", null, h("strong", null, "Fast"), " setup"), h("li", null, "Plain")),
+  ).blocks[0]!;
+  assert.equal(block.type, "list");
+  if (block.type !== "list") return;
+  assert.deepEqual(block.items, [
+    { text: "Fast setup", content: [{ text: "Fast", marks: { bold: true } }, { text: " setup" }] },
+    { text: "Plain" },
+  ]);
 });

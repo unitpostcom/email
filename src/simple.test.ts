@@ -72,11 +72,16 @@ test("simplifying preserves readable content, variables, and links", () => {
   assert.equal(simple.previewText, "A useful preview");
   assert.deepEqual(simple.variables, designed.variables);
   // Former blocks are separated by a blank line (the composer's spacing unit
-  // replaces the designed margins): heading, blank, link, blank, image alt.
+  // replaces the designed margins): heading, blank, link, blank, image.
+  // (Until 2026-10-12 the image was flattened to an alt-text line; Simple now
+  // keeps images — see render-simple.ts.)
   assert.deepEqual(
     simple.blocks.map((block) => block.type),
-    ["heading", "text", "text", "text", "text"],
+    ["heading", "text", "text", "text", "image"],
   );
+  const image = simple.blocks[4];
+  assert.equal(image?.type === "image" ? image.src : null, "https://example.com/hero.png");
+  assert.equal(image?.type === "image" ? image.alt : null, "Product preview");
   assert.equal(simple.blocks[1]?.type === "text" ? simple.blocks[1].text : null, "");
   // Lines stack: no paragraph margin in Simple mode.
   assert.equal(simple.blocks[2]?.type === "text" ? simple.blocks[2].marginBottom : null, 0);
@@ -343,4 +348,121 @@ test("an indent (left padding) survives Design → Simple and does not trigger t
   const html = renderToHtml(simple, {}, { showPoweredBy: false });
   // Gmail expresses indent as margin-left in 40px steps.
   assert.match(html, /margin-left:80px/);
+});
+
+// ---------------------------------------------------------------------------
+// Images (2026-10-12): a newsletter author pastes screenshots into a plain,
+// reads-as-text Simple email. Simple keeps image blocks instead of flattening
+// them to an alt-text line.
+// ---------------------------------------------------------------------------
+
+test("simplifying keeps an image's src, alt, link and width, and drops the designed frame styling", () => {
+  const designed = parseDocument({
+    version: 5,
+    blocks: [
+      {
+        type: "image",
+        id: "img",
+        src: "/img/6f1c2e9a-1111-4222-8333-944455556666",
+        alt: "Genetics table",
+        href: "https://example.com/report",
+        width: 420,
+        height: 300,
+        borderRadius: 12,
+        objectFit: "cover",
+        backgroundColor: "#eeeeee",
+        customCss: "opacity:.5",
+        align: "left",
+      },
+      // An empty placeholder (no picture yet) still flattens to its words.
+      { type: "image", id: "empty", src: "", alt: "Logo goes here" },
+    ],
+  });
+  // Frame styling would be lost, so switching still asks first.
+  assert.equal(simpleConversionNeedsConfirmation(designed), true);
+  const simple = simplifyEmailDocument(designed);
+  assert.deepEqual(simple.blocks.map((b) => b.type), ["image", "text", "text"]);
+  const image = simple.blocks[0]!;
+  assert.equal(image.type, "image");
+  if (image.type !== "image") return;
+  assert.deepEqual(
+    { src: image.src, alt: image.alt, href: image.href, width: image.width, align: image.align, marginBottom: image.marginBottom },
+    {
+      src: "/img/6f1c2e9a-1111-4222-8333-944455556666",
+      alt: "Genetics table",
+      href: "https://example.com/report",
+      width: 420,
+      align: "left",
+      marginBottom: 0,
+    },
+  );
+  for (const gone of ["height", "borderRadius", "objectFit", "backgroundColor", "customCss"] as const) {
+    assert.equal(image[gone], undefined, `${gone} is designed-only`);
+  }
+  const placeholder = simple.blocks[2]!;
+  assert.equal(placeholder.type === "text" ? placeholder.text : null, "Logo goes here");
+});
+
+test("a plain image no longer makes Simple ask before converting", () => {
+  const designed = parseDocument({
+    version: 5,
+    theme: simplifyEmailDocument(parseDocument({ version: 5, blocks: [] })).theme,
+    blocks: [
+      { type: "text", id: "a", text: "Here is the table:" },
+      { type: "image", id: "i", src: "https://example.com/table.png", alt: "Table" },
+    ],
+  });
+  assert.equal(simpleConversionNeedsConfirmation(designed), false);
+});
+
+test("a Simple image round-trips through the composer (TipTap) unchanged", () => {
+  const doc = parseDocument({
+    version: 5,
+    compositionMode: "simple",
+    blocks: [
+      { type: "text", id: "a", text: "Before", marginBottom: 0 },
+      {
+        type: "image",
+        id: "img",
+        src: "/img/6f1c2e9a-1111-4222-8333-944455556666",
+        alt: "Genetics table",
+        width: 400,
+        href: "https://example.com/report",
+        align: "left",
+        marginBottom: 0,
+      },
+      { type: "image", id: "fit", src: "https://example.com/fit.png", alt: "", align: "left", marginBottom: 0 },
+      { type: "text", id: "b", text: "After", marginBottom: 0 },
+    ],
+  });
+  const pm = docToTiptap(doc);
+  assert.deepEqual(pm.content.map((n) => n.type), ["emailText", "emailImage", "emailImage", "emailText"]);
+  assert.equal((pm.content[1]!.attrs as { data: { width?: number } }).data.width, 400);
+  // Compared as JSON, like the editor's own echo check (absent vs undefined keys).
+  const json = (value: unknown) => JSON.parse(JSON.stringify(value));
+  assert.deepEqual(json(tiptapToDoc(pm, doc)), json(doc));
+
+  // An image node the composer just inserted (no margin in its data yet)
+  // reads back as a Simple line with no block spacing; no width = best fit.
+  pm.content.splice(1, 0, {
+    type: "emailImage",
+    attrs: { id: "new", data: { type: "image", src: "https://example.com/new.png", alt: "New", align: "left" } },
+  });
+  const back = tiptapToDoc(pm, doc);
+  const inserted = back.blocks[1]!;
+  assert.equal(inserted.type, "image");
+  if (inserted.type === "image") {
+    assert.equal(inserted.marginBottom, 0);
+    assert.equal(inserted.width, undefined);
+  }
+});
+
+test("Simple images survive Simple → Design → Simple", () => {
+  const doc = parseDocument({
+    version: 5,
+    compositionMode: "simple",
+    blocks: [{ type: "image", id: "i", src: "https://example.com/a.png", alt: "A", width: 240, align: "left", marginBottom: 0 }],
+  });
+  const again = simplifyEmailDocument(designEmailDocument(doc));
+  assert.deepEqual(again.blocks, doc.blocks);
 });

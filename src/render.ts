@@ -999,6 +999,9 @@ export function renderToHtml(
           }
         : null,
       showPoweredBy: options.showPoweredBy ?? true,
+      // Pasted / library images resolve against the same asset host as a
+      // designed email's image blocks.
+      assetBaseUrl: options.assetBaseUrl,
     });
   }
   const theme = doc.theme;

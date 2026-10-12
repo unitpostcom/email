@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { EmailDocumentSchema } from "./schema";
 import { renderToHtml } from "./render";
 import { renderToText } from "./text";
-import { renderSimpleHtml, SIMPLE_ALLOWED_TAGS } from "./render-simple";
+import { renderSimpleHtml, simpleImageSrc, simpleImageWidth, SIMPLE_ALLOWED_TAGS, SIMPLE_IMAGE_ATTRS } from "./render-simple";
+import { htmlToPlainText } from "./text";
 import { SIMPLE_EMAIL_THEME } from "./simple";
 
 // A Simple email must arrive looking like a message typed in Gmail / Outlook /
@@ -79,7 +80,16 @@ describe("Simple email — mail-client fragment", () => {
 
   it("only the allowed tag set ever appears", () => {
     const html = renderToHtml(
-      doc([{ type: "heading", id: "h", level: 2, text: "Hi" }, t("body"), { type: "list", id: "l", items: [{ text: "a" }] }, { type: "divider", id: "d" }], { category: "marketing" }),
+      doc(
+        [
+          { type: "heading", id: "h", level: 2, text: "Hi" },
+          t("body"),
+          { type: "list", id: "l", items: [{ text: "a" }] },
+          { type: "divider", id: "d" },
+          { type: "image", id: "i", src: "https://cdn.example/a.png", alt: "A", href: "https://example.com", align: "left" },
+        ],
+        { category: "marketing" },
+      ),
       {},
       { showPoweredBy: true, footerVars: { unsubscribe_url: "https://u.example/x", company_name: "Acme", company_address: "1 Main St" } },
     );
@@ -259,3 +269,141 @@ describe("Sent with Unitpost — copy and text mark", () => {
   });
 });
 
+
+// 2026-10-12: a newsletter author pastes screenshots (a genetics table) into a
+// plain, reads-as-text Simple email. The fragment carries them the way a mail
+// client does: a bare <img> on its own line, nothing structural.
+describe("Simple email — inline images", () => {
+  const img = (extra: Record<string, unknown> = {}) => ({
+    type: "image",
+    id: `i${Math.random()}`,
+    src: "https://cdn.example/table.png",
+    alt: "Genetics table",
+    align: "left",
+    marginBottom: 0,
+    ...extra,
+  });
+  const UUID = "6f1c2e9a-1111-4222-8333-944455556666";
+
+  it("an image is <img src alt width style> on its own line, between text lines", () => {
+    const html = renderSimpleHtml(doc([t("Here it is:"), img({ width: 400 }), t("Thoughts?")]));
+    assert.equal(
+      html,
+      `<div dir="ltr"><div>Here it is:</div><div><img src="https://cdn.example/table.png" alt="Genetics table" width="400" style="max-width:100%;height:auto;display:block"></div><div>Thoughts?</div></div>`,
+    );
+  });
+
+  it("best fit (no width) emits no width attribute; max-width keeps it inside the column", () => {
+    const html = renderSimpleHtml(doc([img()]));
+    assert.equal(
+      html,
+      `<div dir="ltr"><div><img src="https://cdn.example/table.png" alt="Genetics table" style="max-width:100%;height:auto;display:block"></div></div>`,
+    );
+  });
+
+  it("carries only src, alt, width and style — nothing else from the block", () => {
+    const html = renderSimpleHtml(
+      doc([img({ width: 240, height: 120, borderRadius: 8, objectFit: "cover", backgroundColor: "#eeeeee", customCss: "opacity:0", className: "x" })]),
+    );
+    const tags = [...html.matchAll(/<img\b([^>]*)>/g)];
+    assert.equal(tags.length, 1);
+    const attrs = [...tags[0]![1]!.matchAll(/\s([a-z-]+)=/g)].map((m) => m[1]!);
+    assert.deepEqual(attrs, ["src", "alt", "width", "style"]);
+    for (const a of attrs) assert.ok((SIMPLE_IMAGE_ATTRS as readonly string[]).includes(a));
+    assert.match(html, /style="max-width:100%;height:auto;display:block"/);
+    assert.doesNotMatch(html, /height="|border|radius|object-fit|background|opacity|class=/);
+  });
+
+  it("src is https only: http, data:, javascript:, cid:, protocol-relative and host-less values never emit a tag", () => {
+    for (const src of [
+      "http://cdn.example/a.png",
+      "data:image/png;base64,iVBORw0KGgo=",
+      "javascript:alert(1)",
+      "JaVaScRiPt:alert(1)",
+      "cid:ii_123",
+      "//cdn.example/a.png",
+      "https:///a.png",
+      "https://user@evil.example/a.png",
+      "https://cdn.example/a b.png",
+      "",
+      "{{missing}}",
+    ]) {
+      const html = renderSimpleHtml(doc([img({ src })]));
+      assert.doesNotMatch(html, /<img/, src);
+      // The words stay: the alt text becomes the line.
+      assert.equal(html, `<div dir="ltr"><div>Genetics table</div></div>`, src);
+    }
+    // No alt, no link, nothing to send → the line is dropped entirely.
+    assert.equal(renderSimpleHtml(doc([img({ src: "http://x.example/a.png", alt: "" })])), `<div dir="ltr"></div>`);
+    assert.equal(simpleImageSrc("https://cdn.example/{{name}}.png", { name: "a" }), "https://cdn.example/a.png");
+  });
+
+  it("width is a positive integer number of px", () => {
+    assert.equal(simpleImageWidth(400), 400);
+    assert.equal(simpleImageWidth(400.4), 400);
+    assert.equal(simpleImageWidth(0), null);
+    assert.equal(simpleImageWidth(-20), null);
+    assert.equal(simpleImageWidth(Number.NaN), null);
+    assert.equal(simpleImageWidth("400"), null);
+    assert.equal(simpleImageWidth(undefined), null);
+    // The schema rounds a fractional width on the way in.
+    assert.match(renderSimpleHtml(doc([img({ width: 399.6 })])), / width="400" /);
+  });
+
+  it("alt text is escaped (and variables inside it too)", () => {
+    const html = renderSimpleHtml(doc([img({ alt: `Gene "A" <b>&'{{who}}` })]), { variables: { who: `"><script>` } });
+    assert.match(html, /alt="Gene &quot;A&quot; &lt;b&gt;&amp;&#39;&quot;&gt;&lt;script&gt;"/);
+    assert.doesNotMatch(html, /<script|<b>/);
+  });
+
+  it("a linked image is <a href target=_blank><img></a>; an unsafe link is dropped, the image stays", () => {
+    const linked = renderSimpleHtml(doc([img({ href: "https://example.com/report?a=1&b=2" })]));
+    assert.equal(
+      linked,
+      `<div dir="ltr"><div><a href="https://example.com/report?a=1&amp;b=2" target="_blank"><img src="https://cdn.example/table.png" alt="Genetics table" style="max-width:100%;height:auto;display:block"></a></div></div>`,
+    );
+    const unsafe = renderSimpleHtml(doc([img({ href: "javascript:alert(1)" })]));
+    assert.doesNotMatch(unsafe, /<a /);
+    assert.match(unsafe, /<img /);
+  });
+
+  it("a centred line keeps the image inline so text-align can place it", () => {
+    const html = renderSimpleHtml(doc([img({ align: "center", width: 240 })]));
+    assert.equal(
+      html,
+      `<div dir="ltr"><div style="text-align:center"><img src="https://cdn.example/table.png" alt="Genetics table" width="240" style="max-width:100%;height:auto"></div></div>`,
+    );
+  });
+
+  it("library images resolve through the designed renderer's asset host", () => {
+    const library = img({ src: `/img/${UUID}` });
+    // A send: the same effectiveAssetBase(...) designed emails get, via renderToHtml.
+    const sent = renderToHtml(doc([library]), {}, { showPoweredBy: false, assetBaseUrl: "https://assets.unitpost.com/" });
+    assert.match(sent, new RegExp(`<img src="https://assets\\.unitpost\\.com/img/${UUID}"`));
+    // The legacy byte-proxy path resolves to the same CDN URL.
+    const legacy = renderSimpleHtml(doc([img({ src: `/api/library-images/${UUID}/raw` })]), { assetBaseUrl: "https://assets.unitpost.com" });
+    assert.match(legacy, new RegExp(`src="https://assets\\.unitpost\\.com/img/${UUID}"`));
+    // A dashboard preview (no asset base) keeps the same-origin path.
+    assert.match(renderSimpleHtml(doc([library])), new RegExp(`src="/img/${UUID}"`));
+    // An asset host that isn't https never ships the image.
+    assert.doesNotMatch(renderSimpleHtml(doc([library]), { assetBaseUrl: "http://cdn.example" }), /<img/);
+    // Any other relative path is not a library image.
+    assert.doesNotMatch(renderSimpleHtml(doc([img({ src: "/etc/passwd" })])), /<img/);
+  });
+
+  it("the text/plain alternative gives each image its own line: [image: alt], [image], and its link", () => {
+    const text = renderToText(
+      doc([t("Here it is:"), img(), img({ alt: "" }), img({ alt: "Chart", href: "https://example.com/c" }), t("Bye")]),
+      {},
+      { showPoweredBy: false },
+    );
+    assert.equal(text, "Here it is:\n\n[image: Genetics table]\n\n[image]\n\n[image: Chart] (https://example.com/c)\n\nBye");
+    // Text derived from the HTML (an html-only consumer) reads the same.
+    assert.match(htmlToPlainText(renderSimpleHtml(doc([img()]))), /\[image: Genetics table\]/);
+  });
+
+  it("an image keeps the fragment a Simple fragment", async () => {
+    const { isSimpleFragment } = await import("./render-simple");
+    assert.equal(isSimpleFragment(renderSimpleHtml(doc([img()]))), true);
+  });
+});

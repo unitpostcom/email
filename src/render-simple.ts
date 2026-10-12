@@ -4,7 +4,8 @@
 // in Gmail / Outlook / Spark. Those clients do NOT send plain text: they send
 // `text/html` whose body is a BARE FRAGMENT — `<div dir="ltr">` with one
 // `<div>` per line, `<b>/<i>/<u>`, `<a>`, `<ul>/<ol>`, Gmail's blockquote,
-// and inline `color` / `font-size` ONLY where the author set them. No doctype,
+// a pasted image as a bare `<img>` on its own line, and inline `color` /
+// `font-size` ONLY where the author set them. No doctype,
 // no <head><style>, no wrapper <table>, no width, no background, no font
 // stack. The receiving client renders that inside its own reading pane, so it
 // inherits the client's font, colour and white background and reads as text.
@@ -24,10 +25,14 @@
 //     transactional gets nothing. The "Sent with Unitpost" mark, when shown,
 //     is one short text link — never the pill.
 //  4. The text/plain alternative comes from the same blocks (text.ts).
+//  5. An image is `<img>` with src (https only), alt, width (integer px) and
+//     the one style `max-width:100%;height:auto` — nothing else (2026-10-12:
+//     a newsletter author pastes screenshots into plain, reads-as-text mail).
 
-import type { Block, EmailDocument, InlineRun, ListBlock, TextBlock, HeadingBlock } from "./schema";
+import type { Block, EmailDocument, HeadingBlock, ImageBlock, InlineRun, ListBlock, TextBlock } from "./schema";
 import { escapeHtml, interpolate, renderText } from "./util";
 import { safeUrl } from "./sanitize";
+import { resolveImageSrc } from "./library-image-url";
 
 export type SimpleRenderOptions = {
   variables?: Record<string, string>;
@@ -39,6 +44,13 @@ export type SimpleRenderOptions = {
   } | null;
   /** The minimal "Sent with Unitpost" line (resolveShowPoweredBy decides). */
   showPoweredBy?: boolean;
+  /**
+   * Base a hosted library image's relative `/img/{id}` src resolves against:
+   * the same `effectiveAssetBase(...)` designed emails get (render.ts passes
+   * `RenderOptions.assetBaseUrl` through). Every send path sets it; dashboard
+   * previews leave it empty and keep the same-origin path.
+   */
+  assetBaseUrl?: string;
 };
 
 // Gmail's exact blockquote shape — clients recognise it as a quote.
@@ -128,7 +140,73 @@ function renderSimpleList(block: ListBlock, variables: Record<string, string>): 
   return `<${tag}>${items}</${tag}>`;
 }
 
-function renderSimpleBlock(block: Block, variables: Record<string, string>): string {
+// The one inline style a Simple <img> carries: never wider than the reader's
+// column, height from the aspect ratio. `display:block` is added only on a
+// left-aligned line (it drops the inline descender gap; a centred line needs
+// the image inline so `text-align` can place it).
+export const SIMPLE_IMAGE_STYLE = "max-width:100%;height:auto";
+/** The only attributes a Simple <img> may carry. */
+export const SIMPLE_IMAGE_ATTRS = ["src", "alt", "width", "style"] as const;
+
+// A hosted library image, still relative: the same-origin path a dashboard
+// preview loads (`/img/{id}`, or the legacy byte proxy). Only ever emitted
+// when no asset base was given, i.e. never on a send.
+const LIBRARY_RELATIVE_SRC_RE = /^\/(?:img\/[0-9a-fA-F-]{8,}|api\/library-images\/[0-9a-fA-F-]{8,}\/raw)$/;
+
+/**
+ * The src a Simple <img> may carry, or null when the image cannot go out.
+ * Variables interpolate first, then a hosted library path resolves through the
+ * designed renderer's asset-host logic (resolveImageSrc). What survives is an
+ * absolute `https://host/…` URL — never http:, data:, cid:, javascript: or a
+ * host-less value — or, with no asset base (a dashboard preview), the
+ * same-origin library path.
+ */
+export function simpleImageSrc(
+  src: string,
+  variables: Record<string, string> = {},
+  assetBaseUrl?: string,
+): string | null {
+  const resolved = resolveImageSrc(interpolate(src ?? "", variables), assetBaseUrl).trim();
+  if (!resolved || /[\s\u0000-\u001f\u007f]/.test(resolved)) return null;
+  if (/^https:\/\/[^/?#@\\]+(?:[/?#]|$)/i.test(resolved)) return resolved;
+  if (!(assetBaseUrl ?? "").trim() && LIBRARY_RELATIVE_SRC_RE.test(resolved)) return resolved;
+  return null;
+}
+
+/** A Simple image width: a positive integer number of px, or null (best fit). */
+export function simpleImageWidth(width: unknown): number | null {
+  if (typeof width !== "number" || !Number.isFinite(width)) return null;
+  const px = Math.round(width);
+  return px >= 1 ? px : null;
+}
+
+// One image, one line — Gmail's pasted-image shape minus Gmail's own cid:
+// attachment: `<div><img src alt width style></div>`, inside `<a>` when the
+// image links somewhere. An image that can't be sent (empty src, http:, a
+// data: URI…) never emits a tag: its alt text stays as a line instead.
+function renderSimpleImage(
+  block: ImageBlock,
+  variables: Record<string, string>,
+  assetBaseUrl: string | undefined,
+): string {
+  const alt = renderText((block.alt ?? "").replace(/\s+/g, " ").trim(), variables);
+  const rawHref = block.href ? safeUrl(interpolate(block.href, variables)).trim() : "";
+  const href = rawHref && rawHref !== "#" ? escapeHtml(rawHref) : "";
+  const align = block.align === "center" || block.align === "right" ? block.align : "left";
+  const line = (inner: string) => `<div${align === "left" ? "" : ` style="text-align:${align}"`}>${inner}</div>`;
+  const link = (inner: string) => (href ? `<a href="${href}" target="_blank">${inner}</a>` : inner);
+
+  const src = simpleImageSrc(block.src, variables, assetBaseUrl);
+  if (!src) {
+    const label = alt || (href ? "Open image" : "");
+    return label ? line(link(label)) : "";
+  }
+  const width = simpleImageWidth(block.width);
+  const style = align === "left" ? `${SIMPLE_IMAGE_STYLE};display:block` : SIMPLE_IMAGE_STYLE;
+  return line(link(`<img src="${escapeHtml(src)}" alt="${alt}"${width ? ` width="${width}"` : ""} style="${style}">`));
+}
+
+function renderSimpleBlock(block: Block, variables: Record<string, string>, assetBaseUrl?: string): string {
   switch (block.type) {
     case "text":
       return renderLine(block, variables);
@@ -136,6 +214,8 @@ function renderSimpleBlock(block: Block, variables: Record<string, string>): str
       return renderHeadingLine(block, variables);
     case "list":
       return renderSimpleList(block, variables);
+    case "image":
+      return renderSimpleImage(block, variables, assetBaseUrl);
     case "divider":
       // Gmail has no rule in the plain composer; a thin rule is the closest
       // honest equivalent and still reads as text.
@@ -187,12 +267,12 @@ function footerLine(opts: SimpleRenderOptions, variables: Record<string, string>
  */
 export function renderSimpleHtml(doc: EmailDocument, options: SimpleRenderOptions = {}): string {
   const variables = options.variables ?? {};
-  const body = doc.blocks.map((b) => renderSimpleBlock(b, variables)).filter(Boolean).join("");
+  const body = doc.blocks.map((b) => renderSimpleBlock(b, variables, options.assetBaseUrl)).filter(Boolean).join("");
   return `<div dir="ltr">${body}${footerLine(options, variables)}</div>`;
 }
 
 /** The exact tags a Simple email may contain — the composer + tests hold to this. */
-export const SIMPLE_ALLOWED_TAGS = ["div", "br", "b", "i", "u", "strike", "a", "span", "ul", "ol", "li", "blockquote", "hr"] as const;
+export const SIMPLE_ALLOWED_TAGS = ["div", "br", "b", "i", "u", "strike", "a", "span", "ul", "ol", "li", "blockquote", "hr", "img"] as const;
 
 /**
  * PREVIEW ONLY. A Simple fragment has no shell by design — in the inbox the

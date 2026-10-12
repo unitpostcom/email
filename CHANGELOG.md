@@ -2,7 +2,17 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
-## Unreleased
+## 0.2.0
+
+Not on npm yet: publishes when this version reaches `main` (`publish-email.yml`). npm `latest` is still 0.1.5, which has no `@unitpost/email/react` entry.
+
+### Added
+
+- **`@unitpost/email/react`** — write emails as React components (`Section`, `Heading`, `Text`, `List`, `Button`, …) and call `render(<Email />)` for the HTML string. It lowers to the same `EmailDocument` as `parseTsx` and the visual editor. `react` is an optional peer; the core package stays React-free.
+  - `<a href>`, `<strong>`/`<b>`, `<em>`/`<i>`, `<u>`, `<s>` and `<span style>` (a React style object or a CSS string) inside `<Text>`, `<Heading>` and `<li>` become formatted runs, the same as in `parseTsx`.
+  - Multi-line `<Markdown>`, `<Code>` and `<Html>` keep their newlines and are dedented like `parseTsx`. Pass multi-line content as a template literal: ``<Markdown>{`…`}</Markdown>``.
+  - Props with a schema default are optional in TypeScript (`<Text>Hi</Text>` needs no `fontSize`, `align` or `marginBottom`); values are still checked (`level={7}` is an error). `borderWidth`, `borderStyle`, `borderColor` and `borderRadius` are declared on `Section`, `Row`, `Column` and `Image`.
+- `hasPoweredByText(text)` — whether a text part already carries the mark (new line or the previous URL), used by `appendPoweredByText` for idempotency.
 
 ### Changed (breaking: rendered HTML and text differ)
 
@@ -14,16 +24,6 @@ Notable changes to `@unitpost/email`. A change to the HTML a published document 
 - Simple emails: the "Unitpost" link in "Sent with Unitpost" was white (`#ffffff`) and invisible on white reading panes. It now uses the footer grey.
 - `appendPoweredByText` skipped the mark when the body merely mentioned "Sent with Unitpost" anywhere; only a text part whose last line ends with the mark (or the previous URL line) counts as branded now.
 - Marketing footer: the company line `{{company_name}} · {{company_address}}` no longer ends (or starts) with a dangling `·` when only one of the two is set.
-
-### Added
-
-- `hasPoweredByText(text)` — whether a text part already carries the mark (new line or the previous URL), used by `appendPoweredByText` for idempotency.
-
-## 0.2.0 — 2026-08-28
-
-### Added
-
-- **`@unitpost/email/react`** — import `Section`, `Heading`, `Button`, … and `render(<Email />)`. Lowers to the same `EmailDocument` as `parseTsx` and the visual editor. `react` is an optional peer; the core package stays React-free.
 
 ## 0.1.5 — 2026-08-19
 

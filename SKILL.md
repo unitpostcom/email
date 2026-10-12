@@ -25,13 +25,13 @@ Source: https://github.com/unitpostcom/email
 npm install @unitpost/email zod
 ```
 
-This skill is enough for agents. Humans can paste markup into the playground without installing.
+React and Next.js apps already have `react`; in a plain Node project, install it too. This skill is enough for agents. Humans can paste markup into the playground without installing.
 
 ## Author
 
 One catalog, two ways to write it. Always use this library. Never hand-roll table HTML.
 
-**React** — use this when the project already has React (Next, Vite, etc.). Real imports, types, and JSX:
+**React** — the default. Use it whenever the project can compile TSX (Next, Vite, a Node server with TSX). Real imports, types, and JSX:
 
 ```tsx
 import { Section, Heading, Text, Button, render } from "@unitpost/email/react";
@@ -49,7 +49,9 @@ export function Welcome({ name }: { name: string }) {
 const html = render(<Welcome name="Mike" />);
 ```
 
-`render` lowers JSX to the same `EmailDocument` the visual editor uses, then the same inbox-safe HTML.
+`render` lowers JSX to the same `EmailDocument` the visual editor uses, then the same inbox-safe HTML. It's synchronous and returns a string: pass it as `html` to Unitpost (`unitpost.email.send`, or the SMTP relay at `smtp.unitpost.com`), Nodemailer, SES, SendGrid, Postmark, Brevo, Cloudflare Email Service, AutoSend, Mailgun, or any other sender. Never mount email components with React DOM.
+
+Inside `<Text>`, `<Heading>` and `<li>`, use `<strong>`, `<em>`, `<u>`, `<a href>` and `<span style={{ color }}>` for formatting. Multi-line `<Markdown>` / `<Code>` bodies go in a template literal: ``<Markdown>{`…`}</Markdown>``.
 
 **String TSX** — no React. Visual editor, this skill in a non-React repo, or agents writing a `.ts` file:
 
@@ -69,7 +71,16 @@ Send-time `{{tokens}}` work in parseTsx strings and in quoted attrs
 `{"{{first_name}}"}` — bare `{{first_name}}` is invalid JS. Compose-time
 values use `{name}`. Unresolved tokens render literally. Values are HTML-escaped.
 
-Prefer a **layout** (`getSectionLayout`) or **sample** (`getSampleTemplate`) over inventing structure.
+| Function | Takes | Returns |
+| --- | --- | --- |
+| `render(<Email />)` (`/react`) | React element | HTML string |
+| `fromJsx(<Email />)` (`/react`) | React element | `EmailDocument` |
+| `parseTsx(source)` | TSX string | `EmailDocument` |
+| `renderToHtml(doc, vars?)` | `EmailDocument` | HTML string |
+| `renderToText(doc, vars?)` | `EmailDocument` | plain-text string |
+| `printTsx(doc)` / `printFragmentTsx(fragment)` | document / layout | TSX string |
+
+Prefer a **layout** (`getSectionLayout`) or **sample** (`getSampleTemplate`) over inventing structure. Every layout has copy-paste React code at https://unitpost.com/components#layouts.
 
 ```ts
 import { getSectionLayout, printFragmentTsx, getSampleTemplate } from "@unitpost/email";
@@ -86,7 +97,7 @@ Look up every component, layout, and sample at https://unitpost.com/components. 
 | Group | Tags |
 | --- | --- |
 | Layout | `Section`, `Row`, `Column` |
-| Content | `Heading`, `Text`, `Divider`, `Spacer`, `Markdown`, `Code` |
+| Content | `Heading`, `Text`, `List`, `Divider`, `Spacer`, `Markdown`, `Code` |
 | Media | `Image` |
 | Interactive | `Button`, `Link` |
 | Advanced | `Html` (sanitized) |
@@ -103,9 +114,9 @@ Keys (use these exactly): `header-logo`, `header-logo-nav`, `hero-simple`, `hero
 
 ## Public API
 
-`@unitpost/email`: `parseTsx`, `printTsx`, `renderToHtml`, `resolveVariables`, `COMPONENT_CATALOG`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
+`@unitpost/email`: `parseTsx`, `printTsx`, `renderToHtml`, `renderToText`, `resolveVariables`, `COMPONENT_CATALOG`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
 
-`@unitpost/email/react`: `Section`, `Heading`, `Text`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render`. Optional `react` peer.
+`@unitpost/email/react`: `Section`, `Heading`, `Text`, `List`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render`. Optional `react` peer.
 
 Do not import `@unitpost/email/internal`.
 

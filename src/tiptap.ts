@@ -399,8 +399,9 @@ function isEmptyTextNode(node: TiptapNode): boolean {
 
 // Simple mode is a mail-client composer: Enter is "next line", not "next
 // paragraph with spacing" — spacing comes from blank lines, exactly like Gmail
-// and Outlook. So a text line created on the canvas (no explicit margin yet)
-// gets marginBottom 0 there; the Designed editor keeps the schema default (16).
+// and Outlook. So a text line (or a pasted image's line) created on the canvas
+// with no explicit margin yet gets marginBottom 0 there; the Designed editor
+// keeps the schema default (16).
 const SIMPLE_TEXT_MARGIN = 0;
 
 function blockFromNode(
@@ -414,7 +415,7 @@ function blockFromNode(
   const data = (attrs.data as Record<string, unknown> | undefined) ?? {};
   if (
     mode === "simple" &&
-    (blockType === "text" || blockType === "heading") &&
+    (blockType === "text" || blockType === "heading" || blockType === "image") &&
     data.marginBottom === undefined &&
     data.margin === undefined
   ) {

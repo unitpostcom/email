@@ -1,10 +1,12 @@
 import {
   EmailDocumentSchema,
   HeadingBlockSchema,
+  ImageBlockSchema,
   TextBlockSchema,
   ThemeSchema,
   type Block,
   type EmailDocument,
+  type ImageBlock,
   type InlineRun,
   type LeafBlock,
   type SectionChild,
@@ -126,6 +128,13 @@ function flattenLeaf(block: LeafBlock): Block[] {
         }),
       ];
     case "image": {
+      // Images are first-class in Simple (2026-10-12): an author pastes a
+      // screenshot into a plain, reads-as-text email, exactly as in Gmail. Keep
+      // what the fragment can carry (src, alt, link, a px width, the line's
+      // alignment); the designed frame styling (height, fit, radius, border,
+      // background, margins, custom CSS) is layout and goes.
+      if (block.src.trim()) return [simpleImageBlock(block)];
+      // No image picked yet (an empty designed placeholder): keep its words.
       const label = block.alt.trim() || (block.href ? "Open image" : "");
       if (!label) return [];
       return [
@@ -152,6 +161,38 @@ function flattenLeaf(block: LeafBlock): Block[] {
   }
 }
 
+function simpleImageBlock(block: ImageBlock): Block {
+  return ImageBlockSchema.parse({
+    type: "image",
+    id: block.id,
+    src: block.src,
+    alt: block.alt,
+    ...(block.href ? { href: block.href } : {}),
+    ...(block.width ? { width: block.width } : {}),
+    align: block.align,
+    // Lines stack; spacing is blank lines, not margins (as for text).
+    marginBottom: 0,
+  });
+}
+
+// An image Simple keeps exactly as it is: it has a source and none of the
+// designed frame styling that simplifying drops.
+function isSimpleImage(block: ImageBlock): boolean {
+  return Boolean(
+    block.src.trim() &&
+      !block.height &&
+      !block.borderRadius &&
+      !block.border &&
+      !block.objectFit &&
+      !block.backgroundColor &&
+      !block.margin &&
+      !block.padding &&
+      !block.customCss &&
+      !block.className &&
+      !block.componentRef,
+  );
+}
+
 function flattenNode(block: Block | SectionChild): Block[] {
   if (block.type === "section") return block.children.flatMap(flattenNode);
   if (block.type === "row") {
@@ -166,9 +207,9 @@ export function isSimpleEmailDocument(doc: EmailDocument): boolean {
 
 /**
  * Convert a designed document into the constrained Simple-email subset. Copy,
- * headings, inline emphasis, links, variables, envelope metadata, and category
- * survive; layout containers, images, buttons, raw HTML, and custom styling are
- * flattened to readable text/link equivalents.
+ * headings, inline emphasis, links, images (src, alt, link, width), variables,
+ * envelope metadata, and category survive; layout containers, buttons, raw
+ * HTML, and custom styling are flattened to readable text/link equivalents.
  */
 export function simplifyEmailDocument(doc: EmailDocument): EmailDocument {
   const kept = doc.blocks.flatMap(flattenNode).filter((block) => {
@@ -176,6 +217,7 @@ export function simplifyEmailDocument(doc: EmailDocument): EmailDocument {
       return block.text.trim().length > 0 || Boolean(block.content?.length);
     }
     if (block.type === "list") return block.items.length > 0;
+    if (block.type === "image") return block.src.trim().length > 0;
     return false;
   });
   // Designed blocks carried their own margins; in the composer model spacing is
@@ -205,7 +247,11 @@ export function simpleConversionNeedsConfirmation(doc: EmailDocument): boolean {
     return false;
   }
   return doc.blocks.some(
-    (block) => block.type !== "text" && block.type !== "heading" && block.type !== "list",
+    (block) =>
+      block.type !== "text" &&
+      block.type !== "heading" &&
+      block.type !== "list" &&
+      !(block.type === "image" && isSimpleImage(block)),
   ) ||
     doc.className != null ||
     JSON.stringify(doc.theme) !== JSON.stringify(SIMPLE_EMAIL_THEME) ||

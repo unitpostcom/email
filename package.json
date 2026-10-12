@@ -18,7 +18,8 @@
     "transactional-email",
     "email-components",
     "email-builder",
-    "react-email",
+    "react",
+    "react-components",
     "jsx",
     "marketing-email"
   ],

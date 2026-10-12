@@ -15,7 +15,19 @@ export * from "./public";
 export * from "./ops";
 export * from "./tiptap";
 export * from "./diagnostics";
-export { renderSimpleHtml, renderSimpleRuns, simpleQuote, wrapSimplePreview, isSimpleFragment, SIMPLE_ALLOWED_TAGS, type SimpleRenderOptions } from "./render-simple";
+export {
+  renderSimpleHtml,
+  renderSimpleRuns,
+  simpleQuote,
+  wrapSimplePreview,
+  isSimpleFragment,
+  simpleImageSrc,
+  simpleImageWidth,
+  SIMPLE_ALLOWED_TAGS,
+  SIMPLE_IMAGE_ATTRS,
+  SIMPLE_IMAGE_STYLE,
+  type SimpleRenderOptions,
+} from "./render-simple";
 export { appendPoweredBy, poweredByHtml } from "./render";
 export {
   detectHtmlLayoutWidth,

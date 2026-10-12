@@ -5,29 +5,34 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import type * as z from "zod";
 import {
+  ButtonBlockSchema,
+  CodeBlockSchema,
   ColumnBlockSchema,
+  DividerBlockSchema,
   EmailDocumentSchema,
+  HeadingBlockSchema,
+  HtmlBlockSchema,
+  ImageBlockSchema,
+  LinkBlockSchema,
+  ListBlockSchema,
+  MarkdownBlockSchema,
+  RowBlockSchema,
+  SpacerBlockSchema,
+  TextBlockSchema,
   type Block,
-  type ButtonBlock,
-  type CodeBlock,
   type ColumnBlock,
-  type DividerBlock,
   type EmailDocument,
-  type HeadingBlock,
-  type ListBlock,
-  type HtmlBlock,
-  type ImageBlock,
+  type InlineRun,
   type LeafBlock,
-  type LinkBlock,
-  type MarkdownBlock,
-  type RowBlock,
+  type ListBlock,
   type SectionBlock,
-  type SpacerBlock,
   type TextBlock,
 } from "./schema";
 import { createBlock, newBlockId } from "./blocks";
 import { normalizeBorderAttrs } from "./border-attrs";
+import { dedentText } from "./dedent";
 import { renderToHtml, type RenderOptions } from "./render";
 
 // React authoring codec. Components are typed host tags; `fromJsx` / `render`
@@ -66,28 +71,63 @@ function isHost(type: unknown): type is HostComponent<Record<string, unknown>> {
 
 type WithChildren<T> = Omit<T, "type" | "id"> & { children?: ReactNode };
 
-export type SectionProps = WithChildren<Omit<SectionBlock, "children">>;
-export type RowProps = WithChildren<Omit<RowBlock, "columns">>;
-export type ColumnProps = WithChildren<Omit<ColumnBlock, "children">>;
-export type HeadingProps = WithChildren<Omit<HeadingBlock, "text" | "content">> & {
+// Keys the schema fills in when they're left out (`.default()` / `.optional()`).
+type OptionalKeys<T> = { [K in keyof T]-?: object extends Pick<T, K> ? K : never }[keyof T];
+
+// Props as an author writes them: the schema's value types, with every prop
+// that has a default optional. (The output type alone would make `<Text>` demand
+// fontSize, align and marginBottom.)
+type AuthorProps<S extends z.ZodType> = Omit<
+  z.output<S>,
+  OptionalKeys<z.input<S>> | "type" | "id"
+> &
+  Partial<Pick<z.output<S>, Extract<OptionalKeys<z.input<S>>, keyof z.output<S>>>>;
+
+// The scalar border props the docs list (and the TSX dialect uses). fromJsx
+// folds them into the nested `border` object.
+export type BorderShorthandProps = {
+  borderWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  borderColor?: string;
+  borderRadius?: number;
+};
+
+// Section's schema is recursive (z.lazy with an explicit output type), so its
+// defaulted props are listed by hand.
+export type SectionProps = WithChildren<Omit<SectionBlock, "children" | "paddingX" | "paddingY">> &
+  Partial<Pick<SectionBlock, "paddingX" | "paddingY">> &
+  BorderShorthandProps;
+export type RowProps = WithChildren<Omit<AuthorProps<typeof RowBlockSchema>, "columns">> &
+  BorderShorthandProps;
+export type ColumnProps = WithChildren<Omit<AuthorProps<typeof ColumnBlockSchema>, "children">> &
+  BorderShorthandProps;
+export type HeadingProps = WithChildren<
+  Omit<AuthorProps<typeof HeadingBlockSchema>, "text" | "content">
+> & { text?: string };
+export type TextProps = WithChildren<Omit<AuthorProps<typeof TextBlockSchema>, "text" | "content">> & {
   text?: string;
 };
-export type TextProps = WithChildren<Omit<TextBlock, "text" | "content">> & {
-  text?: string;
-};
-export type ListProps = WithChildren<Omit<ListBlock, "items">> & {
+export type ListProps = WithChildren<Omit<AuthorProps<typeof ListBlockSchema>, "items">> & {
   items?: ListBlock["items"];
 };
-export type ButtonProps = WithChildren<Omit<ButtonBlock, "text">> & { text?: string };
-export type LinkProps = WithChildren<Omit<LinkBlock, "text">> & { text?: string };
-export type ImageProps = Omit<ImageBlock, "type" | "id">;
-export type DividerProps = Omit<DividerBlock, "type" | "id">;
-export type SpacerProps = Omit<SpacerBlock, "type" | "id">;
-export type MarkdownProps = WithChildren<Omit<MarkdownBlock, "markdown">> & {
+export type ButtonProps = WithChildren<Omit<AuthorProps<typeof ButtonBlockSchema>, "text">> & {
+  text?: string;
+};
+export type LinkProps = WithChildren<Omit<AuthorProps<typeof LinkBlockSchema>, "text">> & {
+  text?: string;
+};
+export type ImageProps = AuthorProps<typeof ImageBlockSchema> & BorderShorthandProps;
+export type DividerProps = AuthorProps<typeof DividerBlockSchema>;
+export type SpacerProps = AuthorProps<typeof SpacerBlockSchema>;
+export type MarkdownProps = WithChildren<Omit<AuthorProps<typeof MarkdownBlockSchema>, "markdown">> & {
   markdown?: string;
 };
-export type CodeProps = WithChildren<Omit<CodeBlock, "code">> & { code?: string };
-export type HtmlProps = WithChildren<Omit<HtmlBlock, "html">> & { html?: string };
+export type CodeProps = WithChildren<Omit<AuthorProps<typeof CodeBlockSchema>, "code">> & {
+  code?: string;
+};
+export type HtmlProps = WithChildren<Omit<AuthorProps<typeof HtmlBlockSchema>, "html">> & {
+  html?: string;
+};
 
 export const Section = host<SectionProps>("Section", "section");
 export const Row = host<RowProps>("Row", "row");
@@ -125,6 +165,107 @@ function textOf(children: ReactNode): string {
     .join("")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Markdown, code and raw HTML are whitespace-significant: keep newlines and
+// dedent like parseTsx does. Multi-line bodies come in as a template literal
+// (`<Markdown>{`…`}</Markdown>`), since JSX itself folds newlines in text.
+function rawTextOf(children: ReactNode): string {
+  const raw = nodesOf(children)
+    .map((n) => {
+      if (typeof n === "string" || typeof n === "number") return String(n);
+      if (isValidElement(n)) {
+        return rawTextOf((n.props as { children?: ReactNode }).children);
+      }
+      return "";
+    })
+    .join("");
+  return dedentText(raw);
+}
+
+type InlineMarks = NonNullable<InlineRun["marks"]>;
+
+const INLINE_TAG_MARKS: Record<string, InlineMarks> = {
+  strong: { bold: true },
+  b: { bold: true },
+  em: { italic: true },
+  i: { italic: true },
+  u: { underline: true },
+  s: { strike: true },
+  del: { strike: true },
+  strike: { strike: true },
+};
+
+// color / background from a React style object (or a CSS string, which the
+// TSX dialect uses).
+function styleMarks(style: unknown): InlineMarks {
+  const out: InlineMarks = {};
+  if (typeof style === "string") {
+    for (const decl of style.split(";")) {
+      const at = decl.indexOf(":");
+      if (at < 0) continue;
+      const key = decl.slice(0, at).trim().toLowerCase();
+      const value = decl.slice(at + 1).trim();
+      if (key === "color") out.color = value;
+      else if (key === "background-color" || key === "background") out.background = value;
+    }
+  } else if (style && typeof style === "object") {
+    const s = style as Record<string, unknown>;
+    if (typeof s.color === "string") out.color = s.color;
+    const bg = s.backgroundColor ?? s.background;
+    if (typeof bg === "string") out.background = bg;
+  }
+  return out;
+}
+
+// Inline formatting inside <Text>, <Heading> and <li>: <strong>/<b>, <em>/<i>,
+// <u>, <s>, <a href> and <span style> become marked runs, the same marks
+// parseTsx reads from the TSX dialect. Anything else keeps its text.
+function inlineRuns(children: ReactNode, marks: InlineMarks = {}): InlineRun[] {
+  const runs: InlineRun[] = [];
+  for (const n of nodesOf(children)) {
+    if (typeof n === "string" || typeof n === "number") {
+      const text = String(n).replace(/\s+/g, " ");
+      if (!text) continue;
+      runs.push(Object.keys(marks).length ? { text, marks: { ...marks } } : { text });
+      continue;
+    }
+    if (!isValidElement(n)) continue;
+    const props = n.props as { children?: ReactNode; href?: unknown; style?: unknown };
+    const type = n.type as unknown;
+    if (typeof type === "function" && !isHost(type)) {
+      runs.push(...inlineRuns((type as (p: object) => ReactNode)(props), marks));
+      continue;
+    }
+    if (typeof type !== "string") {
+      runs.push(...inlineRuns(props.children, marks));
+      continue;
+    }
+    const tag = type.toLowerCase();
+    const next: InlineMarks = { ...marks, ...INLINE_TAG_MARKS[tag] };
+    if (tag === "a") {
+      next.link = typeof props.href === "string" ? props.href : "";
+      Object.assign(next, styleMarks(props.style));
+    } else if (tag === "span") {
+      Object.assign(next, styleMarks(props.style));
+    }
+    runs.push(...inlineRuns(props.children, next));
+  }
+  return runs;
+}
+
+// Plain text + (only when something is formatted) the runs, trimmed at the
+// edges like parseTsx trims a tag's inner text.
+function inlineContent(children: ReactNode): { text: string; content?: InlineRun[] } {
+  const runs = inlineRuns(children);
+  if (runs.length) {
+    runs[0] = { ...runs[0], text: runs[0].text.trimStart() };
+    const last = runs.length - 1;
+    runs[last] = { ...runs[last], text: runs[last].text.trimEnd() };
+  }
+  const kept = runs.filter((r) => r.text);
+  const text = kept.map((r) => r.text).join("");
+  return kept.some((r) => r.marks) ? { text, content: kept } : { text };
 }
 
 function expand(node: ReactNode): ReactNode[] {
@@ -239,23 +380,30 @@ function toBlock(node: ReactNode): Block {
         return t ? [{ text: t }] : [];
       }
       if (isValidElement(c)) {
-        const t = textOf((c.props as { children?: ReactNode }).children).trim();
-        return t ? [{ text: t }] : [];
+        const item = inlineContent((c.props as { children?: ReactNode }).children);
+        return item.text ? [item] : [];
       }
       return [];
     });
   }
 
-  const inner = textOf(children);
   if (kind === "heading" || kind === "text") {
-    if (inner && attrs.text == null) attrs.text = inner;
+    const inline = inlineContent(children);
+    if (inline.text && attrs.text == null) {
+      attrs.text = inline.text;
+      if (inline.content && attrs.content == null) attrs.content = inline.content;
+    }
   } else if (kind === "button" || kind === "link") {
+    const inner = textOf(children);
     if (inner && attrs.text == null) attrs.text = inner;
   } else if (kind === "markdown") {
+    const inner = rawTextOf(children);
     if (inner && attrs.markdown == null) attrs.markdown = inner;
   } else if (kind === "code") {
+    const inner = rawTextOf(children);
     if (inner && attrs.code == null) attrs.code = inner;
   } else if (kind === "html") {
+    const inner = rawTextOf(children);
     if (inner && attrs.html == null) attrs.html = inner;
   }
 

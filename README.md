@@ -2,109 +2,131 @@
 
 Email component library that works in Outlook, Gmail, and Apple Mail.
 
-```bash
-npx skills add unitpostcom/email
-```
+Write emails as React components, turn them into HTML with `render()`, and send them with any provider. MIT licensed. No account or API key needed.
 
 ```bash
 npm install @unitpost/email zod
 ```
 
-**[Landing](https://unitpost.com/email)** · **[Playground](https://unitpost.com/playground)** · **[Template gallery](https://unitpost.com/templates/gallery)** · **[Components](https://unitpost.com/components)** · **[npm](https://www.npmjs.com/package/@unitpost/email)**
-
-No account. No API key. `zod` is a peer (`^4`). Node 18+. `react` is an optional peer — only if you import `@unitpost/email/react`.
+**[Docs](https://unitpost.com/components)** · **[Playground](https://unitpost.com/playground)** · **[Template gallery](https://unitpost.com/templates/gallery)** · **[npm](https://www.npmjs.com/package/@unitpost/email)**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/welcome.png" width="520" alt="Welcome email rendered by @unitpost/email" />
 </p>
 
-## Quick start
+## Quickstart
 
-Import the components and call `render`. Same tags as [react-email](https://react.email); the HTML is inbox-safe.
+### 1. Install
+
+```bash
+npm install @unitpost/email zod
+```
+
+React and Next.js apps already have `react`. In a plain Node project, install it too. `zod` is a peer dependency. Node 18 or newer.
+
+### 2. Create an email
+
+An email is a React component made of the library's components. Pass data in as props, like any other component.
 
 ```tsx
-import {
-  Section,
-  Heading,
-  Text,
-  Button,
-  Image,
-  render,
-} from "@unitpost/email/react";
+// emails/welcome.tsx
+import { Section, Heading, Text, Button } from "@unitpost/email/react";
 
-export function Welcome({ name }: { name: string }) {
+export function WelcomeEmail({ name }: { name: string }) {
   return (
-    <Section paddingY={32}>
-      <Image src="https://example.com/logo.png" alt="Acme" width={120} />
-      <Heading level={1}>Hi {name}</Heading>
-      <Text>You're in.</Text>
-      <Button href="https://example.com">Get started</Button>
+    <Section>
+      <Heading>Welcome, {name}</Heading>
+      <Text>Thanks for signing up. Confirm your email to get started.</Text>
+      <Button href="https://example.com/confirm">Confirm email</Button>
     </Section>
   );
 }
-
-const html = render(<Welcome name="Mike" />);
 ```
 
-Copy is JSX children (`<Heading>Hi Mike</Heading>`). Props are camelCase (`paddingY`, `href`). Pass `html` to any sender.
+### 3. Render and send
 
-Send-time `{{tokens}}` in JSX must be a string: `{"{{first_name}}"}` or `href="{{cta_url}}"`. Bare `{{first_name}}` is invalid JS. Compose-time values use `{name}`.
+`render()` returns an HTML string, so it works with any provider.
 
-No React? Same catalog as a string — what the visual editor and agents use:
+```tsx
+import { render } from "@unitpost/email/react";
+import { Unitpost } from "unitpost";
+import { WelcomeEmail } from "./emails/welcome";
+
+const unitpost = new Unitpost(process.env.UNITPOST_API_KEY);
+
+await unitpost.email.send({
+  from: "Acme <hello@acme.com>",
+  to: "ada@example.com",
+  subject: "Welcome to Acme",
+  html: render(<WelcomeEmail name="Ada" />),
+});
+```
+
+Prefer SMTP? Send the same `html` through the [Unitpost SMTP relay](https://unitpost.com/components#unitpost-smtp). Already on another provider? Pass `html` to it. There are copy-paste examples for [Nodemailer](https://unitpost.com/components#nodemailer), [AWS SES](https://unitpost.com/components#aws-ses), [SendGrid](https://unitpost.com/components#sendgrid), [Postmark](https://unitpost.com/components#postmark), [Mailgun](https://unitpost.com/components#mailgun), [Brevo](https://unitpost.com/components#brevo), [Cloudflare Email Service](https://unitpost.com/components#cloudflare), [AutoSend](https://unitpost.com/components#autosend), and [more](https://unitpost.com/components#integrations).
+
+Using a coding agent? Run `npx skills add unitpostcom/email` and it learns every component and layout.
+
+---
+
+## Rendering
+
+Most apps only need `render()`. The rest are for working without React, or for building editors and tools on top of the library.
+
+| Function | Takes | Returns | Use it when |
+| --- | --- | --- | --- |
+| `render(<Email />)` | A React element | An HTML string | You write emails in React. Import it from `@unitpost/email/react`. |
+| `parseTsx(source)` | The same tags, as a string | An `EmailDocument` (JSON) | You don't use React, or the markup comes from the editor or an agent. |
+| `renderToHtml(doc)` | An `EmailDocument` | An HTML string | You have a document from `parseTsx()`, `fromJsx()` or the API. |
+| `renderToText(doc)` | An `EmailDocument` | A plain-text string | You want a plain-text part to send with the HTML. |
+| `fromJsx(<Email />)` | A React element | An `EmailDocument` (JSON) | You want to store an email as data, or turn it into plain text. |
+| `printTsx(doc)` | An `EmailDocument` | Source code, as a string | You want to show a document as code. `printFragmentTsx()` does the same for a layout. |
+
+`render()` is `fromJsx()` followed by `renderToHtml()`, and it's synchronous. It runs wherever your code runs: a server, a script, a serverless function. It doesn't use React DOM, so email components can't be mounted on a web page.
+
+**Variables.** `render()` and `renderToHtml()` take an optional second argument that fills `{{tokens}}`. In JSX, write a token as a string, like `{"{{first_name}}"}` or `href="{{cta_url}}"`. Values are HTML-escaped, `javascript:` URLs are dropped, and a token without a value stays as written.
+
+**Formatting.** Use `<strong>`, `<em>`, `<u>`, `<a href>` and `<span style>` inside `<Text>`, `<Heading>` and list items. For multi-line `<Markdown>` or `<Code>`, pass a template literal: ``<Markdown>{`…`}</Markdown>``.
+
+### Without React
+
+Write the same tags as a string and parse them. It's the format the visual editor and agents use, and it needs no build step.
 
 ```ts
 import { parseTsx, renderToHtml } from "@unitpost/email";
 
-const html = renderToHtml(parseTsx(`
-  <Section padding-y={32}>
-    <Heading level={1}>Hi {{first_name}}</Heading>
-    <Button href="{{cta_url}}">Get started</Button>
+const doc = parseTsx(`
+  <Section>
+    <Heading>Welcome, {{first_name}}</Heading>
+    <Button href="https://example.com/confirm">Confirm email</Button>
   </Section>
-`));
+`);
+
+const html = renderToHtml(doc, { first_name: "Ada" });
 ```
 
-Paste markup into the [playground](https://unitpost.com/playground) before you install.
-
-Unresolved `{{tokens}}` render literally. Values are HTML-escaped; `javascript:` URLs are dropped; a value containing `{{other}}` is never re-interpolated.
+Props are the same as in React. In a string you can also write them in kebab-case (`padding-y`). Paste markup into the [playground](https://unitpost.com/playground) to try it before you install.
 
 ---
 
-## Examples
+## Components
 
-Same renderer as the samples above — copy one from the [gallery](https://unitpost.com/templates/gallery) or `getSampleTemplate`.
+[Prop tables, live previews and React code for each one](https://unitpost.com/components).
 
-<p align="center">
-  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/receipt.png" width="48%" alt="Payment receipt" /></a>
-  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/product-announcement.png" width="48%" alt="Product announcement" /></a>
-</p>
-<p align="center">
-  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/newsletter.png" width="48%" alt="Newsletter" /></a>
-</p>
-
-```ts
-import { getSampleTemplate, renderToHtml, resolveVariables } from "@unitpost/email";
-
-const welcome = getSampleTemplate("welcome")!;
-const { values } = resolveVariables(welcome.design, { first_name: "Ada", product_name: "Northwind" });
-const html = renderToHtml(welcome.design, values);
-```
-
-| Transactional | Marketing |
+| Group | Components |
 | --- | --- |
-| [welcome](https://unitpost.com/templates/gallery) · [email-verification](https://unitpost.com/templates/gallery) · [magic-link](https://unitpost.com/templates/gallery) · [password-reset](https://unitpost.com/templates/gallery) · [receipt](https://unitpost.com/templates/gallery) · [invoice](https://unitpost.com/templates/gallery) · [team-invite](https://unitpost.com/templates/gallery) · [shipping-confirmation](https://unitpost.com/templates/gallery) · [subscription-renewal](https://unitpost.com/templates/gallery) · [trial-ending](https://unitpost.com/templates/gallery) · [security-alert](https://unitpost.com/templates/gallery) · [comment-mention](https://unitpost.com/templates/gallery) | [newsletter](https://unitpost.com/templates/gallery) · [july-newsletter](https://unitpost.com/templates/gallery) · [product-announcement](https://unitpost.com/templates/gallery) · [event-invite](https://unitpost.com/templates/gallery) · [discount-offer](https://unitpost.com/templates/gallery) · [re-engagement](https://unitpost.com/templates/gallery) · [feedback-survey](https://unitpost.com/templates/gallery) · [waitlist-invite](https://unitpost.com/templates/gallery) · [abandoned-cart](https://unitpost.com/templates/gallery) · [case-study](https://unitpost.com/templates/gallery) · [webinar-recap](https://unitpost.com/templates/gallery) · [referral](https://unitpost.com/templates/gallery) |
+| **Layout** | [`Section`](https://unitpost.com/components#section) · [`Row`](https://unitpost.com/components#row) · [`Column`](https://unitpost.com/components#column) |
+| **Content** | [`Heading`](https://unitpost.com/components#heading) · [`Text`](https://unitpost.com/components#text) · [`List`](https://unitpost.com/components#list) · [`Divider`](https://unitpost.com/components#divider) · [`Spacer`](https://unitpost.com/components#spacer) · [`Markdown`](https://unitpost.com/components#markdown) · [`Code`](https://unitpost.com/components#code) |
+| **Media** | [`Image`](https://unitpost.com/components#image) |
+| **Interactive** | [`Button`](https://unitpost.com/components#button) · [`Link`](https://unitpost.com/components#link) |
+| **Advanced** | [`Html`](https://unitpost.com/components#html) (sanitized) |
+
+Every component also takes the [common props](https://unitpost.com/components#common-props): spacing, alignment, Tailwind-style `className`, and `customCss`. Both compile to inline CSS. The renderer adds the document shell (`<html>`, `<head>`, preheader, the centered body), so there's no component for it.
 
 ---
 
 ## Layouts
 
-Pre-built bands you drop in, then edit. Live preview + TSX for each one: **[all layouts](https://unitpost.com/components#layouts)**.
-
-```ts
-import { getSectionLayout, printFragmentTsx } from "@unitpost/email";
-
-const hero = getSectionLayout("hero-simple")!;
-const tsx = printFragmentTsx(hero.build());
-```
+Ready-made sections built from the components: headers, heroes, cards, columns, calls to action, footers. Each one has a live preview and React code you can copy: **[all layouts](https://unitpost.com/components#layouts)**.
 
 | Group | Layouts |
 | --- | --- |
@@ -115,23 +137,35 @@ const tsx = printFragmentTsx(hero.build());
 | **[Call to action](https://unitpost.com/components#layouts-call-to-action)** | [CTA band](https://unitpost.com/components#layout-cta-band) · [Centered CTA](https://unitpost.com/components#layout-cta-centered) |
 | **[Footer](https://unitpost.com/components#layouts-footer)** | [Simple footer](https://unitpost.com/components#layout-footer-simple) · [Rich footer](https://unitpost.com/components#layout-footer-rich) · [Footer + apps](https://unitpost.com/components#layout-footer-social) |
 
-Footer bands are chrome only (logo, nav, a reply line). If you send marketing mail, add your own unsubscribe copy and postal address.
+Footer layouts don't include an unsubscribe link or postal address. Add your own if you send marketing email.
 
 ---
 
-## Components
+## Examples
 
-[Full prop tables and live previews](https://unitpost.com/components).
+Full emails built with the same components. Preview and copy them from the [template gallery](https://unitpost.com/templates/gallery).
 
-| Group | Components |
+<p align="center">
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/receipt.png" width="48%" alt="Payment receipt" /></a>
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/product-announcement.png" width="48%" alt="Product announcement" /></a>
+</p>
+<p align="center">
+  <a href="https://unitpost.com/templates/gallery"><img src="https://raw.githubusercontent.com/unitpostcom/email/main/docs/examples/newsletter.png" width="48%" alt="Newsletter" /></a>
+</p>
+
+They ship in the package too:
+
+```ts
+import { getSampleTemplate, renderToHtml, resolveVariables } from "@unitpost/email";
+
+const welcome = getSampleTemplate("welcome")!;
+const { values } = resolveVariables(welcome.design, { first_name: "Ada", product_name: "Acme" });
+const html = renderToHtml(welcome.design, values);
+```
+
+| Transactional | Marketing |
 | --- | --- |
-| **Layout** | [`Section`](https://unitpost.com/components#section) · [`Row`](https://unitpost.com/components#row) · [`Column`](https://unitpost.com/components#column) |
-| **Content** | [`Heading`](https://unitpost.com/components#heading) · [`Text`](https://unitpost.com/components#text) · [`Divider`](https://unitpost.com/components#divider) · [`Spacer`](https://unitpost.com/components#spacer) · [`Markdown`](https://unitpost.com/components#markdown) · [`Code`](https://unitpost.com/components#code) |
-| **Media** | [`Image`](https://unitpost.com/components#image) |
-| **Interactive** | [`Button`](https://unitpost.com/components#button) · [`Link`](https://unitpost.com/components#link) |
-| **Advanced** | [`Html`](https://unitpost.com/components#html) (sanitized) |
-
-Every block accepts [common props](https://unitpost.com/components#common-props) (spacing, alignment, Tailwind-style `className` or CSS via `custom-css` — both compile to inline CSS). Document chrome (`<html>`, `<head>`, preheader, the centered paper) is the renderer’s job — not missing components.
+| welcome · email-verification · magic-link · password-reset · receipt · invoice · team-invite · shipping-confirmation · subscription-renewal · trial-ending · security-alert · comment-mention | newsletter · july-newsletter · product-announcement · event-invite · discount-offer · re-engagement · feedback-survey · waitlist-invite · abandoned-cart · case-study · webinar-recap · referral |
 
 ---
 
@@ -139,10 +173,10 @@ Every block accepts [common props](https://unitpost.com/components#common-props)
 
 | Area | Exports |
 | --- | --- |
-| Document | `EmailDocument`, `EmailDocumentSchema`, `parseDocument`, `migrateDocument`, `COMPONENT_DEFAULTS`, `STYLE_TOKENS`, `TEMPLATE_CATEGORIES` |
-| Rendering | `renderToHtml`, `resolveVariables`, `resolveVariablesWithContact`, `collectVariables`, `documentHasPerRecipientVariables` |
+| React (`@unitpost/email/react`) | `Section`, `Row`, `Column`, `Heading`, `Text`, `List`, `Button`, `Link`, `Image`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `render`, `fromJsx` |
+| Rendering | `renderToHtml`, `renderToText`, `resolveVariables`, `resolveVariablesWithContact`, `collectVariables`, `documentHasPerRecipientVariables` |
 | Codec | `parseTsx`, `printTsx`, `printFragmentTsx`, `TsxParseError` |
-| React (`@unitpost/email/react`) | `Section`, `Heading`, `Text`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render` |
+| Document | `EmailDocument`, `EmailDocumentSchema`, `parseDocument`, `migrateDocument`, `COMPONENT_DEFAULTS`, `STYLE_TOKENS`, `TEMPLATE_CATEGORIES` |
 | Catalog | `COMPONENT_CATALOG`, `COMPONENT_GROUPS`, `COMMON_PROPS`, `getComponentDoc`, `resolvePropDefault` |
 | Layouts | `SECTION_LAYOUTS`, `LAYOUT_GROUPS`, `getSectionLayout` |
 | Samples | `SAMPLE_TEMPLATES`, `getSampleTemplate` |

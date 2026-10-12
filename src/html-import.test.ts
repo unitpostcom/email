@@ -44,7 +44,7 @@ describe("detectHtmlLayoutWidth", () => {
     assert.equal(detectHtmlLayoutWidth(`<td style="width: 480px">x</td>`), 480);
   });
 
-  it("reads em / rem at 16px (react-email's Container is max-width:37.5em)", () => {
+  it("reads em / rem at 16px (a JSX framework's container is max-width:37.5em)", () => {
     assert.equal(detectHtmlLayoutWidth(`<table style="max-width:37.5em;width:100%"><tr><td>x</td></tr></table>`), 600);
     assert.equal(detectHtmlLayoutWidth(`<div style="max-width: 40rem">x</div>`), 640);
   });
@@ -61,7 +61,7 @@ describe("importedHtmlThemeOverrides: gutter only around a wrapped card", () => 
     assert.equal(importedHtmlThemeOverrides(`<table width="600"><tr><td>x</td></tr></table>`)?.contentWidth, 600);
   });
 
-  it("react-email's Container (the outermost table, max-width:37.5em) gets exactly 600", () => {
+  it("a 37.5em container from a JSX email framework (the outermost table) gets exactly 600", () => {
     const re = `<!DOCTYPE html><html><body style="background-color:#f6f9fc"><table align="center" width="100%" style="max-width:37.5em;background-color:#ffffff"><tbody><tr><td><table width="100%" style="padding:0 48px"><tbody><tr><td>Hi</td></tr></tbody></table></td></tr></tbody></table></body></html>`;
     const o = importedHtmlThemeOverrides(re);
     assert.equal(o?.contentWidth, 600);

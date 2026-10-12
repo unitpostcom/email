@@ -5,6 +5,7 @@ import {
   type Block,
   type ComponentFragment,
   type EmailDocument,
+  type ImageBlock,
   type InlineRun,
   type LeafBlock,
   type SectionChild,
@@ -225,6 +226,19 @@ function leafToText(block: LeafBlock, vars: Vars): string {
   }
 }
 
+// A Simple image is content the author pasted (a screenshot of a table, a
+// photo), not decoration, so it always leaves its own line: Gmail's
+// "[image: alt]", "[image]" when it has no alt, and the link it opens.
+function simpleImageText(block: ImageBlock, vars: Vars): string {
+  const alt = interpolate(block.alt, vars).replace(/\s+/g, " ").trim();
+  const target = block.href ? safeUrl(interpolate(block.href, vars)).trim() : "";
+  const link = target && target !== "#" ? target : "";
+  // An empty placeholder (no picture, no words, no link) leaves nothing.
+  if (!block.src.trim() && !alt && !link) return "";
+  const label = alt ? `[image: ${alt}]` : "[image]";
+  return link ? `${label} (${link})` : label;
+}
+
 function nodeToParts(block: Block | SectionChild, vars: Vars): string[] {
   if (block.type === "section") {
     return block.children.flatMap((child) => nodeToParts(child, vars));
@@ -258,9 +272,14 @@ export function renderToText(
   variables: Vars = {},
   options: TextRenderOptions = {},
 ): string {
-  const parts = doc.blocks.flatMap((block) => nodeToParts(block, variables));
+  const simple = doc.compositionMode === "simple";
+  const parts = doc.blocks.flatMap((block) =>
+    simple && block.type === "image"
+      ? [simpleImageText(block, variables)].filter(Boolean)
+      : nodeToParts(block, variables),
+  );
 
-  if (doc.compositionMode === "simple") {
+  if (simple) {
     // Simple: the footer is ONE line, mirroring the HTML fragment's single
     // muted line — a signature, not a footer block.
     const fv: Vars = { company_name: "", company_address: "", ...variables, ...(options.footerVars ?? {}) };

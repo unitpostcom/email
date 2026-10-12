@@ -38,7 +38,7 @@ function styleOf(tag: string): string {
 
 // The fixed widths each layout element (table, td, th, div, center) declares,
 // in document order: `width="640"`, `width:640px`, `max-width:640px`, and
-// em/rem at 16px (react-email's Container is `max-width:37.5em`). Images are
+// em/rem at 16px (JSX email frameworks emit a `max-width:37.5em` container). Images are
 // not layout (a 2x retina image's width attribute is not the email's width);
 // values outside 320–1200px are ignored. null for a tag with no fixed width.
 function layoutWidths(html: string): (number | null)[] {
