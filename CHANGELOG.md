@@ -2,9 +2,28 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
-## 0.2.0
+## 0.3.0
 
-Not on npm yet: publishes when this version reaches `main` (`publish-email.yml`). npm `latest` is still 0.1.5, which has no `@unitpost/email/react` entry.
+Not on npm yet: publishes when this version reaches `main` (`publish-email.yml`). 0.2.0 shipped the React entry; this release is the Simple-mode validator, the wider `text` format and a security fix.
+
+### Added
+
+- **Simple-mode validator** — `normalizeSimpleDocument(doc)` reduces a Simple document to what a Simple email can carry (lines, blank lines, bold/italic/underline/strike, colour, highlight, 13/18/24px sizes, font-menu fonts, links, lists, images, `{{variables}}`) and lists what it flattened or removed; `isNormalizedSimpleDocument`, `expandSimpleBlocks`, `snapSimpleTextSize`, `simpleFontStack`, `isSimpleColor`, `templateKind`, `SIMPLE_TEXT_SIZES`.
+- **`parseSimpleText(text)`** returns the Simple document plus `warnings`; the `text` format now also takes `<s>`, `<br>`, `<span style="color / background-color / font-size / font-family">`, `<div style="text-align:center|right">` around a line, and an `<img>` alone on a line. `SIMPLE_TEXT_GUIDE` states the whole format.
+- `cssValue(value)` — one CSS value made safe for a `style="…"` attribute.
+
+### Changed (breaking: rendered HTML differs for the documents below)
+
+- Simple emails: a document holding blocks the Simple fragment can't draw (a section, row, button, spacer, Markdown / code / HTML block) renders their lines instead of dropping them — such a document used to send an empty body.
+- `textToSimpleDocument`: unsupported HTML tags and TSX components used as markup — paired (`<p>…</p>`, an opening tag with its closing tag later), self-closing or void — are removed (their text kept) instead of staying as literal text; a lone mention ("the `<p>` tag") stays as written; attribute values are entity-decoded once (`?a=1&amp;b=2`); lists carry no margin.
+- `simplifyEmailDocument` ends with `normalizeSimpleDocument`: headings become bold Large/Huge lines.
+- `resolveVariablesWithContact`: an undeclared built-in contact field (`{{first_name}}`, `{{last_name}}`, `{{email}}`, …) resolves from the contact; `documentHasPerRecipientVariables` counts it.
+
+### Fixed
+
+- **Style attribute injection**: run colour / highlight / font, block `customCss` and theme colour / font values were interpolated raw into `style="…"`, so a value like `red" onmouseover="…` added an attribute. Every value now passes `cssValue` (`customCss`: the same characters minus `;`).
+
+## 0.2.0 — 2026-10-12
 
 ### Added
 

@@ -36,14 +36,28 @@ export function renderText(
   return escapeHtml(interpolate(input, variables));
 }
 
+// One CSS property VALUE, safe to place inside a double-quoted style="…"
+// attribute. Author-controlled values (a run's colour / font / highlight) used
+// to be emitted raw, so `red" onmouseover="…` broke out of the attribute and
+// added an event handler to the sent email — past sanitizeDesignHtml, which
+// only cleans html blocks (found 2026-10-13). Drops the characters that can
+// end the attribute or open markup (" < >), add another declaration or rule
+// (; { }), or hide either behind a CSS escape (\). No real colour, size or
+// font stack needs them (font stacks quote with ').
+export function cssValue(value: string | number): string {
+  return String(value).replace(/["<>;{}\\]/g, "").trim();
+}
+
 // Turn a style object into an inline style attribute value. Skips
-// null/undefined so callers can pass conditional properties.
+// null/undefined so callers can pass conditional properties. Every value goes
+// through cssValue.
 export function inlineStyle(
   styles: Record<string, string | number | undefined | null>,
 ): string {
   return Object.entries(styles)
     .filter(([, v]) => v !== undefined && v !== null && v !== "")
-    .map(([k, v]) => `${k}:${v}`)
+    .map(([k, v]) => `${k}:${cssValue(v as string | number)}`)
+    .filter((decl) => !decl.endsWith(":"))
     .join(";");
 }
 

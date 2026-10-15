@@ -263,3 +263,36 @@ test("scan/render parity: every interpolated field is seen by collectVariables",
   const planted = ["t_preview","t_text","t_text_run","t_text_link","t_heading","t_heading_link","t_list_text","t_list_run","t_list_link","t_button_text","t_button_href","t_link_text","t_link_href","t_image_src","t_image_alt","t_image_href","t_code","t_html","t_markdown","t_section_text","t_section_list","t_row_text"];
   for (const name of planted) assert.ok(referenced.includes(name), `scan missed ${name}`);
 });
+
+// 2026-10-13 audit: templates written by Ask Unit, the public API / MCP, or
+// typed (not picked from the {{ menu) carry NO variable declarations. A
+// built-in contact field can only ever mean the contact's own field, so an
+// undeclared {{first_name}} must resolve from the recipient's contact instead
+// of failing every live send.
+test("an UNDECLARED built-in contact field resolves from the contact", () => {
+  const doc = parseDocument({
+    blocks: [{ type: "text", id: "t", text: "Hi {{first_name}} {{last_name}} ({{email}})" }],
+  });
+  assert.deepEqual(doc.variables, []);
+  const { values, missing } = resolveVariablesWithContact(
+    doc,
+    {},
+    { first_name: "Ann", last_name: "Lee", email: "ann@example.com" },
+    {},
+    ["Welcome, {{first_name}}"],
+  );
+  assert.deepEqual(missing, []);
+  assert.deepEqual(values, { first_name: "Ann", last_name: "Lee", email: "ann@example.com" });
+});
+
+test("an undeclared built-in with no contact value is still missing (fails closed), and a campaign default fills it", () => {
+  const doc = parseDocument({ blocks: [{ type: "text", id: "t", text: "Hi {{first_name}}" }] });
+  assert.deepEqual(resolveVariablesWithContact(doc, {}, {}).missing, ["first_name"]);
+  assert.deepEqual(resolveVariablesWithContact(doc, {}, { first_name: "" }).missing, ["first_name"]);
+  assert.deepEqual(resolveVariablesWithContact(doc, {}, {}, { first_name: "there" }).values, { first_name: "there" });
+});
+
+test("an undeclared CUSTOM token is not read from the contact (only built-ins are implicit)", () => {
+  const doc = parseDocument({ blocks: [{ type: "text", id: "t", text: "Your plan: {{plan}}" }] });
+  assert.deepEqual(resolveVariablesWithContact(doc, {}, { plan: "Pro" }).missing, ["plan"]);
+});

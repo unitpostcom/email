@@ -30,9 +30,10 @@
 //     a newsletter author pastes screenshots into plain, reads-as-text mail).
 
 import type { Block, EmailDocument, HeadingBlock, ImageBlock, InlineRun, ListBlock, TextBlock } from "./schema";
-import { escapeHtml, interpolate, renderText } from "./util";
+import { cssValue, escapeHtml, inlineStyle, interpolate, renderText } from "./util";
 import { safeUrl } from "./sanitize";
 import { resolveImageSrc } from "./library-image-url";
+import { expandSimpleBlocks } from "./simple";
 
 export type SimpleRenderOptions = {
   variables?: Record<string, string>;
@@ -72,14 +73,14 @@ export function renderSimpleRuns(runs: InlineRun[], variables: Record<string, st
       if (m.strike) html = `<strike>${html}</strike>`;
       // Only what the author explicitly set — the client supplies the rest.
       // Gmail emits font-family / color / size on a <span> exactly like this.
-      const style = [
-        m.fontFamily ? `font-family:${m.fontFamily}` : null,
-        m.color ? `color:${m.color}` : null,
-        m.background ? `background-color:${m.background}` : null,
-        m.fontSize ? `font-size:${m.fontSize}px` : null,
-      ]
-        .filter(Boolean)
-        .join(";");
+      // Values are author-controlled: cssValue keeps them inside the
+      // attribute (inlineStyle runs every value through it).
+      const style = inlineStyle({
+        "font-family": m.fontFamily,
+        color: m.color,
+        "background-color": m.background,
+        "font-size": m.fontSize ? `${m.fontSize}px` : undefined,
+      });
       if (m.link) {
         const href = escapeHtml(safeUrl(interpolate(m.link, variables)));
         html = `<a href="${href}" target="_blank"${style ? ` style="${style}"` : ""}>${html}</a>`;
@@ -98,7 +99,7 @@ function lineStyle(block: TextBlock | HeadingBlock): string {
   if (block.align && block.align !== "left") parts.push(`text-align:${block.align}`);
   // Explicit author styling only — a default text colour / size is the
   // client's business, exactly like Gmail leaves them off.
-  if (block.color) parts.push(`color:${block.color}`);
+  if (block.color && cssValue(block.color)) parts.push(`color:${cssValue(block.color)}`);
   return parts.join(";");
 }
 
@@ -221,8 +222,8 @@ function renderSimpleBlock(block: Block, variables: Record<string, string>, asse
       // honest equivalent and still reads as text.
       return `<div><hr style="border:none;border-top:1px solid #cccccc;margin:8px 0"></div>`;
     default: {
-      // Anything structural should have been flattened by simplifyEmailDocument.
-      // Never emit layout: fall back to the block's text, or nothing.
+      // Unreachable for documents passed through expandSimpleBlocks. Never emit
+      // layout: fall back to the block's text, or nothing.
       const text = "text" in block && typeof (block as { text?: unknown }).text === "string" ? (block as { text: string }).text : "";
       return text.trim() ? `<div>${renderText(text, variables)}</div>` : "";
     }
@@ -267,7 +268,12 @@ function footerLine(opts: SimpleRenderOptions, variables: Record<string, string>
  */
 export function renderSimpleHtml(doc: EmailDocument, options: SimpleRenderOptions = {}): string {
   const variables = options.variables ?? {};
-  const body = doc.blocks.map((b) => renderSimpleBlock(b, variables, options.assetBaseUrl)).filter(Boolean).join("");
+  // A Simple document can still hold blocks this fragment can't draw (a
+  // <Section> written by an agent, a document saved before the validator).
+  // Expand them to lines rather than dropping them: on 2026-10-13 a Simple
+  // template whose copy sat inside one <Section> sent as an EMPTY email.
+  const blocks = expandSimpleBlocks(doc.blocks);
+  const body = blocks.map((b) => renderSimpleBlock(b, variables, options.assetBaseUrl)).filter(Boolean).join("");
   return `<div dir="ltr">${body}${footerLine(options, variables)}</div>`;
 }
 

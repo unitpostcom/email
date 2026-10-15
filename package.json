@@ -1,6 +1,6 @@
 {
   "name": "@unitpost/email",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Email component library that works in Outlook, Gmail, and Apple Mail.",
   "license": "MIT",
   "homepage": "https://unitpost.com/email",
@@ -31,7 +31,8 @@
     ".": "./src/index.ts",
     "./internal": "./src/index.ts",
     "./react": "./src/react.ts",
-    "./brand-mark": "./src/brand-mark.ts"
+    "./brand-mark": "./src/brand-mark.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "files": [
     "dist",

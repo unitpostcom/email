@@ -3,7 +3,6 @@ import { describe, test } from "node:test";
 
 import {
   EmailDocumentSchema,
-  POWERED_BY_SENTINEL,
   appendPoweredBy,
   appendPoweredByText,
   emptyDocument,
@@ -12,6 +11,13 @@ import {
   renderToText,
 } from "./index";
 import { SIMPLE_EMAIL_THEME } from "./simple";
+import {
+  assertNoMark,
+  assertPill,
+  assertSimpleLine,
+  assertTextMark,
+  brandMarkCount,
+} from "./testing";
 
 // ===========================================================================
 // THE BRANDING CONTRACT, for every kind of email we send (2026-10-09).
@@ -69,46 +75,8 @@ function engineRawSend(input: { html?: string; text?: string }, show: boolean) {
   return { html, text: text ?? (html ? htmlToPlainText(html) : undefined) };
 }
 
-const marks = (s: string) => (s.match(/Sent with/g) ?? []).length;
+const marks = brandMarkCount;
 const lastLine = (s: string) => s.trim().split("\n").filter((l) => l.trim()).pop() ?? "";
-
-function assertNoMark(html: string | undefined, text: string | undefined, name: string) {
-  for (const [part, s] of [["html", html], ["text", text]] as const) {
-    if (s === undefined) continue;
-    assert.equal(marks(s), 0, `${name} ${part}: no mark when branding is removed`);
-    assert.ok(!s.includes(POWERED_BY_SENTINEL), `${name} ${part}: no branding link`);
-    assert.ok(!s.includes("web-app-manifest-192x192.png"), `${name} ${part}: no logo`);
-  }
-}
-
-function assertTextMark(text: string, name: string) {
-  assert.equal(marks(text), 1, `${name} text: exactly one mark`);
-  assert.match(lastLine(text), /Sent with Unitpost$/, `${name} text: the mark ends the email`);
-  assert.doesNotMatch(text, /unitpost\.com|unitpo\.st|https?:\/\/[^\s]*utm_/i, `${name} text: no printed link of ours`);
-  assert.doesNotMatch(text, /Powered by/, `${name} text: never "Powered by"`);
-}
-
-function assertPill(html: string, name: string) {
-  assert.equal(marks(html), 1, `${name} html: exactly one mark`);
-  assert.doesNotMatch(html, /Powered by/, `${name} html: never "Powered by"`);
-  const link = html.match(new RegExp(`<a [^>]*href="[^"]*${POWERED_BY_SENTINEL}[^"]*"[^>]*>([\\s\\S]*?)</a>`));
-  assert.ok(link, `${name} html: the mark is ONE embedded link`);
-  assert.match(link![1]!, /Sent with/, `${name} html: link carries "Sent with"`);
-  assert.match(link![1]!, /web-app-manifest-192x192\.png/, `${name} html: pill has the logo`);
-  assert.match(link![1]!, />Unitpost</, `${name} html: and the wordmark`);
-  assert.ok(html.indexOf("BODY-MARKER") < html.indexOf("Sent with"), `${name} html: mark after the body`);
-}
-
-function assertSimpleLine(html: string, name: string) {
-  assert.equal(marks(html), 1, `${name} html: exactly one mark`);
-  assert.doesNotMatch(html, /<table|<img|Powered by/, `${name} html: a text line, not the pill`);
-  assert.match(
-    html,
-    new RegExp(`Sent with <a href="[^"]*${POWERED_BY_SENTINEL}[^"]*"[^>]*style="color:#888888;text-decoration:underline"`),
-    `${name} html: "Unitpost" is a grey underlined embedded link`,
-  );
-  assert.doesNotMatch(html, /#ffffff/i, `${name} html: never white-on-white`);
-}
 
 describe("branding contract: templates (designed / Code / Simple × category × branding)", () => {
   for (const shape of ["designed", "code", "simple"] as const) {

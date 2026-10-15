@@ -21,8 +21,8 @@ import type {
   TextBlock,
   Theme,
 } from "./schema";
-import { STYLE_TOKENS } from "./schema";
-import { escapeHtml, inlineStyle, interpolate, renderText, renderInlineRuns } from "./util";
+import { STYLE_TOKENS, isBuiltInContactField } from "./schema";
+import { cssValue, escapeHtml, inlineStyle, interpolate, renderText, renderInlineRuns } from "./util";
 import { sanitizeEmailHtml, safeUrl, safeImageUrl } from "./sanitize";
 import { compileClasses, rulesToCss, type CssRule } from "./tw-compile";
 import { resolveImageSrc } from "./library-image-url";
@@ -169,9 +169,13 @@ function composeStyle(
 
 // Append a block's customCss declarations to a base style string so user CSS
 // wins (it comes last). Tolerates declarations with or without a trailing ';'.
+// The declarations stay inside the style="…" attribute: characters that end it
+// or open markup (" < >), open a rule ({ }) or hide one (\) are dropped —
+// `color:red" onmouseover="…` used to add an event handler (2026-10-13).
 function withCustom(base: string, customCss?: string): string {
   if (!customCss || !customCss.trim()) return base;
-  const extra = customCss.trim().replace(/;?\s*$/, "");
+  const extra = customCss.replace(/["<>{}\\]/g, "").trim().replace(/;?\s*$/, "");
+  if (!extra) return base;
   return base ? `${base};${extra}` : extra;
 }
 
@@ -638,7 +642,7 @@ function compileInline(escaped: string, theme: Theme): string {
       .replace(
         /\[([^\]]+)\]\(([^)\s]+)\)/g,
         (_m, text: string, href: string) =>
-          `<a href="${safeUrl(href)}" target="_blank" style="color:${theme.linkColor};text-decoration:underline;">${text}</a>`,
+          `<a href="${safeUrl(href)}" target="_blank" style="color:${cssValue(theme.linkColor)};text-decoration:underline;">${text}</a>`,
       )
       // bold **text**
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -918,7 +922,7 @@ function defaultFooterHtml(theme: Theme, vars: Vars): string {
     address && !/^\{\{/.test(address) ? `<br />${escapeHtml(address)}` : "";
   const unsubUrl = safeUrl(interpolate("{{unsubscribe_url}}", vars));
   return [
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:24px;text-align:center;font-family:${theme.fontFamily};font-size:12px;color:#9ca3af;line-height:1.5;">`,
+    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:24px;text-align:center;font-family:${cssValue(theme.fontFamily)};font-size:12px;color:#9ca3af;line-height:1.5;">`,
     `You are receiving this email because you opted in. `,
     `<a href="${escapeHtml(unsubUrl)}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>.`,
     addressLine,
@@ -1170,7 +1174,7 @@ export function renderToHtml(
     `</head>`,
     `<body style="${outerStyle}">`,
     previewSpan(doc.previewText, variables),
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:${theme.backgroundColor};">`,
+    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:${cssValue(theme.backgroundColor)};">`,
     `<tr><td align="center" style="padding:24px 0;">`,
     // The body "paper": the max-width, background-colored card. Two rows:
     //   1. the body content, padded by the theme's body padding;
@@ -1382,7 +1386,15 @@ export function resolveVariablesWithContact(
       values[name] = String(provided[name]);
       continue;
     }
-    const decl = declared.get(name);
+    // A built-in contact field ({{first_name}}, {{last_name}}, {{email}}, …)
+    // only ever means the contact's own field (VariableSchema forces
+    // `source: "contact"` on a declared one), so an UNDECLARED reference reads
+    // the contact too. Templates written by Ask Unit, the public API / MCP, or
+    // typed rather than picked carry no declarations at all — before this
+    // their "Hi {{first_name}}" failed every live send (2026-10-13 audit).
+    const decl =
+      declared.get(name) ??
+      (isBuiltInContactField(name) ? { source: "contact" as const, contactField: name } : undefined);
     // 2. Contact source → pull from the recipient's flattened contact data
     //    (custom-field workspace defaults are already merged in upstream).
     if (decl?.source === "contact") {
@@ -1417,6 +1429,9 @@ export function documentHasPerRecipientVariables(doc: EmailDocument): boolean {
     (v) => v.source === "contact" && referenced.has(v.name),
   );
   if (contactScoped) return true;
+  // An undeclared built-in contact field resolves from the contact too
+  // (resolveVariablesWithContact), so it personalizes per recipient.
+  if ([...referenced].some((name) => isBuiltInContactField(name))) return true;
   // Marketing footer injects a per-recipient {{unsubscribe_url}}.
   return needsUnsubscribeFooter(doc);
 }

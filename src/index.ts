@@ -39,6 +39,13 @@ export {
   widenThemeToFit,
   MAX_IMPORTED_WIDTH,
 } from "./html-import";
-export { textToSimpleDocument, parseSimpleInline, type SimpleTextOptions } from "./simple-text";
+export {
+  textToSimpleDocument,
+  parseSimpleText,
+  parseSimpleInline,
+  SIMPLE_TEXT_GUIDE,
+  type SimpleTextOptions,
+  type SimpleTextResult,
+} from "./simple-text";
 export { SIMPLE_EMAIL_MAX_CHARS } from "./simple";
 export { hasPoweredByMark, hasPoweredByText, appendPoweredByText, POWERED_BY_SENTINEL, POWERED_BY_TEXT } from "./render";

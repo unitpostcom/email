@@ -72,13 +72,16 @@ test("simplifying preserves readable content, variables, and links", () => {
   assert.equal(simple.previewText, "A useful preview");
   assert.deepEqual(simple.variables, designed.variables);
   // Former blocks are separated by a blank line (the composer's spacing unit
-  // replaces the designed margins): heading, blank, link, blank, image.
+  // replaces the designed margins): title, blank, link, blank, image.
   // (Until 2026-10-12 the image was flattened to an alt-text line; Simple now
-  // keeps images — see render-simple.ts.)
+  // keeps images — see render-simple.ts. Since 2026-10-13 the heading becomes
+  // a bold Large/Huge line: Simple has no headings — normalizeSimpleDocument.)
   assert.deepEqual(
     simple.blocks.map((block) => block.type),
-    ["heading", "text", "text", "text", "image"],
+    ["text", "text", "text", "text", "image"],
   );
+  const title = simple.blocks[0];
+  assert.ok(title?.type === "text" && title.content?.every((run) => run.marks?.bold));
   const image = simple.blocks[4];
   assert.equal(image?.type === "image" ? image.src : null, "https://example.com/hero.png");
   assert.equal(image?.type === "image" ? image.alt : null, "Product preview");
@@ -343,7 +346,9 @@ test("an indent (left padding) survives Design → Simple and does not trigger t
   const [a, , b, , h] = simple.blocks;
   assert.equal(a!.type === "text" && a.padding, undefined);
   assert.deepEqual(b!.type === "text" ? b.padding : null, { left: 80 });
-  assert.deepEqual(h!.type === "heading" ? h.padding : null, { left: 40 });
+  // A heading becomes a bold Large line (Simple has no headings) — indent kept.
+  assert.deepEqual(h!.type === "text" ? h.padding : null, { left: 40 });
+  assert.deepEqual(h!.type === "text" ? h.content : null, [{ text: "Title", marks: { bold: true, fontSize: 18 } }]);
   // Rendered HTML carries the indent as padding on the line.
   const html = renderToHtml(simple, {}, { showPoweredBy: false });
   // Gmail expresses indent as margin-left in 40px steps.
