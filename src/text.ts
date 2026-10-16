@@ -19,7 +19,14 @@ export type TextRenderOptions = {
   marketingFooter?: ComponentFragment;
   footerVars?: Record<string, string>;
   showPoweredBy?: boolean;
+  // false: body links print their label only, never the URL (our own system
+  // emails). "action": the same, except a button prints "Label: url" on one
+  // line, for an email whose one action is that link (a team invite). The
+  // marketing footer and the powered-by line are unaffected.
+  links?: TextLinks;
 };
+
+export type TextLinks = boolean | "action";
 
 function decodeEntities(value: string): string {
   const decodeCodePoint = (raw: string, radix: 10 | 16): string => {
@@ -148,10 +155,11 @@ export function htmlToPlainText(input: string): string {
   );
 }
 
-function inlineRunsToText(runs: InlineRun[], vars: Vars): string {
+function inlineRunsToText(runs: InlineRun[], vars: Vars, links: TextLinks): string {
   return runs
     .map((run) => {
       const label = interpolate(run.text, vars);
+      if (links !== true) return label;
       const href = run.marks?.link
         ? safeUrl(interpolate(run.marks.link, vars)).trim()
         : "";
@@ -161,10 +169,10 @@ function inlineRunsToText(runs: InlineRun[], vars: Vars): string {
     .join("");
 }
 
-function markdownToText(markdown: string): string {
+function markdownToText(markdown: string, links: TextLinks): string {
   return cleanLines(
     markdown
-      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "$1 ($2)")
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, links === true ? "$1 ($2)" : "$1")
       .replace(/^\s{0,3}#{1,6}\s+/gm, "")
       .replace(/^\s*[-*+]\s+/gm, "• ")
       .replace(/^\s*(\d+)\.\s+/gm, "$1. ")
@@ -174,30 +182,33 @@ function markdownToText(markdown: string): string {
   );
 }
 
-function leafToText(block: LeafBlock, vars: Vars): string {
+function leafToText(block: LeafBlock, vars: Vars, links: TextLinks): string {
   switch (block.type) {
     case "text":
     case "heading":
       return block.content?.length
-        ? inlineRunsToText(block.content, vars)
+        ? inlineRunsToText(block.content, vars, links)
         : interpolate(block.text, vars);
     case "list":
       return block.items
         .map((item, i) => {
           const line = item.content?.length
-            ? inlineRunsToText(item.content, vars)
+            ? inlineRunsToText(item.content, vars, links)
             : interpolate(item.text, vars);
           return `${block.ordered ? `${i + 1}.` : "•"} ${line}`;
         })
         .join("\n");
     case "button": {
       const label = interpolate(block.text, vars).trim();
+      if (links === false) return label;
       const href = safeUrl(interpolate(block.href, vars)).trim();
       if (!href || href === "#" || href === label) return label || href;
+      if (links === "action") return label ? `${label}: ${href}` : href;
       return label ? `${label}\n${href}` : href;
     }
     case "link": {
       const label = interpolate(block.text, vars).trim();
+      if (links !== true) return label;
       const href = safeUrl(interpolate(block.href, vars)).trim();
       if (!href || href === "#" || href === label) return label || href;
       return label ? `${label} (${href})` : href;
@@ -207,6 +218,7 @@ function leafToText(block: LeafBlock, vars: Vars): string {
       // so a designed image and a raw <img> read identically in text/plain.
       const alt = interpolate(block.alt, vars).replace(/\s+/g, " ").trim();
       const label = alt ? `[image: ${alt}]` : "";
+      if (links !== true) return label;
       const target = block.href
         ? safeUrl(interpolate(block.href, vars)).trim()
         : "";
@@ -218,7 +230,7 @@ function leafToText(block: LeafBlock, vars: Vars): string {
     case "spacer":
       return "";
     case "markdown":
-      return markdownToText(interpolate(block.markdown, vars));
+      return markdownToText(interpolate(block.markdown, vars), links);
     case "code":
       return interpolate(block.code, vars);
     case "html":
@@ -229,26 +241,30 @@ function leafToText(block: LeafBlock, vars: Vars): string {
 // A Simple image is content the author pasted (a screenshot of a table, a
 // photo), not decoration, so it always leaves its own line: Gmail's
 // "[image: alt]", "[image]" when it has no alt, and the link it opens.
-function simpleImageText(block: ImageBlock, vars: Vars): string {
+function simpleImageText(block: ImageBlock, vars: Vars, links: TextLinks): string {
   const alt = interpolate(block.alt, vars).replace(/\s+/g, " ").trim();
   const target = block.href ? safeUrl(interpolate(block.href, vars)).trim() : "";
-  const link = target && target !== "#" ? target : "";
+  const link = links === true && target && target !== "#" ? target : "";
   // An empty placeholder (no picture, no words, no link) leaves nothing.
   if (!block.src.trim() && !alt && !link) return "";
   const label = alt ? `[image: ${alt}]` : "[image]";
   return link ? `${label} (${link})` : label;
 }
 
-function nodeToParts(block: Block | SectionChild, vars: Vars): string[] {
+function nodeToParts(
+  block: Block | SectionChild,
+  vars: Vars,
+  links: TextLinks = true,
+): string[] {
   if (block.type === "section") {
-    return block.children.flatMap((child) => nodeToParts(child, vars));
+    return block.children.flatMap((child) => nodeToParts(child, vars, links));
   }
   if (block.type === "row") {
     return block.columns.flatMap((column) =>
-      column.children.flatMap((child) => nodeToParts(child, vars)),
+      column.children.flatMap((child) => nodeToParts(child, vars, links)),
     );
   }
-  const text = cleanLines(leafToText(block, vars));
+  const text = cleanLines(leafToText(block, vars, links));
   return text ? [text] : [];
 }
 
@@ -264,8 +280,9 @@ function fragmentToText(
 /**
  * Render the same versioned document used for HTML into its deterministic
  * text/plain MIME alternative. Formatting is removed, link destinations are
- * retained, variables use the same resolved bag, and marketing compliance is
- * appended from the same footer fragment/variables as the HTML renderer.
+ * retained (unless `links: false`), variables use the same resolved bag, and
+ * marketing compliance is appended from the same footer fragment/variables as
+ * the HTML renderer.
  */
 export function renderToText(
   doc: EmailDocument,
@@ -273,10 +290,11 @@ export function renderToText(
   options: TextRenderOptions = {},
 ): string {
   const simple = doc.compositionMode === "simple";
+  const links = options.links ?? true;
   const parts = doc.blocks.flatMap((block) =>
     simple && block.type === "image"
-      ? [simpleImageText(block, variables)].filter(Boolean)
-      : nodeToParts(block, variables),
+      ? [simpleImageText(block, variables, links)].filter(Boolean)
+      : nodeToParts(block, variables, links),
   );
 
   if (simple) {

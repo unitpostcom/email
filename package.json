@@ -49,7 +49,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "email:check": "npm run typecheck && npm run test",
-    "test": "node --import tsx --test $(find src -name '*.test.ts')",
+    "test": "node --import tsx ../../tools/node-test.mjs",
     "preview": "tsx scripts/preview.ts",
     "prepublishOnly": "npm run build"
   },

@@ -73,6 +73,10 @@ export type RenderOptions = {
   // contexts (the dashboard live preview) — the relative path resolves there.
   // Swapping the asset domain later is a one-env-var change (no template edits).
   assetBaseUrl?: string;
+  // Under each button, a small grey "Button not working?" line with the link
+  // to copy, for an email whose one action is that link (a team invite). Off
+  // by default; customer emails never set it.
+  buttonLinkFallback?: boolean;
 };
 
 type RenderCtx = {
@@ -85,6 +89,7 @@ type RenderCtx = {
   // Absolute asset CDN base for resolving relative library-image `src` paths
   // (`/img/{id}` → `${assetBaseUrl}/img/{id}`). "" leaves the path relative.
   assetBaseUrl: string;
+  buttonLinkFallback?: boolean;
   // Set ONLY while rendering the marketing-footer fragment: drop a text/link
   // block whose content resolves to "effectively empty" (blank or just
   // separator punctuation like `·`/`|`/`-`). This hides the compliance-footer
@@ -434,8 +439,29 @@ function renderButtonBlock(block: ButtonBlock, ctx: RenderCtx): string {
     `<tr><td style="${cellStyle}" align="center">`,
     `<a href="${href}" target="_blank" style="${linkStyle}">${renderText(block.text, ctx.vars)}</a>`,
     `</td></tr></table>`,
+    ctx.buttonLinkFallback && href && href !== "#" ? buttonLinkFallback(href, block.align, ctx) : "",
     `</div>`,
   ].join("");
+}
+
+// The copy-the-link line under a button whose link is the email's only
+// action: small and grey, never the client's default link blue.
+function buttonLinkFallback(href: string, align: string | undefined, ctx: RenderCtx): string {
+  const p = inlineStyle({
+    margin: "20px 0 0 0",
+    "font-size": "13px",
+    "line-height": "1.5",
+    color: "#71717a",
+    "text-align": align,
+    "font-family": ctx.theme.fontFamily,
+  });
+  const link = inlineStyle({
+    color: "#71717a",
+    "font-size": "12px",
+    "text-decoration": "none",
+    "word-break": "break-all",
+  });
+  return `<p style="${p}"><span style="font-weight:600;color:#52525b">Button not working?</span><br />Copy this link into your browser:<br /><a href="${href}" target="_blank" style="${link}">${href}</a></p>`;
 }
 
 function renderImageBlock(block: ImageBlock, ctx: RenderCtx): string {
@@ -1015,6 +1041,7 @@ export function renderToHtml(
     editor: options.editor ?? false,
     rules: [],
     assetBaseUrl: (options.assetBaseUrl ?? "").replace(/\/+$/, ""),
+    buttonLinkFallback: options.buttonLinkFallback === true,
   };
   const body = doc.blocks.map((b) => renderBlock(b, ctx)).join("\n");
 

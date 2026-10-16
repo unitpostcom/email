@@ -170,6 +170,91 @@ test("renderToText renders image blocks with the same placeholder convention", (
   );
 });
 
+// System emails render with links: false: every body link keeps its words and
+// drops its URL. The marketing footer and the powered-by line are untouched.
+const linkedDoc = parseDocument({
+  version: 5,
+  category: "transactional",
+  blocks: [
+    {
+      type: "text",
+      id: "body",
+      text: "Review your proposal",
+      content: [
+        { text: "Review your " },
+        { text: "proposal", marks: { link: "https://example.com/p/{{id}}" } },
+      ],
+    },
+    { type: "button", id: "button", text: "Open account", href: "https://example.com/account" },
+    { type: "button", id: "bare", text: "", href: "https://example.com/bare" },
+    { type: "link", id: "link", text: "Read the docs", href: "https://example.com/docs" },
+    { type: "image", id: "image", src: "https://cdn.example.com/x.png", alt: "Open", href: "https://example.com" },
+    { type: "markdown", id: "md", markdown: "Next: [Add a domain](https://example.com/domains)" },
+  ],
+});
+
+test("renderToText with links: false prints labels and no URLs", () => {
+  assert.equal(
+    renderToText(linkedDoc, { id: "p-42" }, { showPoweredBy: false, links: false }),
+    [
+      "Review your proposal",
+      "Open account",
+      "Read the docs",
+      "[image: Open]",
+      "Next: Add a domain",
+    ].join("\n\n"),
+  );
+});
+
+test('renderToText with links: "action" prints a button as one labeled line and no other URL', () => {
+  assert.equal(
+    renderToText(linkedDoc, { id: "p-42" }, { showPoweredBy: false, links: "action" }),
+    [
+      "Review your proposal",
+      "Open account: https://example.com/account",
+      "https://example.com/bare",
+      "Read the docs",
+      "[image: Open]",
+      "Next: Add a domain",
+    ].join("\n\n"),
+  );
+});
+
+test("renderToText keeps link destinations by default", () => {
+  const expected = [
+    "Review your proposal (https://example.com/p/p-42)",
+    "Open account\nhttps://example.com/account",
+    "https://example.com/bare",
+    "Read the docs (https://example.com/docs)",
+    "[image: Open] (https://example.com)",
+    "Next: Add a domain (https://example.com/domains)",
+  ].join("\n\n");
+  assert.equal(renderToText(linkedDoc, { id: "p-42" }, { showPoweredBy: false }), expected);
+  assert.equal(
+    renderToText(linkedDoc, { id: "p-42" }, { showPoweredBy: false, links: true }),
+    expected,
+  );
+});
+
+test("renderToText with links: false leaves the marketing footer and powered-by line as they are", () => {
+  const doc = parseDocument({
+    version: 5,
+    category: "marketing",
+    blocks: [{ type: "link", id: "body", text: "Shop", href: "https://example.com/shop" }],
+  });
+  const marketingFooter = ComponentFragmentSchema.parse({
+    blocks: [{ type: "link", id: "unsubscribe", text: "Unsubscribe", href: "{{unsubscribe_url}}" }],
+  });
+  const options = {
+    marketingFooter,
+    footerVars: { unsubscribe_url: "https://example.com/unsubscribe/token" },
+  };
+  const withLinks = renderToText(doc, {}, options);
+  const withoutLinks = renderToText(doc, {}, { ...options, links: false });
+  assert.equal(withoutLinks, withLinks.replace("Shop (https://example.com/shop)", "Shop"));
+  assert.match(withoutLinks, /Unsubscribe \(https:\/\/example\.com\/unsubscribe\/token\)/);
+});
+
 test("htmlToPlainText keeps visible content that merely mentions display", () => {
   // A style that is not actually hiding (opacity 0.9, max-height 0.5em) and
   // prose containing the word "hidden" must survive.

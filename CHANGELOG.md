@@ -11,6 +11,8 @@ Not on npm yet: publishes when this version reaches `main` (`publish-email.yml`)
 - **Simple-mode validator** — `normalizeSimpleDocument(doc)` reduces a Simple document to what a Simple email can carry (lines, blank lines, bold/italic/underline/strike, colour, highlight, 13/18/24px sizes, font-menu fonts, links, lists, images, `{{variables}}`) and lists what it flattened or removed; `isNormalizedSimpleDocument`, `expandSimpleBlocks`, `snapSimpleTextSize`, `simpleFontStack`, `isSimpleColor`, `templateKind`, `SIMPLE_TEXT_SIZES`.
 - **`parseSimpleText(text)`** returns the Simple document plus `warnings`; the `text` format now also takes `<s>`, `<br>`, `<span style="color / background-color / font-size / font-family">`, `<div style="text-align:center|right">` around a line, and an `<img>` alone on a line. `SIMPLE_TEXT_GUIDE` states the whole format.
 - `cssValue(value)` — one CSS value made safe for a `style="…"` attribute.
+- `renderToText` option `links`: `false` prints link labels without URLs; `"action"` does the same but prints a button as one `Label: url` line. Default `true` (unchanged).
+- `renderToHtml` option `buttonLinkFallback`: a small grey "Button not working? Copy this link into your browser:" line with the link under each button. Off by default.
 
 ### Changed (breaking: rendered HTML differs for the documents below)
 

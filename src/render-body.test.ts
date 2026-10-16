@@ -343,3 +343,18 @@ test("no preview text emits no preheader element at all", () => {
   const html = renderToHtml(marketingDoc(), {}, {});
   assert.doesNotMatch(html, /data-unitpost-preheader/);
 });
+
+test("buttonLinkFallback: a small grey copy-the-link line under each button, off by default", () => {
+  const doc = parseDocument({
+    version: 5,
+    category: "transactional",
+    blocks: [{ type: "button", id: "b", text: "Accept invitation", href: "https://app.example.com/invite/{{token}}" }],
+  });
+  const plain = renderToHtml(doc, { token: "t1" });
+  assert.doesNotMatch(plain, /Button not working\?/);
+  const html = renderToHtml(doc, { token: "t1" }, { buttonLinkFallback: true });
+  assert.match(
+    html,
+    /<span style="font-weight:600;color:#52525b">Button not working\?<\/span><br \/>Copy this link into your browser:<br \/><a href="https:\/\/app\.example\.com\/invite\/t1" target="_blank" style="color:#71717a;[^"]*">https:\/\/app\.example\.com\/invite\/t1<\/a>/,
+  );
+});
