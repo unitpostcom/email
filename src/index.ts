@@ -15,6 +15,7 @@ export * from "./public";
 export * from "./ops";
 export * from "./tiptap";
 export * from "./diagnostics";
+export { designRemovals } from "./design-diff";
 export {
   renderSimpleHtml,
   renderSimpleRuns,

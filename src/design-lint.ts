@@ -24,14 +24,16 @@ import type {
 import { STYLE_TOKENS } from "./schema";
 import { contrastRatio, readableTextOn, shadeToContrast } from "./color";
 import { CONDITIONAL_BG_RE, darkContrast, darkModeEnabled, darkPalette } from "./dark-mode";
-import { EMAIL_ASSETS_BASE } from "./email-assets";
+import { EMAIL_ASSETS_BASE, emailIconUrl, parseEmailIconUrl, type EmailIconName } from "./email-assets";
 
 export type DesignHintRule =
   | "no-heading"
   | "multiple-h1"
   | "no-action"
   | "too-many-buttons"
+  | "button-style"
   | "button-contrast"
+  | "icon-contrast"
   | "text-contrast"
   | "image-alt"
   | "placeholder-link"
@@ -60,6 +62,9 @@ export type DesignHint = {
   blockId: string | null;
 };
 
+// The stroke colour of our `ink` icons (render-email-assets.mts).
+const ICON_INK = "#18181b";
+
 const SELF_FILLING = new Set(["first_name", "last_name", "email", "company_name", "company_address", "unsubscribe_url"]);
 
 /** Ids of blocks (any depth) whose className carries a conditional background. */
@@ -81,17 +86,34 @@ function contrastSeverity(ratio: number | null, need: number): DesignHint["sever
 
 // ------------------------------------------------------------ walking --
 
-type Ctx = { bg: string; doc: EmailDocument };
+// `bgUnknown`: a container on the way down paints its background from
+// customCss or a bg- class, which this walk doesn't resolve, so `bg` may not
+// be what the reader sees (the icon check stays quiet then).
+type Ctx = { bg: string; doc: EmailDocument; bgUnknown?: boolean };
 type Visit = (block: LeafBlock, ctx: Ctx) => void;
 /** Section / Row / Column: what the lint reads off a container. */
-type Container = { id: string; customCss?: string; backgroundColor?: string };
+type Container = { id: string; customCss?: string; className?: string; backgroundColor?: string };
+
+/** A background set from customCss or a (possibly variant) bg- class. */
+function paintsCssBackground(b: { customCss?: string; className?: string }): boolean {
+  return /(^|;)\s*background(-color|-image)?\s*:/i.test(b.customCss ?? "") || /(^|\s)(?:[\w-]+:)*bg-/.test(b.className ?? "");
+}
+
+/** The context inside a container: its own colour, and whether CSS may override it. */
+function inside(ctx: Ctx, b: { backgroundColor?: string; customCss?: string; className?: string }): Ctx {
+  return {
+    ...ctx,
+    bg: b.backgroundColor || ctx.bg,
+    bgUnknown: paintsCssBackground(b) || (!b.backgroundColor && Boolean(ctx.bgUnknown)),
+  };
+}
 type ContainerVisit = (block: Container) => void;
 
 function walkChildren(children: SectionChild[], ctx: Ctx, visit: Visit, containers: ContainerVisit): void {
   for (const child of children) {
     if (child.type === "section") {
       containers(child);
-      walkChildren(child.children, { ...ctx, bg: child.backgroundColor || ctx.bg }, visit, containers);
+      walkChildren(child.children, inside(ctx, child), visit, containers);
     } else visit(child, ctx);
   }
 }
@@ -101,13 +123,14 @@ function walkBlocks(doc: EmailDocument, visit: Visit, containers: ContainerVisit
   for (const block of doc.blocks as Block[]) {
     if (block.type === "section") {
       containers(block);
-      walkChildren(block.children, { ...root, bg: block.backgroundColor || root.bg }, visit, containers);
+      walkChildren(block.children, inside(root, block), visit, containers);
     } else if (block.type === "row") {
       containers(block);
-      const rowBg = block.backgroundColor || root.bg;
+      const rowCtx = inside(root, block);
       for (const col of block.columns) {
         containers(col);
-        for (const leaf of col.children) visit(leaf, { ...root, bg: col.backgroundColor || rowBg });
+        const colCtx = inside(rowCtx, col);
+        for (const leaf of col.children) visit(leaf, colCtx);
       }
     } else visit(block as LeafBlock, root);
   }
@@ -241,6 +264,7 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
       }
       case "image":
         checkImage(b);
+        if (!ctx.bgUnknown && !paintsCssBackground(b)) checkIconOn(b, b.backgroundColor ?? ctx.bg);
         break;
       case "markdown":
         // A Markdown block renders its own syntax; only the copy rules apply.
@@ -280,6 +304,18 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
     }
   }
 
+  // Our transparent icons are one colour: `ink` for light backgrounds, `white`
+  // for dark or brand ones. On the wrong one it barely shows. (The soft and
+  // solid looks carry their own chip and read anywhere.)
+  function checkIconOn(b: ImageBlock, bg: string) {
+    const icon = parseEmailIconUrl(b.src);
+    if (!icon || (icon.variant !== "ink" && icon.variant !== "white")) return;
+    const ratio = contrastRatio(icon.variant === "ink" ? ICON_INK : "#ffffff", bg);
+    if (ratio === null || ratio >= 3) return;
+    const other = icon.variant === "ink" ? "white" : "ink";
+    add("icon-contrast", "fix", `The ${icon.name} icon is ${icon.variant === "ink" ? "near-black" : "white"} on ${bg} and barely shows; use the ${other} look (${emailIconUrl(icon.name as EmailIconName, other)}), or the soft / solid chip.`, b.id);
+  }
+
   function checkCopy(id: string, t: string, opts: { markdown?: boolean } = {}) {
     if (!t) return;
     if (PLACEHOLDER_COPY.test(t)) add("placeholder-copy", "fix", `Placeholder copy left in: "${t.slice(0, 50)}"; write the real text.`, id);
@@ -305,6 +341,7 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
   if (primaryish.length > 3) {
     add("too-many-buttons", "check", `${primaryish.length} buttons compete; one primary action (repeated once at the end at most), and text links for the rest.`, primaryish[3]!.id);
   }
+  for (const h of buttonStyleHints(primaryish)) add(h.rule, h.severity, h.message, h.blockId);
   // Variables that fill themselves (contact fields, workspace branding,
   // the managed footer) don't count against the email.
   const custom = new Set(
@@ -346,6 +383,53 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
       return true;
     })
     .slice(0, opts.max ?? 8);
+}
+
+// ---------------------------------------------------------------------------
+// Buttons in one email share one look. A button added to an existing email
+// came out square-cornered next to the email's fully rounded one (owner
+// report 2026-10-26): the author wrote a new <Button> without the existing
+// one's border-radius, so it took the default. The shape the most buttons
+// already have wins (the first one's on a tie); a different shape is a "fix",
+// a different fill only a "check" (a light button on a dark band can be right).
+// ---------------------------------------------------------------------------
+
+function mostCommon<T extends string | number>(values: T[]): T {
+  const counts = new Map<T, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best = values[0] as T;
+  for (const v of values) if (counts.get(v)! > counts.get(best)!) best = v;
+  return best;
+}
+
+export function buttonStyleHints(buttons: ButtonBlock[]): DesignHint[] {
+  if (buttons.length < 2) return [];
+  const out: DesignHint[] = [];
+  const radius = mostCommon(buttons.map((b) => b.borderRadius));
+  const model = buttons.find((b) => b.borderRadius === radius)!;
+  for (const b of buttons) {
+    if (b.borderRadius !== radius) {
+      out.push({
+        rule: "button-style",
+        severity: "fix",
+        message: `Button "${b.text}" has border-radius={${b.borderRadius}} but "${model.text}" has border-radius={${radius}}; buttons in one email share one shape, so give it border-radius={${radius}}${b.innerPaddingY !== model.innerPaddingY || b.innerPaddingX !== model.innerPaddingX ? ` and the same inner padding (inner-padding-x={${model.innerPaddingX}} inner-padding-y={${model.innerPaddingY}})` : ""}.`,
+        blockId: b.id,
+      });
+    }
+  }
+  const fill = mostCommon(buttons.map((b) => b.backgroundColor.toLowerCase()));
+  const filled = buttons.find((b) => b.backgroundColor.toLowerCase() === fill)!;
+  for (const b of buttons) {
+    if (b.backgroundColor.toLowerCase() !== fill) {
+      out.push({
+        rule: "button-style",
+        severity: "check",
+        message: `Button "${b.text}" is ${b.backgroundColor} while "${filled.text}" is ${filled.backgroundColor}; use the same colours for every button unless this one sits on a band where that colour wouldn't show.`,
+        blockId: b.id,
+      });
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

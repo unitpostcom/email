@@ -52,6 +52,20 @@ export function createRow(count = 2): Block {
   });
 }
 
+/**
+ * The share of a row (in %) its columns leave empty: 100 minus their widths,
+ * when that's a deliberate gap. A single column set to 50% is half the row
+ * wide, the other half empty (2026-10-26: it stayed full width on the canvas
+ * and in the email, because widths were only proportions). A remainder below
+ * 5% (or the column count) is rounding (3 × 33%), and the columns fill the row.
+ */
+export function rowEmptyShare(columns: readonly { width?: number }[]): number {
+  if (columns.length === 0) return 0;
+  const total = columns.reduce((sum, c) => sum + (typeof c.width === "number" ? c.width : 50), 0);
+  const rest = 100 - total;
+  return rest >= Math.max(5, columns.length) ? rest : 0;
+}
+
 // Create a new block of the given type with sensible defaults (schema fills the
 // rest). Used by the visual builder palette and the editor. `overrides` merges
 // caller-provided props over the defaults BEFORE schema validation, so

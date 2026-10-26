@@ -126,6 +126,12 @@ test("hasForbiddenHtml detects scripts/handlers/unsafe urls", () => {
 
 test("safeUrl allows safe schemes, blocks javascript:", () => {
   assert.equal(safeUrl("https://x.test"), "https://x.test");
+  // A browser removes tabs / newlines anywhere and C0 controls at the ends
+  // before reading the scheme (verifier on #1090).
+  assert.equal(safeUrl("java\tscript:alert(1)"), "#");
+  assert.equal(safeUrl("java\nscr\ript:alert(1)"), "#");
+  assert.equal(safeUrl("\u0001 javascript:alert(1)"), "#");
+  assert.equal(safeUrl(" https://x.test/a\tb "), "https://x.test/ab");
   assert.equal(safeUrl("mailto:a@b.test"), "mailto:a@b.test");
   assert.equal(safeUrl("/relative/path"), "/relative/path");
   assert.equal(safeUrl("#anchor"), "#anchor");

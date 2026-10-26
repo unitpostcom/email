@@ -101,15 +101,48 @@ describe("codec — nested border <-> scalar border-* attributes", () => {
     assert.deepEqual(imageAgain.border, image.border);
   });
 
-  test("non-scalar props (margin/padding boxes) are skipped, never [object Object]", () => {
+  test("margin / padding boxes and componentRef print as object literals and round-trip (verifier on #1090)", () => {
     const doc = parseTsx(`<Text>Hello</Text>`);
-    (doc.blocks[0] as Block & { padding?: object }).padding = {
-      top: 4,
-      bottom: 4,
-    };
+    const block = doc.blocks[0] as Block & { padding?: object; margin?: object; componentRef?: object };
+    block.padding = { top: 4, bottom: 4 };
+    block.margin = { top: 0, right: 0, bottom: 20, left: 0 };
+    block.componentRef = { id: "cmp_1", name: `Footer "v2" > Tier 1 & more`, unlocked: true };
     const printed = printTsx(doc);
     assert.doesNotMatch(printed, /\[object Object\]/);
-    assert.doesNotMatch(printed, /padding=/);
+    assert.match(printed, /padding=\{\{ top: 4, bottom: 4 \}\}/);
+    const again = parseTsx(printed).blocks[0] as typeof block;
+    assert.deepEqual(again.padding, { top: 4, bottom: 4 });
+    assert.deepEqual(again.margin, { top: 0, right: 0, bottom: 20, left: 0 });
+    assert.deepEqual(again.componentRef, { id: "cmp_1", name: `Footer "v2" > Tier 1 & more`, unlocked: true });
+    assert.equal((parseTsx(printed).blocks[0] as Block & { text: string }).text, "Hello");
+  });
+
+  test("a component name ending in a backslash keeps the attributes after it (verifier on #1090)", () => {
+    const doc = parseTsx(`<Section><Image src="https://acme.com/a.png" alt="A" width={120} border-width={2} border-style="solid" border-color="#e4e4e7" /></Section>`);
+    const image = (doc.blocks[0] as SectionBlock).children[0] as ImageBlock & { componentRef?: object };
+    image.componentRef = { id: "cmp_1", name: "C:\\Brand\\" };
+    const printed = printTsx(doc);
+    assert.match(printed, /&#92;/);
+    const again = (parseTsx(printed).blocks[0] as SectionBlock).children[0] as typeof image;
+    assert.deepEqual(again.componentRef, { id: "cmp_1", name: "C:\\Brand\\" });
+    assert.deepEqual(again.border, { width: 2, style: "solid", color: "#e4e4e7" });
+    assert.equal(again.width, 120);
+  });
+
+  test("attribute values and text that hold quotes or angle brackets round-trip (verifier on #1090)", () => {
+    const doc = parseTsx(
+      `<Image src="https://acme.com/a.png" alt="Say &quot;hi&quot; &gt; 3 &lt; 5" width={200} />\n<Button href="https://acme.com/?a=1&amp;b=2">Save &lt;50% &amp; more &gt;</Button>\n<Text>Type &lt;b&gt; for bold</Text>`,
+    );
+    const alt = (doc.blocks[0] as ImageBlock).alt;
+    assert.equal(alt, `Say "hi" > 3 < 5`);
+    const again = parseTsx(printTsx(doc));
+    assert.equal((again.blocks[0] as ImageBlock).alt, alt);
+    assert.equal((again.blocks[0] as ImageBlock).width, 200);
+    assert.equal((again.blocks[1] as Block & { text: string; href: string }).text, "Save <50% & more >");
+    assert.equal((again.blocks[1] as Block & { href: string }).href, "https://acme.com/?a=1&b=2");
+    assert.equal((again.blocks[2] as Block & { text: string; content?: unknown }).text, "Type <b> for bold");
+    assert.equal((again.blocks[2] as Block & { content?: unknown }).content, undefined);
+    assert.equal(again.blocks.length, 3);
   });
 });
 

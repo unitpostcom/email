@@ -421,8 +421,17 @@ export function hasForbiddenHtml(input: string): boolean {
 
 const SAFE_URL_SCHEMES = new Set(EMAIL_ALLOWED_SCHEMES);
 
+// The URL a browser actually reads (WHATWG URL parsing): leading and trailing
+// C0 controls and spaces are dropped and every tab / newline inside is
+// removed, so "java\tscript:alert(1)" IS javascript:. The scheme check runs on
+// that form, and that form is what we return (verifier on #1090: `&#9;` in a
+// TSX href decodes to a tab).
+function browserUrl(url: string): string {
+  return url.replace(/[\t\n\r]/g, "").replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, "");
+}
+
 export function safeUrl(url: string): string {
-  const trimmed = (url ?? "").trim();
+  const trimmed = browserUrl(url ?? "");
   if (!trimmed) return trimmed;
   // Template tokens (whole value or leading token) are trusted — resolved later.
   if (/^\{\{\s*[\w.]+\s*\}\}/.test(trimmed)) return trimmed;
@@ -450,7 +459,7 @@ export function safeUrl(url: string): string {
 
 // Variant for <img src> where data: image URIs are legitimate.
 export function safeImageUrl(url: string): string {
-  const trimmed = (url ?? "").trim();
+  const trimmed = browserUrl(url ?? "");
   if (/^\s*data\s*:\s*image\//i.test(trimmed)) return trimmed;
   return safeUrl(trimmed);
 }

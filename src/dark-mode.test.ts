@@ -30,7 +30,7 @@ describe("dark mode", () => {
   test("a send carries prefers-color-scheme CSS for backdrop, card, theme text and links", () => {
     const html = renderToHtml(doc(), {}, { showPoweredBy: false });
     assert.match(html, /<meta name="color-scheme" content="light dark" \/>/);
-    assert.match(html, /@media \(prefers-color-scheme:dark\)\{\.ee-bg\{background-color:#0f0f11 !important;\}\.ee-body\{background-color:#1c1c1f !important;\}\.ee-dm-text\{color:#ececee !important;\}\.ee-dm-link\{color:#[0-9a-f]{6} !important;\}\}/);
+    assert.match(html, /@media \(prefers-color-scheme:dark\)\{\.ee-bg\{background-color:#0f0f11 !important;\}\.ee-body\{background-color:#1c1c1f !important;\}\.ee-dm-text\{color:#ececee !important;\}\.ee-dm-link\{color:#[0-9a-f]{6} !important;\}\.ee-dm-hide\{display:none !important;\}\.ee-dm-show\{display:inline !important;\}\}/);
     assert.match(html, /\[data-ogsc\] \.ee-dm-text\{/, "Outlook.com hook");
     assert.match(html, /<body class="ee-bg" style=/);
     assert.match(html, /<h1 class="ee-dm-text" style="[^"]*color:#1a1a1a/, "theme-coloured heading is tagged");
@@ -293,5 +293,32 @@ describe("design lint: dark-contrast", () => {
     assert.deepEqual(hints("bg-white"), []);
     assert.deepEqual(hints("sm:bg-transparent"), []);
     assert.deepEqual(hints("sm:bg-white", "off"), []);
+  });
+});
+
+describe("dark mode — ink icons on the card", () => {
+  const icon = (v: string) => `https://www.unitpost.com/email-assets/icons/rocket-${v}.png`;
+  const iconDoc = (tsx: string, darkMode: "auto" | "off" = "auto") =>
+    EmailDocumentSchema.parse({ ...parseTsx(tsx), theme: { ...EmailDocumentSchema.parse({}).theme, darkMode } });
+
+  test("an ink icon on the card ships its white copy, hidden, for dark mode to swap in", () => {
+    const html = renderToHtml(iconDoc(`<Section padding-x={32}><Image src="${icon("ink")}" alt="" width={24} /><Text>Launch</Text></Section>`));
+    assert.match(html, /<span class="ee-dm-hide"><span [^>]*><img src="[^"]*rocket-ink\.png"/);
+    assert.match(html, /<!--\[if !mso\]><!--><span class="ee-dm-show" style="display:none;"><span [^>]*><img src="[^"]*rocket-white\.png"[^>]*\/><\/span><\/span><!--<!\[endif\]-->/);
+  });
+
+  test("no copy without dark mode, on a band with its own background, or for other looks", () => {
+    assert.doesNotMatch(renderToHtml(iconDoc(`<Image src="${icon("ink")}" alt="" width={24} />`, "off")), /rocket-white/);
+    assert.doesNotMatch(renderToHtml(iconDoc(`<Section background-color="#fef3c7"><Image src="${icon("ink")}" alt="" width={24} /></Section>`)), /rocket-white/);
+    assert.doesNotMatch(renderToHtml(iconDoc(`<Image src="${icon("soft")}" alt="" width={40} />`)), /class="ee-dm-show"/);
+    assert.doesNotMatch(renderToHtml(iconDoc(`<Image src="https://acme.com/logo-ink.png" alt="Acme" width={120} />`)), /class="ee-dm-show"/);
+  });
+
+  test("a dark-mode card set to a light colour keeps the ink icon (verifier on #1090)", () => {
+    const light = EmailDocumentSchema.parse({
+      ...parseTsx(`<Image src="${icon("ink")}" alt="" width={24} />`),
+      theme: { ...EmailDocumentSchema.parse({}).theme, darkMode: "auto", darkColors: { bodyColor: "#f4f4f5", textColor: "#18181b" } },
+    });
+    assert.doesNotMatch(renderToHtml(light), /rocket-white/);
   });
 });

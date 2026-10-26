@@ -97,7 +97,7 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
     title: "Buttons and links",
     rules: [
       { core: true, text: "One primary button: a verb plus an object (\"Start your trial\", \"View receipt\", \"Get 30% off\"), never \"Click here\". Put it right after the hero copy; repeat the same action once at the end of a long email. Secondary actions are text links (\"Learn more →\")." },
-      { core: true, text: "Buttons are pills with 12px × 24px inner padding (about 44px tall) — big enough to tap.", source: "https://www.campaignmonitor.com/dev-resources/guides/mobile/" },
+      { core: true, text: "Buttons are pills with 12px × 24px inner padding (about 44px tall) — big enough to tap. All buttons in one email share one shape and colour: a new one copies the existing ones.", source: "https://www.campaignmonitor.com/dev-resources/guides/mobile/" },
       { core: true, text: "Every link is real: the user's URL, the Brand Kit website / core pages, or a {{variable}} such as {{cta_url}} that the user fills in. Never example.com, never \"#\"." },
     ],
   },
@@ -108,7 +108,7 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
       { core: true, text: "Image sources: Brand Kit graphics and attached images (`/img/{id}`), our hosted icons and placeholders (design_library topic=assets), or https URLs the user gave. Never invent or guess an image URL." },
       { core: true, text: "No image is better than a fake one. With no brand imagery, carry the email with type, colour and icons: a contrast or gradient hero, an offer card, icon rows, stats. Use a neutral placeholder only where the email needs a picture the user must supply (product tiles, a product screenshot, a speaker photo) — and tell them to swap it before sending." },
       { core: true, text: "Every image gets alt text that says what it shows (a logo's alt is the brand name). Decorative icons next to a text label get alt=\"\". Never put the headline, offer, price or date only inside an image: many inboxes block images by default." },
-      { text: "Icons are PNG (Gmail and classic Outlook don't render SVG): the `soft` chip (ink on a light chip) beside text on white, `ink` for small inline markers, `white` on dark or brand bands, `solid` for emphasis. Emoji only inline in copy, at most one per block.", source: "https://www.caniemail.com/features/image-svg/" },
+      { text: "Icons are PNG (Gmail and classic Outlook don't render SVG): the `soft` chip (ink on a light chip) beside text on white, `ink` for small inline markers, `white` on dark or brand bands, `solid` for emphasis. Pick by the background the icon sits on, never by habit: an ink icon on a dark band (or a white one on white) disappears. A dark-mode email swaps ink icons on the card to white by itself. Emoji only inline in copy, at most one per block.", source: "https://www.caniemail.com/features/image-svg/" },
       { text: "Set `width` on every image (536 for a full-width image inside the 32px gutters) so Outlook doesn't render it at its natural size; round photos 10–12px." },
     ],
   },

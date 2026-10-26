@@ -148,7 +148,7 @@ export function applyDocumentAttrs(
 
 // `<` and `>` too: the TSX tokenizer ends a tag at the first `>`, so preview
 // text like "Save > spend" must not print raw (verifier on #1036). The parser
-// decodes all four (liftDocumentElement).
+// decodes all four (codec parseAttrs, entities.ts).
 function attrString(value: string): string {
   return value
     .replace(/&/g, "&amp;")

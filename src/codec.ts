@@ -29,6 +29,7 @@ import { newBlockId } from "./blocks";
 import { normalizeBorderAttrs } from "./border-attrs";
 import { dedentText } from "./dedent";
 import { applyDocumentAttrs, printDocumentOpenTag } from "./document-attrs";
+import { decodeCharacterReferences, escapeTsxAttr, escapeTsxText } from "./entities";
 
 // Constrained TSX <-> JSON codec.
 //
@@ -222,13 +223,10 @@ function readStyle(attrs: string, mark: NonNullable<InlineRun["marks"]>) {
   }
 }
 
+// Character references decode as in real JSX (`&rarr;` is an arrow), in one
+// pass so `&amp;rarr;` stays the literal text (entities.ts).
 function decodeInline(s: string): string {
-  return s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&");
+  return decodeCharacterReferences(s);
 }
 
 // ---------------------------------------------------------------------------
@@ -427,8 +425,9 @@ function parseObjectLiteral(expr: string): Record<string, unknown> | null {
   while ((m = pairRe.exec(body))) {
     matched = true;
     const key = kebabToCamel(m[1]);
-    if (m[2] !== undefined) out[key] = m[2];
-    else if (m[3] !== undefined) out[key] = m[3];
+    // String values decode references, like string attributes.
+    if (m[2] !== undefined) out[key] = decodeInline(m[2]);
+    else if (m[3] !== undefined) out[key] = decodeInline(m[3]);
     else if (m[4] !== undefined) out[key] = Number(m[4]);
     else if (m[5] === "true") out[key] = true;
     else if (m[5] === "false") out[key] = false;
@@ -454,7 +453,7 @@ function parseAttrs(raw: string): Record<string, unknown> {
         ? "className"
         : kebabToCamel(rawName);
     if (m[2] !== undefined) {
-      attrs[key] = m[2]; // string literal
+      attrs[key] = decodeInline(m[2]); // string literal: references decode, as in JSX
       continue;
     }
     // `{` case: m.index + full match length - 1 is the position of the `{`.
@@ -589,7 +588,7 @@ function attrsToBlock(
         base.text = decodeInline(text).replace(/\s+/g, " ").trim();
       }
     } else if (type === "button" || type === "link") {
-      base.text = text;
+      base.text = decodeInline(text);
     } else if (type === "markdown") {
       base.markdown = text;
     } else if (type === "code") {
@@ -653,7 +652,8 @@ function liftDocumentElement(tokens: Token[]): {
     if (close === -1) throw new TsxParseError("Unclosed <Email>. Close it with </Email> after the last block.");
   }
   const attrs: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(openTok.attrs)) attrs[k] = typeof v === "string" ? decodeInline(v) : v;
+  // parseAttrs already decoded the string values.
+  for (const [k, v] of Object.entries(openTok.attrs)) attrs[k] = v;
   return { tokens: tokens.filter((_, i) => i !== open && i !== close), attrs };
 }
 
@@ -1022,16 +1022,44 @@ const SKIP_ATTRS = new Set([
   "border",
 ]);
 
+// Object-valued props with a TSX form (`border` has its own scalar form).
+const OBJECT_ATTRS = new Set(["margin", "padding", "componentRef"]);
+
+// `{ top: 8, left: 24 }` for a flat object of strings / numbers / booleans,
+// in the grammar parseObjectLiteral reads; null when it has nothing to print
+// or a nested value. Strings are escaped like attribute values: the
+// tokenizer ends a tag at the first `>`, even one inside quotes (verifier on
+// #1090: a component named "Tier > 1" spilled into the body). A backslash
+// becomes `&#92;` too: findBalancedBraceEnd reads `\"` as an escaped quote,
+// so a name ending in one swallowed the rest of the tag.
+function printObjectLiteral(obj: Record<string, unknown>): string | null {
+  const pairs: string[] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue;
+    if (typeof v === "number" || typeof v === "boolean") pairs.push(`${k}: ${String(v)}`);
+    else if (typeof v === "string") pairs.push(`${k}: "${escapeTsxAttr(v).replace(/\\/g, "&#92;")}"`);
+    else return null;
+  }
+  return pairs.length ? `{ ${pairs.join(", ")} }` : null;
+}
+
 function printAttrs(block: Record<string, unknown>): string {
   const parts: string[] = [];
   for (const [key, value] of Object.entries(block)) {
     if (SKIP_ATTRS.has(key)) continue;
     if (value === undefined || value === null) continue;
     if (value === "") continue;
-    // Non-scalar objects (margin/padding boxes, componentRef, …) have no TSX
-    // attribute form — they're visual-editor-only and are skipped rather than
+    // Flat objects (the per-side margin / padding boxes, componentRef) print
+    // as an object literal, `padding={{ top: 8, left: 24 }}`, which
+    // parseObjectLiteral reads back. They used to be skipped, so a design
+    // read as TSX and written back lost its inspector spacing and component
+    // links (verifier on #1090). Anything else nested is skipped rather than
     // stringified into `{[object Object]}`.
-    if (typeof value === "object") continue;
+    if (typeof value === "object") {
+      const literal = OBJECT_ATTRS.has(key) ? printObjectLiteral(value as Record<string, unknown>) : null;
+      if (literal) parts.push(`${camelToKebab(key)}={${literal}}`);
+      continue;
+    }
     // `className` (Tailwind utilities) prints verbatim as `className="..."`
     // rather than kebab-cased, matching JSX conventions.
     const attr = key === "className" ? "className" : camelToKebab(key);
@@ -1041,7 +1069,7 @@ function printAttrs(block: Record<string, unknown>): string {
       const safe =
         key === "customCss"
           ? value.replace(/\s+/g, " ").replace(/["<>]/g, "").trim()
-          : value;
+          : escapeTsxAttr(value);
       parts.push(`${attr}="${safe}"`);
     } else parts.push(`${attr}={${String(value)}}`);
   }
@@ -1115,7 +1143,7 @@ function printBlock(block: Block | ColumnBlock, indent: string): string {
                     }</li>`,
                 )
                 .join("\n")
-            : ((rec.text as string) ?? "");
+            : escapeTsxText((rec.text as string) ?? "");
     // Text/Heading with inline formatting print their runs as inline HTML so
     // marks (bold/link/color/highlight) round-trip through code mode.
     if (
@@ -1228,36 +1256,40 @@ function textStyleProps(style: unknown): Record<string, unknown> {
   return props;
 }
 
-// Entities email HTML is full of that the TSX dialect's decoder doesn't know:
-// spacing (&nbsp;, the zero-width preheader padding) and numeric references.
+// Imported HTML text: references decode in ONE pass (decodeInline), so
+// `&#38;rarr;` is the text "&rarr;" (verifier on #1090: numeric references
+// used to be expanded first, then decoded again). Spacing email HTML is full
+// of is normalised: &nbsp; is a plain space, and the zero-width preheader
+// padding goes. Those two replacements can't create a new reference.
 function decodeHtmlEntities(s: string): string {
-  return decodeInline(
-    s
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&(?:zwnj|zwj|shy);/gi, "")
-      .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
-      .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d))),
-  ).replace(/[\u034f\u200b-\u200d\u00ad]/g, "");
+  return decodeInline(s.replace(/&nbsp;/gi, " ").replace(/&(?:zwnj|zwj|shy);/gi, "")).replace(
+    /[\u034f\u200b-\u200d\u00ad]/g,
+    "",
+  );
 }
 
+// Imported paragraph / heading content. References decode ONCE: in
+// decodeInline for plain text, per text chunk in parseInlineRuns for
+// formatted text, so `&&#114;arr;` stays the text "&rarr;" and an escaped
+// `&lt;b&gt;` stays text (verifier on #1090: numeric references used to be
+// expanded first, then decoded again). Spacing is normalised before (those
+// replacements can't create a reference) and the invisible preheader
+// characters are dropped after, however they were written.
+const INVISIBLE = /[\u034f\u200b-\u200d\u00ad]/g;
 function inlineBlockProps(inner: string): { text: string; content?: InlineRun[] } {
-  const html = decodeEntitiesKeepingMarkup(inner.replace(/<br\s*\/?>/gi, " ")).trim();
-  if (!/<[a-zA-Z]/.test(html)) return { text: decodeInline(html).replace(/\s+/g, " ").trim() };
-  const runs = parseInlineRuns(html);
+  const html = inner
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&(?:zwnj|zwj|shy);/gi, "")
+    .trim();
+  if (!/<[a-zA-Z]/.test(html)) return { text: decodeInline(html).replace(INVISIBLE, "").replace(/\s+/g, " ").trim() };
+  const runs = parseInlineRuns(html)
+    .map((r) => ({ ...r, text: r.text.replace(INVISIBLE, "") }))
+    .filter((r) => r.text);
   const text = runs.map((r) => r.text).join("").trim();
   return runs.some((r) => r.marks) ? { text, content: runs } : { text };
 }
 
-// Decode the spacing / numeric entities in text but leave &lt; &gt; &amp;
-// &quot; for parseInlineRuns, so escaped markup stays text.
-function decodeEntitiesKeepingMarkup(s: string): string {
-  return s
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&(?:zwnj|zwj|shy);/gi, "")
-    .replace(/&#x([0-9a-f]+);/gi, (m, h: string) => (/^0*(3c|3e|26|22)$/i.test(h) ? m : String.fromCodePoint(parseInt(h, 16))))
-    .replace(/&#(\d+);/g, (m, d: string) => (["60", "62", "38", "34"].includes(String(Number(d))) ? m : String.fromCodePoint(Number(d))))
-    .replace(/[\u034f\u200b-\u200d\u00ad]/g, "");
-}
 
 // One attribute of an element's OPENING tag (the inner markup never counts).
 const HTML_ATTR_RE = /\s([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;

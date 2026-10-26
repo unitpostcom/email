@@ -173,8 +173,13 @@ describe("the guide's own text", () => {
 });
 
 describe("hosted email assets", () => {
-  const pub = join(here, "..", "..", "..", "apps", "web", "public", "email-assets");
-  test("every icon variant and placeholder in the catalog exists as a PNG (render-email-assets.mts)", () => {
+  const web = join(here, "..", "..", "..", "apps", "web");
+  const pub = join(web, "public", "email-assets");
+  // The website hosts the PNGs, so this checks the monorepo. The public
+  // unitpostcom/email repo is this package alone, with no apps/web to check;
+  // skip only there, so a missing email-assets folder still fails here.
+  const standalone = !existsSync(web) && "no apps/web: the public package repo hosts no assets";
+  test("every icon variant and placeholder in the catalog exists as a PNG (render-email-assets.mts)", { skip: standalone }, () => {
     for (const name of Object.keys(EMAIL_ICONS)) {
       for (const v of EMAIL_ICON_VARIANTS) assert.ok(existsSync(join(pub, "icons", `${name}-${v}.png`)), `${name}-${v}.png`);
     }

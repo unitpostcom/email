@@ -56,6 +56,28 @@ describe("lintEmailDesign", () => {
     assert.deepEqual(rules(`${GOOD}<Image src="${emailIconUrl("rocket", "soft")}" alt="" width={40} />`), []);
   });
 
+  test("an icon on a background it doesn't show on is a fix naming the other look", () => {
+    const onDark = (v: "ink" | "white" | "soft") => `<Section background-color="#18181b"><Heading level={1} color="#ffffff">Hi</Heading><Image src="${emailIconUrl("rocket", v)}" alt="" width={24} /></Section>`;
+    const h = lintEmailDesign(doc(onDark("ink"))).find((x) => x.rule === "icon-contrast");
+    assert.equal(h?.severity, "fix");
+    assert.match(h!.message, /rocket-white\.png/);
+    assert.ok(!rules(onDark("white")).includes("icon-contrast"));
+    assert.ok(!rules(onDark("soft")).includes("icon-contrast"));
+    assert.ok(rules(`${GOOD}<Image src="${emailIconUrl("zap", "white")}" alt="" width={24} />`).includes("icon-contrast"));
+    assert.ok(!rules(`${GOOD}<Image src="${emailIconUrl("zap", "ink")}" alt="" width={24} />`).includes("icon-contrast"));
+  });
+
+  test("an icon on a band painted by CSS or a bg- class isn't second-guessed (verifier on #1090)", () => {
+    const white = `<Image src="${emailIconUrl("rocket", "white")}" alt="" width={24} />`;
+    const heading = `<Heading level={1} color="#ffffff">Hi</Heading>`;
+    assert.ok(!rules(`<Section custom-css="background-color: #18181b" padding-x={32}>${heading}${white}</Section>`).includes("icon-contrast"));
+    assert.ok(!rules(`<Section className="bg-zinc-900" padding-x={32}>${heading}${white}</Section>`).includes("icon-contrast"));
+    assert.ok(!rules(`<Row><Column custom-css="background: #18181b linear-gradient(#18181b, #27272a)">${white}</Column></Row><Section>${heading}</Section>`).includes("icon-contrast"));
+    assert.ok(!rules(`${GOOD}<Image src="${emailIconUrl("rocket", "white")}" alt="" width={24} custom-css="background-color: #18181b" />`).includes("icon-contrast"));
+    // A colour set on a band inside a CSS-painted one is known again.
+    assert.ok(rules(`<Section custom-css="background-color: #18181b">${heading}<Section background-color="#ffffff">${white}</Section></Section>`).includes("icon-contrast"));
+  });
+
   test("placeholder links, copy and images are flagged", () => {
     assert.ok(rules(GOOD.replace("https://acme.com/start", "https://example.com")).includes("placeholder-link"));
     assert.ok(rules(GOOD.replace("https://acme.com/start", "#")).includes("placeholder-link"));
@@ -73,6 +95,23 @@ describe("lintEmailDesign", () => {
     const four = Array.from({ length: 4 }, (_, i) => `<Button href="https://acme.com/${i}">Go ${i}</Button>`).join("");
     assert.ok(rules(`<Section><Heading level={1}>Hi</Heading>${four}</Section>`).includes("too-many-buttons"));
     assert.ok(rules(GOOD, { previewText: "" }).includes("no-preview-text"));
+  });
+
+  test("a button added in another shape than the email's buttons is a fix (owner report 2026-10-26)", () => {
+    const pill = `<Button href="https://acme.com/start" border-radius={999} inner-padding-x={28}>Get started</Button>`;
+    const square = `<Button href="https://cal.com/acme">Book an onboarding call</Button>`;
+    const hints = lintEmailDesign(doc(`<Section><Heading level={1}>Hi</Heading>${pill}<Text>Or talk to us.</Text>${pill.replace("Get started", "Start now")}${square}</Section>`));
+    const h = hints.find((x) => x.rule === "button-style");
+    assert.equal(h?.severity, "fix", JSON.stringify(hints));
+    assert.match(h!.message, /"Book an onboarding call" has border-radius=\{\d+\} but "Get started" has border-radius=\{999\}/);
+    assert.match(h!.message, /inner-padding-x=\{28\}/);
+    // Same shape, same fill: nothing to say.
+    assert.ok(!rules(`<Section><Heading level={1}>Hi</Heading>${pill}${pill.replace("Get started", "Start now")}</Section>`).includes("button-style"));
+  });
+
+  test("a button in another colour is only a check", () => {
+    const hints = lintEmailDesign(doc(`<Section><Heading level={1}>Hi</Heading><Button href="https://a.co" background-color="#4f46e5">One</Button><Button href="https://b.co" background-color="#16a34a">Two</Button></Section>`));
+    assert.deepEqual(hints.filter((h) => h.rule === "button-style").map((h) => h.severity), ["check"]);
   });
 
   test("Markdown in copy and a hand-written unsubscribe line are fixes; a Markdown block is fine", () => {

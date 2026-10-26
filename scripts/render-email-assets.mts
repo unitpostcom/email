@@ -3,9 +3,12 @@
 //   placeholders → apps/web/public/email-assets/placeholders/{name}.png
 // Run from the repo root after changing EMAIL_ICONS / EMAIL_PLACEHOLDERS:
 //   npx tsx packages/email/scripts/render-email-assets.mts
+// Only files that don't exist yet are written: a shipped asset is permanent
+// (sent emails point at it; LICENSE.md, ADR-0105), and a re-render on another
+// Chromium could change its pixels. `--force` re-renders everything.
 // Needs the root playwright (dev dependency) with Chromium installed. The
 // icon geometry comes from lucide-react (ISC), the same set the dashboard uses.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -28,8 +31,14 @@ const lucideDir = join(dirname(require.resolve("lucide-react/package.json")), "d
 
 type IconNode = [string, Record<string, string>][];
 async function iconNode(name: string): Promise<IconNode> {
-  const mod = (await import(pathToFileURL(join(lucideDir, `${name}.mjs`)).href)) as { __iconData: { node: IconNode } };
-  return mod.__iconData.node;
+  const file = join(lucideDir, `${name}.mjs`);
+  const mod = (await import(pathToFileURL(file).href)) as { __iconData?: { node: IconNode } };
+  if (mod.__iconData) return mod.__iconData.node;
+  // An alias (circle-help → circle-question-mark) re-exports only the
+  // component; read the icon it points at.
+  const target = /export \{ default \} from '\.\/([\w-]+)\.mjs'/.exec(readFileSync(file, "utf8"))?.[1];
+  if (!target) throw new Error(`lucide-react has no icon data for "${name}"`);
+  return iconNode(target);
 }
 
 function svg(node: IconNode, color: string, px: number): string {
@@ -60,12 +69,20 @@ function placeholderHtml(name: keyof typeof EMAIL_PLACEHOLDERS, node: IconNode, 
   return `<div style="width:${w}px;height:${h}px;border-radius:${radius};background:#eeeef0;display:flex;align-items:center;justify-content:center">${svg(glyph, PLACEHOLDER_ICON, Math.round(Math.min(w, h) * (name === "avatar" ? 0.45 : 0.22)))}</div>`;
 }
 
-const browser = await chromium.launch();
+// CHROMIUM_PATH: a Chromium other than the one the repo's playwright
+// expects (e.g. a cloud session's preinstalled browser).
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const page = await browser.newPage({ deviceScaleFactor: 2 });
 await page.setContent(`<body style="margin:0;background:transparent"><div id="s" style="display:inline-block"></div></body>`);
 const stage = page.locator("#s");
 
+const force = process.argv.includes("--force");
+let kept = 0;
 async function shoot(html: string, file: string) {
+  if (!force && existsSync(file)) {
+    kept++;
+    return;
+  }
   await stage.evaluate((el, h) => (el.innerHTML = h), html);
   writeFileSync(file, await stage.screenshot({ omitBackground: true }));
 }
@@ -87,4 +104,4 @@ for (const name of Object.keys(EMAIL_PLACEHOLDERS) as (keyof typeof EMAIL_PLACEH
   n++;
 }
 await browser.close();
-console.log(`${n} assets → ${out}`);
+console.log(`${n - kept} assets written, ${kept} already there → ${out}`);

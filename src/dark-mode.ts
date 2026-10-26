@@ -12,7 +12,8 @@
 // link colour (.ee-dm-link). The renderer only tags text and links that sit on
 // the theme's own body card, so copy on a section, row or column with its own
 // background keeps its colours (it was chosen against that background).
-// Images, buttons and anything given its own colour are never touched.
+// Images, buttons and anything given its own colour are never touched, except
+// our hosted `ink` icons on the card, which swap to their white copy.
 //
 // Opt-in: `theme.darkMode: "auto"` (or `<Email dark-mode="auto">`) turns it
 // on. A theme without `darkMode` renders exactly as before 0.4.0, no dark CSS
@@ -29,6 +30,10 @@ import type { Theme } from "./schema";
 export const DARK_TEXT_CLASS = "ee-dm-text";
 export const DARK_LINK_CLASS = "ee-dm-link";
 export const DARK_BG_CLASS = "ee-bg";
+// An `ink` icon on the card renders twice: the ink copy (shown) and its white
+// copy (hidden); dark mode flips them (render.ts renderImageBlock).
+export const DARK_HIDE_CLASS = "ee-dm-hide";
+export const DARK_SHOW_CLASS = "ee-dm-show";
 
 /**
  * A bg- utility behind a variant (sm:, hover:, …): it applies only at some
@@ -87,11 +92,15 @@ export function darkModeCss(theme: Theme): string {
     `.ee-body{${card}}`,
     `.${DARK_TEXT_CLASS}{${text}}`,
     `.${DARK_LINK_CLASS}{${link}}`,
+    `.${DARK_HIDE_CLASS}{display:none !important;}`,
+    `.${DARK_SHOW_CLASS}{display:inline !important;}`,
     `}`,
     // Outlook.com dark mode marks recoloured nodes with these attributes.
     `[data-ogsb] .${DARK_BG_CLASS}{${bg}}`,
     `[data-ogsb] .ee-body{${card}}`,
     `[data-ogsc] .${DARK_TEXT_CLASS}{${text}}`,
     `[data-ogsc] .${DARK_LINK_CLASS}{${link}}`,
+    `[data-ogsc] .${DARK_HIDE_CLASS}{display:none !important;}`,
+    `[data-ogsc] .${DARK_SHOW_CLASS}{display:inline !important;}`,
   ].join("");
 }

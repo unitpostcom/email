@@ -27,14 +27,20 @@ import { sanitizeEmailHtml, safeUrl, safeImageUrl } from "./sanitize";
 import { compileClasses, rulesToCss, type CssRule } from "./tw-compile";
 import { resolveHtmlImageSrcs, resolveImageSrc } from "./library-image-url";
 import { renderSimpleHtml } from "./render-simple";
+import { rowEmptyShare } from "./blocks";
 import {
   CONDITIONAL_BG_RE,
   DARK_BG_CLASS,
+  DARK_HIDE_CLASS,
   DARK_LINK_CLASS,
+  DARK_SHOW_CLASS,
   DARK_TEXT_CLASS,
   darkModeCss,
   darkModeEnabled,
+  darkPalette,
 } from "./dark-mode";
+import { contrastRatio } from "./color";
+import { darkModeIconTwin } from "./email-assets";
 
 // Cross-client email HTML renderer.
 //
@@ -594,6 +600,15 @@ function buttonLinkFallback(href: string, align: string | undefined, ctx: Render
   return `<p style="${p}"><span style="font-weight:600;color:#52525b">Button not working?</span><br />Copy this link into your browser:<br /><a href="${href}" target="_blank" style="${link}">${href}</a></p>`;
 }
 
+// An ink icon (#18181b stroke) can't be seen on the dark-mode card, and a
+// white one can: the card is dark enough to swap.
+function darkCardNeedsWhiteIcon(theme: Theme): boolean {
+  const card = darkPalette(theme).bodyColor;
+  const ink = contrastRatio("#18181b", card);
+  const white = contrastRatio("#ffffff", card);
+  return ink !== null && white !== null && white > ink && ink < 3;
+}
+
 function renderImageBlock(block: ImageBlock, ctx: RenderCtx): string {
   const { style: wrapStyle, classAttr } = composeStyle(
     ctx,
@@ -642,8 +657,25 @@ function renderImageBlock(block: ImageBlock, ctx: RenderCtx): string {
     interpolate(block.src, ctx.vars),
     ctx.assetBaseUrl,
   );
-  const img = `<img src="${escapeHtml(safeImageUrl(resolvedSrc))}" alt="${renderText(block.alt, ctx.vars)}"${widthAttr}${heightAttr} style="${imgStyle}" />`;
-  let frame = `<span style="${frameStyle}">${img}</span>`;
+  const imgTag = (src: string) =>
+    `<img src="${escapeHtml(safeImageUrl(src))}" alt="${renderText(block.alt, ctx.vars)}"${widthAttr}${heightAttr} style="${imgStyle}" />`;
+  let frame = `<span style="${frameStyle}">${imgTag(resolvedSrc)}</span>`;
+  // One of our `ink` icons on the theme's card would vanish when dark mode
+  // darkens the card (images are never recoloured), so its white copy rides
+  // along, hidden, and the dark-mode CSS swaps them (dark-mode.ts). Outlook
+  // for Windows never sees the copy. An icon on its own background, or on a
+  // band with one, keeps the look that was picked for it.
+  // Only when the dark card really is dark: theme.darkColors.bodyColor may
+  // be light, and a white icon would vanish on it (verifier on #1090).
+  const twin =
+    ctx.dark && !ctx.offSurface && !block.backgroundColor && darkCardNeedsWhiteIcon(ctx.theme)
+      ? darkModeIconTwin(resolvedSrc)
+      : null;
+  if (twin) {
+    frame =
+      `<span class="${DARK_HIDE_CLASS}">${frame}</span>` +
+      `<!--[if !mso]><!--><span class="${DARK_SHOW_CLASS}" style="display:none;"><span style="${frameStyle}">${imgTag(twin)}</span></span><!--<![endif]-->`;
+  }
   if (block.href) {
     frame = `<a href="${escapeHtml(safeUrl(interpolate(block.href, ctx.vars)))}" target="_blank" style="${inlineStyle({ display: "inline-block", "max-width": "100%" })}">${frame}</a>`;
   }
@@ -1015,9 +1047,18 @@ function renderRow(block: RowBlock, ctx: RenderCtx): string {
     gap > 0
       ? `<td class="ee-gap" style="width:${gap}px;font-size:1px;line-height:1px;" width="${gap}">&nbsp;</td>`
       : "";
-  const cols = block.columns
-    .map((c) => renderColumn(c, surfaceCtx(ctx, block)))
-    .join(spacer);
+  // Columns that add up to less than the row leave the rest empty: an empty
+  // cell takes it, or table layout would stretch the columns to fill the row
+  // (one column at 50% rendered full width). It carries `ee-gap` too, so a row
+  // that stacks on mobile drops it.
+  const rest = rowEmptyShare(block.columns);
+  const filler = rest
+    ? `${spacer}<td class="ee-gap" width="${rest}%" style="font-size:1px;line-height:1px;">&nbsp;</td>`
+    : "";
+  const cols =
+    block.columns
+      .map((c) => renderColumn(c, surfaceCtx(ctx, block)))
+      .join(spacer) + filler;
   // `ee-cols` marks a row whose columns should stack on narrow viewports (the
   // head <style> media query keys on it). Only applied when the author left
   // stackOnMobile on — so the inspector toggle actually controls stacking.
