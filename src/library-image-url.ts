@@ -69,6 +69,21 @@ export function resolveImageSrc(src: string, assetBaseUrl: string | undefined): 
   return value;
 }
 
+// The same resolution for the `<img src>` attributes inside raw HTML (an Html
+// block). A Design template converted to Code renders its library images as
+// `<img src="/img/{id}">`, and HTML a person writes may use the library path
+// too; left relative they break in the inbox (verifier on #1036). Only a
+// relative library path changes, exactly as resolveImageSrc decides.
+const HTML_IMG_SRC_RE = /(<img\b[^>]*?\ssrc\s*=\s*)(["'])([^"']*)\2/gi;
+
+export function resolveHtmlImageSrcs(html: string, assetBaseUrl: string | undefined): string {
+  if (!sanitizeAssetBase(assetBaseUrl)) return html;
+  return html.replace(
+    HTML_IMG_SRC_RE,
+    (_, head: string, quote: string, src: string) => `${head}${quote}${resolveImageSrc(src, assetBaseUrl)}${quote}`,
+  );
+}
+
 // True when `url` is an absolute http(s) URL with a real, non-empty host. Used
 // to reject scheme-only / host-less base URLs (`http://`, `https://`) before we
 // build an image src from them. Deliberately permissive about the rest of the

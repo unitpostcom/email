@@ -22,11 +22,19 @@ import type {
   Theme,
 } from "./schema";
 import { STYLE_TOKENS, isBuiltInContactField } from "./schema";
-import { cssValue, escapeHtml, inlineStyle, interpolate, renderText, renderInlineRuns } from "./util";
+import { cssValue, escapeHtml, inlineStyle, interpolate, isNullBackground, renderText, renderInlineRuns } from "./util";
 import { sanitizeEmailHtml, safeUrl, safeImageUrl } from "./sanitize";
 import { compileClasses, rulesToCss, type CssRule } from "./tw-compile";
-import { resolveImageSrc } from "./library-image-url";
+import { resolveHtmlImageSrcs, resolveImageSrc } from "./library-image-url";
 import { renderSimpleHtml } from "./render-simple";
+import {
+  CONDITIONAL_BG_RE,
+  DARK_BG_CLASS,
+  DARK_LINK_CLASS,
+  DARK_TEXT_CLASS,
+  darkModeCss,
+  darkModeEnabled,
+} from "./dark-mode";
 
 // Cross-client email HTML renderer.
 //
@@ -97,7 +105,113 @@ type RenderCtx = {
   // workspace hasn't set either, instead of shipping a bare ` · `. Never set
   // for the body, so an intentionally-empty body block is untouched.
   dropEmptyText?: boolean;
+  // Dark mode (dark-mode.ts): on for a send (theme.darkMode !== "off"), off in
+  // the editor canvas. `offSurface` is set while rendering inside a section /
+  // row / column with its own background: text there keeps its colours, since
+  // they were chosen against that background, not the theme's body card.
+  dark?: boolean;
+  offSurface?: boolean;
 };
+
+// Text / links in the THEME's colours on the theme's body card get the dark
+// mode class; anything with its own colour or background is left alone.
+function darkTextClass(ctx: RenderCtx): string | undefined {
+  return ctx.dark && !ctx.offSurface ? DARK_TEXT_CLASS : undefined;
+}
+function darkLinkClass(ctx: RenderCtx): string | undefined {
+  return ctx.dark && !ctx.offSurface ? DARK_LINK_CLASS : undefined;
+}
+// The colour a highlighted inline run (or a Markdown code chip) keeps in dark
+// mode: its parent's light-mode colour, which is the theme's only when the
+// parent is the one being swapped (`themeText`, from composeStyle). A parent
+// in its own colour isn't swapped, so the run inherits that as before
+// (verifier on #1056: white Text with a black highlight got near-black).
+function onBackground(ctx: RenderCtx, themeText: boolean): string | undefined {
+  return themeText && ctx.dark && !ctx.offSurface ? ctx.theme.textColor : undefined;
+}
+
+const CUSTOM_BG_DECL_RE = /^\s*(background(?:-color|-image)?)\s*:\s*(.*?)\s*(!important)?\s*$/i;
+
+// The colour and image parts of a `background` shorthand (verifier on #1056:
+// the whole value read as a colour, so `background:none no-repeat` painted).
+// Image: a url()/gradient()/image-set() layer, or none. Colour: the one token
+// that is neither an image, a repeat/position/size/attachment/box keyword nor
+// a length. Unset parts are the shorthand's initial values: transparent, none.
+const BG_IMAGE_FN_RE = /^(?:url|(?:repeating-)?(?:linear|radial|conic)-gradient|image-set|-webkit-[a-z-]+)\(/i;
+const BG_KEYWORDS = new Set([
+  "none", "repeat", "no-repeat", "repeat-x", "repeat-y", "space", "round", "scroll", "fixed", "local",
+  "top", "bottom", "left", "right", "center", "auto", "cover", "contain",
+  "border-box", "padding-box", "content-box", "text", "/",
+]);
+function splitBackgroundShorthand(value: string): { color?: string; image?: string } {
+  const tokens: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of value.trim()) {
+    if (ch === "(") depth += 1;
+    if (ch === ")") depth = Math.max(0, depth - 1);
+    if (/\s/.test(ch) && depth === 0) {
+      if (cur) tokens.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur) tokens.push(cur);
+  const out: { color?: string; image?: string } = {};
+  for (const t of tokens) {
+    const lower = t.toLowerCase();
+    if (BG_IMAGE_FN_RE.test(t)) out.image = t;
+    else if (BG_KEYWORDS.has(lower) || /^-?[\d.]+(?:[a-z%]+)?$/.test(lower) || lower.startsWith("/")) continue;
+    else out.color = t;
+  }
+  return out;
+}
+
+// Does the block's background actually paint? Resolved in composeStyle's
+// order, last one winning: className's inline utilities (bg-white bg-transparent
+// is transparent), then the backgroundColor prop, then customCss (verifier on
+// #1056: OR-ing the raw declarations counted a transparent override as a
+// surface, and a customCss background as none). As in CSS, a later declaration
+// doesn't override an !important one unless it is !important too.
+function paintsOwnBackground(
+  ctx: RenderCtx,
+  block: { backgroundColor?: string | null; className?: string; customCss?: string | null },
+): boolean {
+  const inline = block.className ? compileClasses(block.className, ctx.theme).inline : {};
+  type Layer = { value: string | undefined; important: boolean };
+  const color: Layer = { value: inline["background-color"] == null ? undefined : String(inline["background-color"]), important: false };
+  const image: Layer = { value: inline["background-image"] == null ? undefined : String(inline["background-image"]), important: false };
+  if (block.backgroundColor) color.value = block.backgroundColor;
+  const set = (layer: Layer, value: string | undefined, important: boolean) => {
+    if (layer.important && !important) return;
+    layer.value = value;
+    layer.important = important;
+  };
+  for (const decl of (block.customCss ?? "").split(";")) {
+    const m = CUSTOM_BG_DECL_RE.exec(decl);
+    if (!m) continue;
+    const prop = m[1]!.toLowerCase();
+    const important = Boolean(m[3]);
+    // The shorthand sets both parts (an unset one to its initial value).
+    if (prop === "background") {
+      const parts = isNullBackground(m[2]!) ? {} : splitBackgroundShorthand(m[2]!);
+      set(color, parts.color, important);
+      set(image, parts.image, important);
+    } else if (prop === "background-color") set(color, m[2], important);
+    else set(image, m[2], important);
+  }
+  const paints = (v: string | undefined) => Boolean(v && v.trim() && !isNullBackground(v));
+  return paints(color.value) || paints(image.value);
+}
+
+// Children of a container with its own background render "off surface".
+function surfaceCtx(
+  ctx: RenderCtx,
+  block: { backgroundColor?: string | null; className?: string; customCss?: string | null },
+): RenderCtx {
+  if (!ctx.dark || ctx.offSurface) return ctx;
+  const ownBg = paintsOwnBackground(ctx, block) || CONDITIONAL_BG_RE.test(block.className ?? "");
+  return ownBg ? { ...ctx, offSurface: true } : ctx;
+}
 
 // A text/link block's resolved content is "effectively empty" (nothing worth
 // showing) when, after stripping HTML tags and common separator punctuation,
@@ -151,7 +265,11 @@ function composeStyle(
   // explicit schema prop still wins over the utility. Pass only true defaults
   // here; pass user-set values via `schemaStyle`.
   themeDefaults?: Record<string, string | number | undefined | null>,
-): { style: string; classAttr: string } {
+  // The theme's text colour when a block sets it as its OWN style (Markdown,
+  // which always has): the colour that still counts as theme text for dark
+  // mode. Defaults to themeDefaults.color.
+  themeColor?: string,
+): { style: string; classAttr: string; themeText: boolean } {
   const compiled = compileClasses(className, ctx.theme);
   // Layer order (lowest → highest): theme defaults, className inline, schema.
   const merged: Record<string, string | number | undefined | null> = {};
@@ -167,9 +285,16 @@ function composeStyle(
   let style = inlineStyle(merged);
   style = withCustom(style, customCss);
   if (compiled.rules.length) ctx.rules.push(...compiled.rules);
-  const classes = [extraClass, compiled.className].filter(Boolean).join(" ");
+  // Dark mode: the theme's own text colour (nothing set it otherwise) can be
+  // swapped for the dark palette's.
+  const themeTextColor = themeDefaults?.color ?? themeColor;
+  const themeText =
+    themeTextColor != null &&
+    merged.color === themeTextColor &&
+    !/(^|;)\s*color\s*:/i.test(customCss ?? "");
+  const classes = [extraClass, compiled.className, themeText ? darkTextClass(ctx) : undefined].filter(Boolean).join(" ");
   const classAttr = classes ? ` class="${classes}"` : "";
-  return { style, classAttr };
+  return { style, classAttr, themeText };
 }
 
 // Append a block's customCss declarations to a base style string so user CSS
@@ -271,7 +396,12 @@ function resolveBorder(border: BorderLike): {
   return out;
 }
 
-function renderLeaf(block: LeafBlock, ctx: RenderCtx): string {
+function renderLeaf(block: LeafBlock, outer: RenderCtx): string {
+  // A leaf with its own background (customCss, a bg- class, backgroundColor)
+  // is its own surface, like a section: its copy and links keep their colours
+  // in dark mode (verifier on #1056: a white Text block's default text was
+  // recoloured near-white).
+  const ctx = surfaceCtx(outer, block as { backgroundColor?: string | null; className?: string; customCss?: string | null });
   switch (block.type) {
     case "text":
       return renderTextBlock(block, ctx);
@@ -299,7 +429,7 @@ function renderLeaf(block: LeafBlock, ctx: RenderCtx): string {
 }
 
 function renderTextBlock(block: TextBlock, ctx: RenderCtx): string {
-  const { style, classAttr } = composeStyle(
+  const { style, classAttr, themeText } = composeStyle(
     ctx,
     block.className,
     {
@@ -323,7 +453,7 @@ function renderTextBlock(block: TextBlock, ctx: RenderCtx): string {
   );
   const resolved =
     block.content && block.content.length
-      ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor)
+      ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor, darkLinkClass(ctx), onBackground(ctx, themeText))
       : renderText(block.text, ctx.vars).replace(/\n/g, "<br />");
   // Footer band only: a company line with one side empty ("Acme · " when no
   // postal address is set) loses its dangling separator.
@@ -336,7 +466,7 @@ function renderTextBlock(block: TextBlock, ctx: RenderCtx): string {
 }
 
 function renderHeadingBlock(block: HeadingBlock, ctx: RenderCtx): string {
-  const { style, classAttr } = composeStyle(
+  const { style, classAttr, themeText } = composeStyle(
     ctx,
     block.className,
     {
@@ -362,7 +492,7 @@ function renderHeadingBlock(block: HeadingBlock, ctx: RenderCtx): string {
   const tag = `h${block.level}`;
   const inner =
     block.content && block.content.length
-      ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor)
+      ? renderInlineRuns(block.content, ctx.vars, ctx.theme.linkColor, darkLinkClass(ctx), onBackground(ctx, themeText))
       : renderText(block.text, ctx.vars).replace(/\n/g, "<br />");
   return `<${tag}${idAttr(block.id, ctx)}${classAttr} style="${style}">${inner}</${tag}>`;
 }
@@ -372,7 +502,7 @@ function renderHeadingBlock(block: HeadingBlock, ctx: RenderCtx): string {
 // We pin the indent (padding-left) and zero the outer margins so Outlook and
 // Gmail agree; item spacing is a small bottom margin per <li>.
 function renderListBlock(block: ListBlock, ctx: RenderCtx): string {
-  const { style, classAttr } = composeStyle(
+  const { style, classAttr, themeText } = composeStyle(
     ctx,
     block.className,
     {
@@ -394,7 +524,7 @@ function renderListBlock(block: ListBlock, ctx: RenderCtx): string {
     .map((item) => {
       const inner =
         item.content && item.content.length
-          ? renderInlineRuns(item.content, ctx.vars, ctx.theme.linkColor)
+          ? renderInlineRuns(item.content, ctx.vars, ctx.theme.linkColor, darkLinkClass(ctx), onBackground(ctx, themeText))
           : renderText(item.text, ctx.vars).replace(/\n/g, "<br />");
       return `<li style="margin:0 0 4px 0;">${inner.trim() === "" ? "&nbsp;" : inner}</li>`;
     })
@@ -556,7 +686,11 @@ function renderLinkBlock(block: LinkBlock, ctx: RenderCtx): string {
     "text-decoration": block.underline === false ? "none" : "underline",
   });
   const href = escapeHtml(safeUrl(interpolate(block.href, ctx.vars)));
-  return `<div${idAttr(block.id, ctx)}${classAttr} style="${wrapStyle}"><a href="${href}" target="_blank" style="${linkStyle}">${renderText(block.text, ctx.vars)}</a></div>`;
+  // A standalone link in the theme's link colour is swapped in dark mode like
+  // an inline one; an explicitly coloured link keeps its colour (#1056).
+  const darkLink = block.color ? undefined : darkLinkClass(ctx);
+  const linkClass = darkLink ? ` class="${darkLink}"` : "";
+  return `<div${idAttr(block.id, ctx)}${classAttr} style="${wrapStyle}"><a href="${href}" target="_blank"${linkClass} style="${linkStyle}">${renderText(block.text, ctx.vars)}</a></div>`;
 }
 
 function renderSpacerBlock(block: SpacerBlock, ctx: RenderCtx): string {
@@ -610,7 +744,11 @@ function renderHtmlBlock(block: HtmlBlock, ctx: RenderCtx): string {
   // inbox or the dashboard preview. Defense-in-depth — ingestion also sanitizes,
   // but the renderer is the last line before output. Interpolate first so any
   // markup injected via {{vars}} is sanitized too.
-  const inner = sanitizeEmailHtml(interpolate(block.html, ctx.vars)).html;
+  // Library images resolve against the asset host, as an Image block's do.
+  const inner = resolveHtmlImageSrcs(
+    sanitizeEmailHtml(interpolate(block.html, ctx.vars)).html,
+    ctx.assetBaseUrl,
+  );
   // HTML stays bare (no wrapper) unless it actually has spacing or a className —
   // preserve that by only emitting margin/padding when non-zero.
   const marginCss = resolveMargin(block);
@@ -631,7 +769,12 @@ function renderHtmlBlock(block: HtmlBlock, ctx: RenderCtx): string {
 }
 
 function renderMarkdownBlock(block: MarkdownBlock, ctx: RenderCtx): string {
-  const { style: wrapStyle, classAttr } = composeStyle(
+  // The theme's text colour stays the block's own style, exactly as before
+  // 0.4 (its place in the style and its precedence over a class colour), so a
+  // template's HTML is unchanged without dark mode; `themeColor` tells dark
+  // mode it's the theme's, so Markdown no longer keeps near-black text on the
+  // dark card (verifier on #1056).
+  const { style: wrapStyle, classAttr, themeText } = composeStyle(
     ctx,
     block.className,
     {
@@ -644,10 +787,13 @@ function renderMarkdownBlock(block: MarkdownBlock, ctx: RenderCtx): string {
       "font-family": ctx.theme.fontFamily,
     },
     block.customCss,
+    undefined,
+    undefined,
+    block.color == null ? ctx.theme.textColor : undefined,
   );
   // Interpolate variables BEFORE markdown compilation so values participate in
   // formatting; the compiler escapes all literal text internally.
-  const html = compileMarkdown(interpolate(block.markdown, ctx.vars), ctx.theme);
+  const html = compileMarkdown(interpolate(block.markdown, ctx.vars), ctx.theme, darkLinkClass(ctx), onBackground(ctx, themeText));
   return `<div${idAttr(block.id, ctx)}${classAttr} style="${wrapStyle}">${html}</div>`;
 }
 
@@ -660,7 +806,11 @@ function renderMarkdownBlock(block: MarkdownBlock, ctx: RenderCtx): string {
 // self-contained and Outlook-tolerant. This is NOT a general Markdown engine —
 // it's a predictable subset whose output we fully control.
 // ---------------------------------------------------------------------------
-function compileInline(escaped: string, theme: Theme): string {
+function compileInline(escaped: string, theme: Theme, linkClass?: string, onBackgroundColor?: string): string {
+  const cls = linkClass ? ` class="${linkClass}"` : "";
+  // Inline code keeps its light chip in dark mode, so it keeps light-mode
+  // text too, like a highlight (verifier on #1056: near-white on #f4f4f5).
+  const codeColor = onBackgroundColor ? `color:${cssValue(onBackgroundColor)};` : "";
   return (
     escaped
       // links [text](href) — href is already escaped; quotes became &#39;/&quot;.
@@ -668,7 +818,7 @@ function compileInline(escaped: string, theme: Theme): string {
       .replace(
         /\[([^\]]+)\]\(([^)\s]+)\)/g,
         (_m, text: string, href: string) =>
-          `<a href="${safeUrl(href)}" target="_blank" style="color:${cssValue(theme.linkColor)};text-decoration:underline;">${text}</a>`,
+          `<a href="${safeUrl(href)}" target="_blank"${cls} style="color:${cssValue(theme.linkColor)};text-decoration:underline;">${text}</a>`,
       )
       // bold **text**
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -677,12 +827,12 @@ function compileInline(escaped: string, theme: Theme): string {
       // inline code `code`
       .replace(
         /`([^`]+)`/g,
-        `<code style="font-family:Consolas,Menlo,monospace;background-color:#f4f4f5;padding:2px 4px;border-radius:3px;">$1</code>`,
+        `<code style="${codeColor}font-family:Consolas,Menlo,monospace;background-color:#f4f4f5;padding:2px 4px;border-radius:3px;">$1</code>`,
       )
   );
 }
 
-function compileMarkdown(src: string, theme: Theme): string {
+function compileMarkdown(src: string, theme: Theme, linkClass?: string, onBackgroundColor?: string): string {
   const lines = src.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let listType: "ul" | "ol" | null = null;
@@ -690,7 +840,7 @@ function compileMarkdown(src: string, theme: Theme): string {
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
-    const text = compileInline(escapeHtml(paragraph.join(" ")), theme);
+    const text = compileInline(escapeHtml(paragraph.join(" ")), theme, linkClass, onBackgroundColor);
     out.push(`<p style="margin:0 0 12px 0;">${text}</p>`);
     paragraph = [];
   };
@@ -715,7 +865,7 @@ function compileMarkdown(src: string, theme: Theme): string {
       const level = heading[1].length;
       const size = level === 1 ? 24 : level === 2 ? 20 : 16;
       out.push(
-        `<h${level} style="margin:0 0 12px 0;font-size:${size}px;line-height:1.3;">${compileInline(escapeHtml(heading[2]), theme)}</h${level}>`,
+        `<h${level} style="margin:0 0 12px 0;font-size:${size}px;line-height:1.3;">${compileInline(escapeHtml(heading[2]), theme, linkClass, onBackgroundColor)}</h${level}>`,
       );
       continue;
     }
@@ -730,7 +880,7 @@ function compileMarkdown(src: string, theme: Theme): string {
         out.push(`<${want} style="margin:0 0 12px 0;padding-left:24px;">`);
       }
       const item = (ul ?? ol)![1];
-      out.push(`<li style="margin:0 0 4px 0;">${compileInline(escapeHtml(item), theme)}</li>`);
+      out.push(`<li style="margin:0 0 4px 0;">${compileInline(escapeHtml(item), theme, linkClass, onBackgroundColor)}</li>`);
       continue;
     }
     paragraph.push(line);
@@ -767,7 +917,7 @@ function renderSection(block: SectionBlock, ctx: RenderCtx): string {
   // the ONLY outer spacing, top and bottom, no matter which line is last.
   if (ctx.dropEmptyText) {
     const rendered = block.children
-      .map((c) => renderSectionChild(c, ctx))
+      .map((c) => renderSectionChild(c, surfaceCtx(ctx, block)))
       .filter((html) => html.trim().length > 0);
     const inner = rendered
       .map((html, i) =>
@@ -782,7 +932,7 @@ function renderSection(block: SectionBlock, ctx: RenderCtx): string {
     ].join("");
   }
   const inner = block.children
-    .map((c) => renderSectionChild(c, ctx))
+    .map((c) => renderSectionChild(c, surfaceCtx(ctx, block)))
     .join("\n");
   return [
     `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">`,
@@ -839,7 +989,7 @@ function renderColumn(block: ColumnBlock, ctx: RenderCtx): string {
     block.customCss,
     "ee-col",
   );
-  const inner = block.children.map((c) => renderLeaf(c, ctx)).join("\n");
+  const inner = block.children.map((c) => renderLeaf(c, surfaceCtx(ctx, block))).join("\n");
   // Empty columns still render their <td> so the row keeps its shape.
   return `<td${classAttr} width="${block.width}%" valign="top"${idAttr(block.id, ctx)} style="${cellStyle}">${inner || "&nbsp;"}</td>`;
 }
@@ -866,7 +1016,7 @@ function renderRow(block: RowBlock, ctx: RenderCtx): string {
       ? `<td class="ee-gap" style="width:${gap}px;font-size:1px;line-height:1px;" width="${gap}">&nbsp;</td>`
       : "";
   const cols = block.columns
-    .map((c) => renderColumn(c, ctx))
+    .map((c) => renderColumn(c, surfaceCtx(ctx, block)))
     .join(spacer);
   // `ee-cols` marks a row whose columns should stack on narrow viewports (the
   // head <style> media query keys on it). Only applied when the author left
@@ -1042,6 +1192,9 @@ export function renderToHtml(
     rules: [],
     assetBaseUrl: (options.assetBaseUrl ?? "").replace(/\/+$/, ""),
     buttonLinkFallback: options.buttonLinkFallback === true,
+    // Dark mode ships with a send, never in the editor canvas (its preview
+    // frame would follow the author's OS theme mid-edit).
+    dark: !options.editor && darkModeEnabled(theme),
   };
   const body = doc.blocks.map((b) => renderBlock(b, ctx)).join("\n");
 
@@ -1064,6 +1217,14 @@ export function renderToHtml(
   // footer's own background to the rounded bottom corners so a rounded body
   // yields a seamless rounded footer with no square background poking out.
   const hasRadius = theme.bodyRadius > 0;
+  // A stroke around the card (theme.bodyBorder). The collapsing table model
+  // below draws a table's own border square and ignores its radius, so a
+  // rounded, bordered card rendered as a square frame (2026-10-23 newsletter,
+  // via a `border` utility in the document className). Only a card with a
+  // bodyBorder switches to the separate model; every other email — a className
+  // border included — renders exactly as before.
+  const bodyBorder = theme.bodyBorder;
+  const hasBodyBorder = Boolean(bodyBorder?.width && bodyBorder.width > 0);
   const containerStyle = withCustom(
     inlineStyle({
       ...containerCompiled.inline,
@@ -1075,9 +1236,16 @@ export function renderToHtml(
       // band) butt together with NO seam. Gmail (esp. light mode) otherwise
       // rounds the table layout and paints a 1px light hairline at the top of
       // the dark footer band where the two <td> backgrounds meet. Belt-and-
-      // suspenders with the cellspacing="0" attribute below.
-      "border-collapse": "collapse",
+      // suspenders with the cellspacing="0" attribute below. A bordered card
+      // needs the separate model for its rounded stroke (see above); zero
+      // spacing still butts the rows together.
+      "border-collapse": hasBodyBorder ? "separate" : "collapse",
       "border-spacing": "0",
+      ...(hasBodyBorder
+        ? {
+            border: `${bodyBorder!.width}px ${bodyBorder!.style ?? "solid"} ${bodyBorder!.color ?? STYLE_TOKENS.bodyBorderColor}`,
+          }
+        : {}),
       ...(hasRadius
         ? { "border-radius": `${theme.bodyRadius}px`, overflow: "hidden" }
         : {}),
@@ -1170,8 +1338,33 @@ export function renderToHtml(
     ctx.editor
       ? `[data-block-id]{cursor:pointer;} [data-block-id]:hover{outline:2px solid rgba(37,99,235,0.4);outline-offset:1px;} [data-block-id].ee-selected{outline:2px solid #2563eb !important;outline-offset:1px;}`
       : ``,
+    // Dark mode (dark-mode.ts): backdrop, card, theme text and links only.
+    ctx.dark ? darkModeCss(theme) : ``,
     `</style>`,
   ].join("");
+
+  // Outlook for Windows (Word engine): 96 DPI so pixel sizes hold on high-DPI
+  // screens, no extra table spacing, and exact line heights. Conditional
+  // comments, so every other client ignores them. Sends only (the editor's
+  // preview frame has no use for them).
+  const msoHead = ctx.editor
+    ? ""
+    : [
+        `<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->`,
+        `<!--[if mso]><style>table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}p,h1,h2,h3,h4,li{mso-line-height-rule:exactly;}</style><![endif]-->`,
+      ].join("\n");
+  // Outlook ignores max-width and media queries: a fixed-width "ghost" table
+  // holds the card (and the brand mark under it) at the content width.
+  const msoOpen = ctx.editor
+    ? ""
+    : `<!--[if mso]><table role="presentation" align="center" width="${theme.contentWidth}" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->`;
+  const msoClose = ctx.editor ? "" : `<!--[if mso]></td></tr></table><![endif]-->`;
+  // The color-scheme declaration: "light" when the brand opted out, so
+  // clients that honour it leave the colours alone; otherwise "light dark",
+  // which every email declared before dark mode existed (a theme without
+  // `darkMode` renders exactly as it did then, #1056).
+  const scheme = theme.darkMode === "off" ? "light" : "light dark";
+  const bgClass = ctx.dark ? ` class="${DARK_BG_CLASS}"` : "";
 
   // Body row padding lives on the body <td> (moved off the container table) so
   // the managed footer row below can span the FULL card width, ignoring this
@@ -1186,23 +1379,25 @@ export function renderToHtml(
 
   return [
     `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">`,
-    `<html lang="en" xmlns="http://www.w3.org/1999/xhtml">`,
+    ctx.editor
+      ? `<html lang="en" xmlns="http://www.w3.org/1999/xhtml">`
+      : `<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">`,
     `<head>`,
     `<meta charset="utf-8" />`,
     `<meta name="viewport" content="width=device-width, initial-scale=1.0" />`,
     `<meta http-equiv="X-UA-Compatible" content="IE=edge" />`,
-    // Declare color-scheme support so email clients know the template renders
-    // fine in their dark mode; we don't ship dark-specific CSS, this just opts
-    // in to the client's own handling.
-    `<meta name="color-scheme" content="light dark" />`,
-    `<meta name="supported-color-schemes" content="light dark" />`,
+    // Declare which colour schemes the email is built for (see `scheme`).
+    `<meta name="color-scheme" content="${scheme}" />`,
+    `<meta name="supported-color-schemes" content="${scheme}" />`,
     `<title></title>`,
+    ...(msoHead ? [msoHead] : []),
     headStyle,
     `</head>`,
-    `<body style="${outerStyle}">`,
+    `<body${bgClass} style="${outerStyle}">`,
     previewSpan(doc.previewText, variables),
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:${cssValue(theme.backgroundColor)};">`,
+    `<table role="presentation"${bgClass} width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:${cssValue(theme.backgroundColor)};">`,
     `<tr><td align="center" style="padding:24px 0;">`,
+    ...(msoOpen ? [msoOpen] : []),
     // The body "paper": the max-width, background-colored card. Two rows:
     //   1. the body content, padded by the theme's body padding;
     //   2. the managed marketing/compliance footer, a SEPARATE full-width row
@@ -1236,6 +1431,7 @@ export function renderToHtml(
           `</table>`,
         ].join("")
       : "",
+    ...(msoClose ? [msoClose] : []),
     `</td></tr>`,
     `</table>`,
     `</body>`,

@@ -1,6 +1,6 @@
 {
   "name": "@unitpost/email",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Email component library that works in Outlook, Gmail, and Apple Mail.",
   "license": "MIT",
   "homepage": "https://unitpost.com/email",
@@ -37,6 +37,7 @@
   "files": [
     "dist",
     "README.md",
+    "EMAIL_DESIGN.md",
     "CHANGELOG.md",
     "LICENSE",
     "docs/examples"
@@ -51,6 +52,7 @@
     "email:check": "npm run typecheck && npm run test",
     "test": "node --import tsx ../../tools/node-test.mjs",
     "preview": "tsx scripts/preview.ts",
+    "guide:write": "tsx scripts/write-design-guide.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

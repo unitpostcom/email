@@ -28,6 +28,7 @@ import {
 import { newBlockId } from "./blocks";
 import { normalizeBorderAttrs } from "./border-attrs";
 import { dedentText } from "./dedent";
+import { applyDocumentAttrs, printDocumentOpenTag } from "./document-attrs";
 
 // Constrained TSX <-> JSON codec.
 //
@@ -50,6 +51,10 @@ import { dedentText } from "./dedent";
 //   <Spacer>   spacer
 //   <Markdown> markdown
 //   <Code>     code
+//
+// Plus one optional DOCUMENT element, <Email>, wrapping the whole body: its
+// attributes are the page-level settings (theme, preview text, category) — see
+// document-attrs.ts. It is lifted off before the blocks are parsed.
 
 const TAG_TO_TYPE: Record<string, Block["type"] | "column"> = {
   Section: "section",
@@ -619,8 +624,54 @@ function parseListItems(inner: string): Array<{ text: string; content?: InlineRu
   return items;
 }
 
+// Lift the optional <Email> document element off the token stream: its
+// attributes (decoded) plus the tokens with its open/close tags removed.
+//
+// Recognized ONLY when it is the first thing in the source (the outermost
+// element), closed by the last </Email> (or self-closing: theme only). Any
+// other <Email> — inside a <Code> sample, a stray tag mid-document — parses
+// exactly as it always did (Tier 2 raw HTML), so no existing input changes
+// meaning.
+function liftDocumentElement(tokens: Token[]): {
+  tokens: Token[];
+  attrs: Record<string, unknown> | null;
+} {
+  const open = tokens.findIndex((t) => !isBlankText(t));
+  const openTok = tokens[open];
+  if (!openTok || openTok.kind !== "open" || openTok.tag.toLowerCase() !== "email") {
+    return { tokens, attrs: null };
+  }
+  let close = -1;
+  if (!openTok.selfClose) {
+    for (let i = tokens.length - 1; i > open; i--) {
+      const t = tokens[i];
+      if (t.kind === "close" && t.tag.toLowerCase() === "email") {
+        close = i;
+        break;
+      }
+    }
+    if (close === -1) throw new TsxParseError("Unclosed <Email>. Close it with </Email> after the last block.");
+  }
+  const attrs: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(openTok.attrs)) attrs[k] = typeof v === "string" ? decodeInline(v) : v;
+  return { tokens: tokens.filter((_, i) => i !== open && i !== close), attrs };
+}
+
 export function parseTsx(code: string, base?: EmailDocument): EmailDocument {
-  const tokens = tokenize(code);
+  return parseTsxDocument(code, base).doc;
+}
+
+/**
+ * parseTsx plus what the <Email> document element couldn't use (an unknown
+ * attribute, an invalid theme value), in plain words — for callers that report
+ * back (the API, MCP, Ask Unit). Block-level props are lenient as in parseTsx.
+ */
+export function parseTsxDocument(
+  code: string,
+  base?: EmailDocument,
+): { doc: EmailDocument; warnings: string[] } {
+  const lifted = liftDocumentElement(tokenize(code));
+  const tokens = lifted.tokens;
   const blocks: Block[] = [];
 
   let idx = 0;
@@ -677,9 +728,13 @@ export function parseTsx(code: string, base?: EmailDocument): EmailDocument {
   // schema defaults — silently wiping the user's body background / category on
   // reopen and on the next autosave. When no base is given (e.g. importing bare
   // snippet code) we fall back to a schema-default document.
-  return base
+  //
+  // The <Email> element, when present, then sets the page-level settings on
+  // top of that base (document-attrs.ts).
+  const doc = base
     ? EmailDocumentSchema.parse({ ...base, blocks })
     : EmailDocumentSchema.parse({ blocks });
+  return lifted.attrs ? applyDocumentAttrs(doc, lifted.attrs) : { doc, warnings: [] };
 }
 
 // Append raw markup as an `html` block, COALESCING with a preceding html block
@@ -1091,8 +1146,20 @@ function printBlock(block: Block | ColumnBlock, indent: string): string {
   return `${indent}<${tag}${printAttrs(rec)} />`;
 }
 
-export function printTsx(doc: EmailDocument): string {
-  return doc.blocks.map((b) => printBlock(b, "")).join("\n");
+/**
+ * Print a document's blocks as constrained TSX. With `document: true` the
+ * blocks are wrapped in the <Email> element carrying the theme, preview text
+ * and category (`meta: false`: the theme only), so the output alone recreates
+ * the whole design (API / MCP read-back); without it — the default, and the
+ * editor's Code tab — the bare block list, exactly as before.
+ */
+export function printTsx(
+  doc: EmailDocument,
+  options: { document?: boolean; meta?: boolean } = {},
+): string {
+  if (!options?.document) return doc.blocks.map((b) => printBlock(b, "")).join("\n");
+  const inner = doc.blocks.map((b) => printBlock(b, "  ")).join("\n");
+  return `${printDocumentOpenTag(doc, { meta: options.meta })}\n${inner}${inner ? "\n" : ""}</Email>`;
 }
 
 // Print a ComponentFragment (e.g. a pre-built section layout) as constrained
@@ -1101,4 +1168,251 @@ export function printTsx(doc: EmailDocument): string {
 // exact markup to reuse/adapt when composing an email.
 export function printFragmentTsx(fragment: ComponentFragment): string {
   return fragment.blocks.map((b) => printBlock(b, "")).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// HTML -> components, best effort (Code -> Design)
+// ---------------------------------------------------------------------------
+// A Code template is raw HTML; Design edits components. Converting one into
+// the other can't be exact, so this rebuilds what maps cleanly — headings,
+// paragraphs, lists, images, rules, links and styled-link buttons — and keeps
+// everything else verbatim as Html blocks (still editable in Code). Layout
+// wrappers (html/body/div/center and layout tables) are unwrapped, so a
+// multi-column table stacks and backgrounds/borders set on wrappers are lost:
+// htmlToBlocks reports those counts so the caller can say so.
+
+const UNWRAP_TAGS = new Set([
+  "html", "body", "main", "article", "section", "header", "footer", "center", "div",
+  "table", "tbody", "thead", "tfoot", "tr", "td", "th",
+]);
+const INLINE_TAGS = new Set(["span", "strong", "b", "em", "i", "u", "s", "font", "small"]);
+const VOID_TAGS = new Set(["img", "hr", "br", "meta", "link", "input", "col", "wbr", "area", "source"]);
+
+export type HtmlImportResult = {
+  blocks: Block[];
+  /** Parts rebuilt as components. */
+  rebuilt: number;
+  /** Parts kept as raw Html blocks (no component equivalent). */
+  kept: number;
+  /** Layout tables unwrapped (their columns now stack). */
+  tables: number;
+};
+
+function innerHtmlOf(raw: string): string {
+  const open = raw.indexOf(">");
+  const close = raw.lastIndexOf("</");
+  if (open === -1) return "";
+  return raw.slice(open + 1, close > open ? close : undefined);
+}
+
+function styleDecls(style: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof style !== "string") return out;
+  for (const decl of style.split(";")) {
+    const at = decl.indexOf(":");
+    if (at < 0) continue;
+    out[decl.slice(0, at).trim().toLowerCase()] = decl.slice(at + 1).trim();
+  }
+  return out;
+}
+
+// The bits of a paragraph's inline style a Text/Heading block models.
+function textStyleProps(style: unknown): Record<string, unknown> {
+  const s = styleDecls(style);
+  const props: Record<string, unknown> = {};
+  const align = s["text-align"];
+  if (align === "left" || align === "center" || align === "right") props.align = align;
+  if (s.color && /^(#[0-9a-f]{3,8}|rgba?\([^)]*\))$/i.test(s.color)) props.color = s.color;
+  const size = /^(\d+(?:\.\d+)?)px$/i.exec(s["font-size"] ?? "");
+  if (size) props.fontSize = Math.round(Number(size[1]));
+  return props;
+}
+
+// Entities email HTML is full of that the TSX dialect's decoder doesn't know:
+// spacing (&nbsp;, the zero-width preheader padding) and numeric references.
+function decodeHtmlEntities(s: string): string {
+  return decodeInline(
+    s
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&(?:zwnj|zwj|shy);/gi, "")
+      .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d))),
+  ).replace(/[\u034f\u200b-\u200d\u00ad]/g, "");
+}
+
+function inlineBlockProps(inner: string): { text: string; content?: InlineRun[] } {
+  const html = decodeEntitiesKeepingMarkup(inner.replace(/<br\s*\/?>/gi, " ")).trim();
+  if (!/<[a-zA-Z]/.test(html)) return { text: decodeInline(html).replace(/\s+/g, " ").trim() };
+  const runs = parseInlineRuns(html);
+  const text = runs.map((r) => r.text).join("").trim();
+  return runs.some((r) => r.marks) ? { text, content: runs } : { text };
+}
+
+// Decode the spacing / numeric entities in text but leave &lt; &gt; &amp;
+// &quot; for parseInlineRuns, so escaped markup stays text.
+function decodeEntitiesKeepingMarkup(s: string): string {
+  return s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&(?:zwnj|zwj|shy);/gi, "")
+    .replace(/&#x([0-9a-f]+);/gi, (m, h: string) => (/^0*(3c|3e|26|22)$/i.test(h) ? m : String.fromCodePoint(parseInt(h, 16))))
+    .replace(/&#(\d+);/g, (m, d: string) => (["60", "62", "38", "34"].includes(String(Number(d))) ? m : String.fromCodePoint(Number(d))))
+    .replace(/[\u034f\u200b-\u200d\u00ad]/g, "");
+}
+
+// One attribute of an element's OPENING tag (the inner markup never counts).
+const HTML_ATTR_RE = /\s([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;
+function attrOf(raw: string, name: string): string | undefined {
+  const end = raw.indexOf(">");
+  const tag = end === -1 ? raw : raw.slice(0, end + 1);
+  for (const m of tag.matchAll(HTML_ATTR_RE)) {
+    if (m[1].toLowerCase() === name) return decodeInline(m[2] ?? m[3] ?? m[4] ?? "");
+  }
+  return undefined;
+}
+
+function imageFrom(imgTag: string, href?: string): Block | null {
+  const src = attrOf(imgTag, "src");
+  if (!src) return null;
+  const width = Number(attrOf(imgTag, "width"));
+  return BlockSchema.parse({
+    type: "image",
+    id: newBlockId(),
+    src,
+    alt: attrOf(imgTag, "alt") ?? "",
+    ...(href ? { href } : {}),
+    ...(Number.isFinite(width) && width > 0 ? { width: Math.round(width) } : {}),
+  });
+}
+
+/** Rebuild an HTML body as components where it maps cleanly (see above). */
+export function htmlToBlocks(html: string): HtmlImportResult {
+  const cleaned = html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<!doctype[^>]*>/gi, "")
+    .replace(/<(head|style|script|title)\b[\s\S]*?<\/\1\s*>/gi, "");
+  const tokens = tokenize(cleaned);
+  const blocks: Block[] = [];
+  const result: HtmlImportResult = { blocks, rebuilt: 0, kept: 0, tables: 0 };
+  const add = (block: Block | null) => {
+    if (!block) return;
+    blocks.push(block);
+    result.rebuilt++;
+  };
+  const keep = (raw: string) => {
+    if (!raw.trim()) return;
+    pushHtmlBlock(blocks, raw);
+    result.kept++;
+  };
+
+  let cellBg: string | undefined;
+  let i = 0;
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (t.kind === "text") {
+      const text = decodeHtmlEntities(t.value).replace(/\s+/g, " ").trim();
+      if (text) add(BlockSchema.parse({ type: "text", id: newBlockId(), text }));
+      i++;
+      continue;
+    }
+    if (t.kind === "close") {
+      if (/^t[dh]$/i.test(t.tag)) cellBg = undefined;
+      i++;
+      continue;
+    }
+    const tag = t.tag.toLowerCase();
+    if (UNWRAP_TAGS.has(tag)) {
+      if (tag === "table") result.tables++;
+      // A bulletproof button paints its color on the cell around the link.
+      if (tag === "td" || tag === "th") {
+        const s = styleDecls(t.attrs.style);
+        cellBg = s["background-color"] ?? s.background ?? (typeof t.attrs.bgcolor === "string" ? t.attrs.bgcolor : undefined);
+      }
+      i++;
+      continue;
+    }
+    const raw = t.selfClose || VOID_TAGS.has(tag) ? { html: t.raw, next: i + 1 } : consumeRawElement(tokens, i);
+    i = raw.next;
+    const inner = innerHtmlOf(raw.html);
+    const imageCount = (inner.match(/<img\b/gi) ?? []).length;
+    const onlyImage = imageCount === 1 && !inner.replace(/<[^>]*>/g, "").trim();
+    // An image that shares its element with copy or with other images (a row
+    // of badges, a logo beside a line of text) has no block that holds both:
+    // keep the element as HTML rather than keep one part and silently drop the
+    // rest (verifier on #1036, two rounds). A single image alone becomes an
+    // Image block below.
+    if (imageCount > 0 && !onlyImage) {
+      keep(raw.html);
+      continue;
+    }
+    const heading = /^h([1-6])$/.exec(tag);
+    if (heading) {
+      add(BlockSchema.parse({ type: "heading", id: newBlockId(), level: Math.min(4, Number(heading[1])), ...textStyleProps(t.attrs.style), ...inlineBlockProps(inner) }));
+    } else if (tag === "p" || tag === "blockquote") {
+      if (onlyImage) {
+        const img = /<img\b[^>]*>/i.exec(inner)![0];
+        const href = /<a\b[^>]*>/i.exec(inner);
+        add(imageFrom(img, href ? attrOf(href[0], "href") : undefined));
+        continue;
+      }
+      const lone = /^\s*(<a\b[^>]*>)([\s\S]*?)<\/a>\s*$/i.exec(inner);
+      if (lone && /background/i.test(attrOf(lone[1], "style") ?? "")) {
+        const s = styleDecls(attrOf(lone[1], "style"));
+        add(BlockSchema.parse({
+          type: "button",
+          id: newBlockId(),
+          text: decodeHtmlEntities(lone[2].replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim(),
+          href: attrOf(lone[1], "href") ?? "#",
+          ...(textStyleProps(t.attrs.style).align ? { align: textStyleProps(t.attrs.style).align } : {}),
+          ...(s["background-color"] || s.background ? { backgroundColor: s["background-color"] ?? s.background } : {}),
+          ...(s.color ? { textColor: s.color } : {}),
+        }));
+        continue;
+      }
+      const props = inlineBlockProps(inner);
+      if (props.text) add(BlockSchema.parse({ type: "text", id: newBlockId(), ...textStyleProps(t.attrs.style), ...props }));
+    } else if (tag === "ul" || tag === "ol") {
+      const items = parseListItems(inner);
+      if (items.length) add(BlockSchema.parse({ type: "list", id: newBlockId(), ordered: tag === "ol", items }));
+    } else if (tag === "img") {
+      add(imageFrom(raw.html));
+    } else if (tag === "hr") {
+      add(BlockSchema.parse({ type: "divider", id: newBlockId() }));
+    } else if (tag === "br") {
+      // spacing only
+    } else if (tag === "a") {
+      const href = attrOf(raw.html, "href") ?? "#";
+      if (onlyImage) {
+        add(imageFrom(/<img\b[^>]*>/i.exec(inner)![0], href));
+        continue;
+      }
+      const text = decodeHtmlEntities(inner.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
+      const s = styleDecls(attrOf(raw.html, "style"));
+      if (!text) continue;
+      // A button: a link with its own background, or a padded inline-block
+      // link (the bulletproof pattern) whose cell carries the color.
+      const bg = s["background-color"] ?? s.background ?? (s.display === "inline-block" && s.padding ? cellBg : undefined);
+      add(BlockSchema.parse(
+        bg
+          ? { type: "button", id: newBlockId(), text, href, backgroundColor: bg, ...(s.color ? { textColor: s.color } : {}) }
+          : { type: "link", id: newBlockId(), text, href },
+      ));
+    } else if (tag === "pre") {
+      add(BlockSchema.parse({ type: "code", id: newBlockId(), code: decodeHtmlEntities(inner.replace(/<[^>]*>/g, "")) }));
+    } else if (INLINE_TAGS.has(tag)) {
+      // A wrapped image (a rounded-corner span, a font tag) is the image.
+      if (onlyImage) {
+        const radius = /^(\d+)px$/.exec(styleDecls(t.attrs.style)["border-radius"] ?? "");
+        const href = /<a\b[^>]*>/i.exec(inner);
+        const image = imageFrom(/<img\b[^>]*>/i.exec(inner)![0], href ? attrOf(href[0], "href") : undefined);
+        add(image && radius ? BlockSchema.parse({ ...image, borderRadius: Number(radius[1]) }) : image);
+        continue;
+      }
+      // Loose inline copy outside a paragraph (common in table emails).
+      const props = inlineBlockProps(raw.html);
+      if (props.text) add(BlockSchema.parse({ type: "text", id: newBlockId(), ...props }));
+    } else {
+      keep(raw.html);
+    }
+  }
+  return result;
 }

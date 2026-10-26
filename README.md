@@ -114,13 +114,19 @@ Props are the same as in React. In a string you can also write them in kebab-cas
 
 | Group | Components |
 | --- | --- |
-| **Layout** | [`Section`](https://unitpost.com/components#section) · [`Row`](https://unitpost.com/components#row) · [`Column`](https://unitpost.com/components#column) |
+| **Layout** | [`Email`](https://unitpost.com/components#email) · [`Section`](https://unitpost.com/components#section) · [`Row`](https://unitpost.com/components#row) · [`Column`](https://unitpost.com/components#column) |
 | **Content** | [`Heading`](https://unitpost.com/components#heading) · [`Text`](https://unitpost.com/components#text) · [`List`](https://unitpost.com/components#list) · [`Divider`](https://unitpost.com/components#divider) · [`Spacer`](https://unitpost.com/components#spacer) · [`Markdown`](https://unitpost.com/components#markdown) · [`Code`](https://unitpost.com/components#code) |
 | **Media** | [`Image`](https://unitpost.com/components#image) |
 | **Interactive** | [`Button`](https://unitpost.com/components#button) · [`Link`](https://unitpost.com/components#link) |
 | **Advanced** | [`Html`](https://unitpost.com/components#html) (sanitized) |
 
-Every component also takes the [common props](https://unitpost.com/components#common-props): spacing, alignment, Tailwind-style `className`, and `customCss`. Both compile to inline CSS. The renderer adds the document shell (`<html>`, `<head>`, preheader, the centered body), so there's no component for it.
+Every component also takes the [common props](https://unitpost.com/components#common-props): spacing, alignment, Tailwind-style `className`, and `customCss`. Both compile to inline CSS. The renderer adds the document shell (`<html>`, `<head>`, preheader, the centered card). To style it, wrap the email in one `<Email>`: the backdrop, card color, width, padding, corner radius, border, default font and colors, plus the inbox preview text.
+
+```tsx
+<Email backgroundColor="#f5f5f4" bodyColor="#ffffff" contentWidth={560} bodyRadius={16} previewText="What's new this month">
+  <Section>…</Section>
+</Email>
+```
 
 ---
 
@@ -130,16 +136,30 @@ Ready-made sections built from the components: headers, heroes, cards, columns, 
 
 | Group | Layouts |
 | --- | --- |
-| **[Header](https://unitpost.com/components#layouts-header)** | [Logo header](https://unitpost.com/components#layout-header-logo) · [Logo + links](https://unitpost.com/components#layout-header-logo-nav) |
-| **[Hero](https://unitpost.com/components#layouts-hero)** | [Simple hero](https://unitpost.com/components#layout-hero-simple) · [Image hero](https://unitpost.com/components#layout-hero-image) · [Status hero](https://unitpost.com/components#layout-hero-badge) |
-| **[Content](https://unitpost.com/components#layouts-content)** | [Card](https://unitpost.com/components#layout-content-card) · [Detail rows](https://unitpost.com/components#layout-content-key-value) · [Verification code](https://unitpost.com/components#layout-content-code) · [Quote / callout](https://unitpost.com/components#layout-content-quote) · [Action feature](https://unitpost.com/components#layout-content-action) · [Announcement banner](https://unitpost.com/components#layout-content-announcement) · [Article feature](https://unitpost.com/components#layout-content-article) |
-| **[Columns](https://unitpost.com/components#layouts-columns)** | [Split 50/50](https://unitpost.com/components#layout-columns-split) · [Two cards](https://unitpost.com/components#layout-columns-cards) · [Three features](https://unitpost.com/components#layout-columns-features) · [Numbered steps](https://unitpost.com/components#layout-columns-steps) |
-| **[Call to action](https://unitpost.com/components#layouts-call-to-action)** | [CTA band](https://unitpost.com/components#layout-cta-band) · [Centered CTA](https://unitpost.com/components#layout-cta-centered) |
-| **[Footer](https://unitpost.com/components#layouts-footer)** | [Simple footer](https://unitpost.com/components#layout-footer-simple) · [Rich footer](https://unitpost.com/components#layout-footer-rich) · [Footer + apps](https://unitpost.com/components#layout-footer-social) |
+| **[Header](https://unitpost.com/components#layouts-header)** | Brand header · Wordmark header · [Logo header](https://unitpost.com/components#layout-header-logo) · [Logo + links](https://unitpost.com/components#layout-header-logo-nav) |
+| **[Hero](https://unitpost.com/components#layouts-hero)** | Headline hero · Contrast hero · Gradient hero · Status hero · Media hero · [Simple hero](https://unitpost.com/components#layout-hero-simple) · [Image hero](https://unitpost.com/components#layout-hero-image) · [Status hero](https://unitpost.com/components#layout-hero-badge) |
+| **[Content](https://unitpost.com/components#layouts-content)** | Feature section · Icon rows · Stats row · Order summary · Code card · Callout card · Offer card · Event details · [Card](https://unitpost.com/components#layout-content-card) · [Detail rows](https://unitpost.com/components#layout-content-key-value) · [Verification code](https://unitpost.com/components#layout-content-code) · [Quote / callout](https://unitpost.com/components#layout-content-quote) · [Action feature](https://unitpost.com/components#layout-content-action) · [Announcement banner](https://unitpost.com/components#layout-content-announcement) · [Article feature](https://unitpost.com/components#layout-content-article) |
+| **[Columns](https://unitpost.com/components#layouts-columns)** | Product grid · [Split 50/50](https://unitpost.com/components#layout-columns-split) · [Two cards](https://unitpost.com/components#layout-columns-cards) · [Three features](https://unitpost.com/components#layout-columns-features) · [Numbered steps](https://unitpost.com/components#layout-columns-steps) |
+| **[Call to action](https://unitpost.com/components#layouts-call-to-action)** | Contrast CTA · [CTA band](https://unitpost.com/components#layout-cta-band) · [Centered CTA](https://unitpost.com/components#layout-cta-centered) |
+| **[Footer](https://unitpost.com/components#layouts-footer)** | Sign-off · [Simple footer](https://unitpost.com/components#layout-footer-simple) · [Rich footer](https://unitpost.com/components#layout-footer-rich) · [Footer + apps](https://unitpost.com/components#layout-footer-social) |
+
+The themed layouts (unlinked above) are full-bleed bands with their own 32px gutter: use them with `bodyPadding: 0`, and rebuild one in your brand colours with `buildThemedLayout(key, brandPalette({ accent }))`.
 
 Footer layouts don't include an unsubscribe link or postal address. Add your own if you send marketing email.
 
 ---
+
+## Design guide
+
+[`EMAIL_DESIGN.md`](./EMAIL_DESIGN.md) is how we build a good email from a short ask: layout, type scale, colour and contrast, buttons, images, dark mode, copy, and a recipe per common email type. In code:
+
+```ts
+import { recipeStarter, lintEmailDesign, renderToHtml } from "@unitpost/email";
+
+const starter = recipeStarter("welcome", { name: "Northwind", accent: "#4f46e5", website: "https://northwind.com" });
+const hints = lintEmailDesign(starter.document); // [] — contrast, alt text, links, structure all pass
+const html = renderToHtml(starter.document, { first_name: "Ada" });
+```
 
 ## Examples
 
@@ -173,11 +193,12 @@ const html = renderToHtml(welcome.design, values);
 
 | Area | Exports |
 | --- | --- |
-| React (`@unitpost/email/react`) | `Section`, `Row`, `Column`, `Heading`, `Text`, `List`, `Button`, `Link`, `Image`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `render`, `fromJsx` |
+| React (`@unitpost/email/react`) | `Email`, `Section`, `Row`, `Column`, `Heading`, `Text`, `List`, `Button`, `Link`, `Image`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `render`, `fromJsx` |
 | Rendering | `renderToHtml`, `renderToText`, `resolveVariables`, `resolveVariablesWithContact`, `collectVariables`, `documentHasPerRecipientVariables` |
-| Codec | `parseTsx`, `printTsx`, `printFragmentTsx`, `TsxParseError` |
+| Codec | `parseTsx`, `parseTsxDocument`, `printTsx`, `printFragmentTsx`, `htmlToBlocks`, `TsxParseError`, `EMAIL_ELEMENT_ATTRIBUTES` |
+| Editors | `templateEditor`, `convertTemplateDocument`, `TEMPLATE_EDITORS` |
 | Document | `EmailDocument`, `EmailDocumentSchema`, `parseDocument`, `migrateDocument`, `COMPONENT_DEFAULTS`, `STYLE_TOKENS`, `TEMPLATE_CATEGORIES` |
-| Catalog | `COMPONENT_CATALOG`, `COMPONENT_GROUPS`, `COMMON_PROPS`, `getComponentDoc`, `resolvePropDefault` |
+| Catalog | `COMPONENT_CATALOG`, `DOCUMENTED_COMPONENTS`, `EMAIL_ELEMENT_DOC`, `COMPONENT_GROUPS`, `COMMON_PROPS`, `getComponentDoc`, `resolvePropDefault` |
 | Layouts | `SECTION_LAYOUTS`, `LAYOUT_GROUPS`, `getSectionLayout` |
 | Samples | `SAMPLE_TEMPLATES`, `getSampleTemplate` |
 | Sanitizer | `sanitizeEmailHtml`, `safeUrl`, `safeImageUrl`, `hasForbiddenHtml` |

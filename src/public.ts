@@ -25,8 +25,14 @@ export * from "./simple";
 // path share this so link/text/band colors never drift).
 export * from "./marketing-footer-branding";
 
-// Constrained-TSX codec: parseTsx / printTsx and their error type.
+// Constrained-TSX codec: parseTsx / printTsx and their error type, plus the
+// <Email> document element's attributes.
 export * from "./codec";
+export * from "./document-attrs";
+
+// The three template editors (simple / design / code) and conversions between
+// them.
+export * from "./modes";
 
 // Component catalog (metadata + snippets) that documents/tools render from.
 export * from "./catalog";
@@ -37,6 +43,17 @@ export * from "./samples";
 // Pre-built section layouts (header/hero/content/columns/CTA/footer bands)
 // composed purely from the block primitives above.
 export * from "./layouts";
+
+// The email design guide as data (rules, per-type recipes with brand-themed
+// starter emails), the themed bands and palette it builds from, our hosted
+// icons/placeholders, and the design lint that checks its measurable rules.
+export * from "./design-guide";
+export { BAND_GUTTER, NEUTRAL_PALETTE, brandPalette, type BandBrand, type BrandPalette } from "./bands";
+export * as emailBands from "./bands";
+export * from "./color";
+export * from "./dark-mode";
+export * from "./email-assets";
+export * from "./design-lint";
 
 // HTML sanitizer for customer-authored HTML blocks.
 export * from "./sanitize";

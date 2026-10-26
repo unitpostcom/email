@@ -147,8 +147,10 @@ function wholeEmailHtml(doc: Pick<EmailDocument, "blocks">): string | null {
 const FIT_KEYS = ["contentWidth", "bodyPadding", "bodyRadius", "backgroundColor", "bodyColor"] as const;
 const SHAPE_KEYS = ["contentWidth", "bodyPadding", "bodyRadius"] as const;
 
+// A body border is never part of the fit, so a shell that has one doesn't
+// carry it (border-less documents: unchanged).
 function carries(theme: Theme, fit: Partial<Theme>, keys: readonly (keyof Theme)[]): boolean {
-  return !theme.bodyPaddingSides && keys.every((k) => !(k in fit) || theme[k] === fit[k]);
+  return !theme.bodyPaddingSides && !theme.bodyBorder && keys.every((k) => !(k in fit) || theme[k] === fit[k]);
 }
 
 type Fittable = Pick<EmailDocument, "blocks" | "theme">;
@@ -170,8 +172,12 @@ type Fittable = Pick<EmailDocument, "blocks" | "theme">;
 export function fitImportedHtml<T extends Fittable>(next: T, previous?: Fittable | null): T {
   const html = wholeEmailHtml(next);
   if (html === null) return next;
-  const fit = importedHtmlThemeOverrides(html);
-  if (!fit) return next;
+  const base = importedHtmlThemeOverrides(html);
+  if (!base) return next;
+  // The email draws its own card, so a body border (theme.bodyBorder) steps
+  // aside with the padding and radius. Only touched when one is set, so a
+  // border-less document fits exactly as before.
+  const fit: Partial<Theme> = next.theme.bodyBorder ? { ...base, bodyBorder: undefined } : base;
   const prevHtml = previous ? wholeEmailHtml(previous) : null;
   if (previous && prevHtml !== null) {
     if (prevHtml === html) return next;

@@ -51,6 +51,8 @@ const html = render(<Welcome name="Mike" />);
 
 `render` lowers JSX to the same `EmailDocument` the visual editor uses, then the same inbox-safe HTML. It's synchronous and returns a string: pass it as `html` to Unitpost (`unitpost.email.send`, or the SMTP relay at `smtp.unitpost.com`), Nodemailer, SES, SendGrid, Postmark, Brevo, Cloudflare Email Service, AutoSend, Mailgun, or any other sender. Never mount email components with React DOM.
 
+Wrap the email in one `<Email>` to set the page: `backgroundColor` (the backdrop), `bodyColor` (the card), `contentWidth`, `bodyPadding`, `bodyRadius`, `bodyBorderWidth` / `bodyBorderColor`, `fontFamily`, `textColor`, `linkColor`, `previewText` (in string TSX: `background-color`, `body-radius`, …). Leave it out and the defaults apply. When you send to Unitpost's templates API, send the string TSX as `tsx` (the template stays editable in the visual Design editor), not `render()`'s HTML.
+
 Inside `<Text>`, `<Heading>` and `<li>`, use `<strong>`, `<em>`, `<u>`, `<a href>` and `<span style={{ color }}>` for formatting. Multi-line `<Markdown>` / `<Code>` bodies go in a template literal: ``<Markdown>{`…`}</Markdown>``.
 
 **String TSX** — no React. Visual editor, this skill in a non-React repo, or agents writing a `.ts` file:
@@ -96,13 +98,13 @@ Look up every component, layout, and sample at https://unitpost.com/components. 
 
 | Group | Tags |
 | --- | --- |
-| Layout | `Section`, `Row`, `Column` |
+| Layout | `Email` (the document: theme + preview text), `Section`, `Row`, `Column` |
 | Content | `Heading`, `Text`, `List`, `Divider`, `Spacer`, `Markdown`, `Code` |
 | Media | `Image` |
 | Interactive | `Button`, `Link` |
 | Advanced | `Html` (sanitized) |
 
-Common props: spacing, alignment, Tailwind-style `className` or `custom-css` (both compile to inline CSS). Document chrome is the renderer’s job.
+Common props: spacing, alignment, Tailwind-style `className` or `custom-css` (both compile to inline CSS). The document shell is the renderer’s job; its look is `<Email>`’s props.
 
 ## Layouts
 
@@ -114,9 +116,9 @@ Keys (use these exactly): `header-logo`, `header-logo-nav`, `hero-simple`, `hero
 
 ## Public API
 
-`@unitpost/email`: `parseTsx`, `printTsx`, `renderToHtml`, `renderToText`, `resolveVariables`, `COMPONENT_CATALOG`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
+`@unitpost/email`: `parseTsx`, `parseTsxDocument`, `printTsx`, `renderToHtml`, `renderToText`, `resolveVariables`, `COMPONENT_CATALOG`, `SECTION_LAYOUTS`, `getSectionLayout`, `SAMPLE_TEMPLATES`, `getSampleTemplate`, `createBlock`, `emptyDocument`.
 
-`@unitpost/email/react`: `Section`, `Heading`, `Text`, `List`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render`. Optional `react` peer.
+`@unitpost/email/react`: `Email`, `Section`, `Heading`, `Text`, `List`, `Button`, `Row`, `Column`, `Image`, `Link`, `Divider`, `Spacer`, `Markdown`, `Code`, `Html`, `fromJsx`, `render`. Optional `react` peer.
 
 Do not import `@unitpost/email/internal`.
 

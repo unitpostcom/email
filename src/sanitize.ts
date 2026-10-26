@@ -120,9 +120,12 @@ function baseOptions(report: SanitizeReport): sanitizeHtmlLib.IOptions {
     // Drop disallowed tags AND their contents for the dangerous, content-bearing
     // ones (script/style/etc.); for everything else, sanitize-html keeps inner
     // text by default. `nonTextTags` lists tags whose contents are also removed.
+    // `title` too: a whole email's <head><title> is document metadata, and
+    // keeping its text put the title into the body as stray copy (2026-10-23).
     nonTextTags: [
       "script",
       "style",
+      "title",
       "textarea",
       "option",
       "noscript",

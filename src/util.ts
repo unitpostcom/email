@@ -2,6 +2,24 @@
 
 import { safeUrl } from "./sanitize";
 
+// A background that paints nothing shows what's behind it: a null keyword, or
+// a colour with zero alpha (#ffffff00, #fff0, rgba(255,255,255,0),
+// rgb(0 0 0 / 0%), hsla(…, 0)). One test for blocks (render.ts) and inline
+// runs (renderInlineRuns), so both agree on what is a surface (verifier on
+// #1056).
+const NULL_BG_RE = /^\s*(?:transparent|none|inherit|initial|unset)\s*$/i;
+export function isNullBackground(value: string): boolean {
+  if (NULL_BG_RE.test(value)) return true;
+  const v = value.trim().toLowerCase();
+  if (/^#(?:[0-9a-f]{3}0|[0-9a-f]{6}00)$/.test(v)) return true;
+  const fn = /^(?:rgba?|hsla?)\((.*)\)$/.exec(v);
+  if (!fn) return false;
+  const args = fn[1]!;
+  // The alpha is what follows a slash, or the fourth comma-separated value.
+  const alpha = args.includes("/") ? args.split("/")[1] : args.split(",")[3];
+  return alpha !== undefined && alpha.trim() !== "" && parseFloat(alpha) === 0;
+}
+
 // Escape text destined for HTML body/attribute context.
 export function escapeHtml(input: string): string {
   return input
@@ -87,6 +105,15 @@ export function renderInlineRuns(
   runs: RenderInlineRun[],
   variables: Record<string, string> = {},
   linkColor?: string,
+  // Class for a link in the THEME's link colour (dark mode, dark-mode.ts); a
+  // link with its own colour never gets it.
+  linkClass?: string,
+  // Dark mode only: a run with its own background (a highlight) sits on its
+  // own surface, so without a colour of its own it keeps this one (the theme's
+  // light-mode text colour) instead of inheriting the dark palette's light
+  // text, and a link with its own background gets no dark-link class
+  // (verifier on #1056: a white highlight went near-white on white).
+  onBackgroundColor?: string,
 ): string {
   return runs
     .map((run) => {
@@ -97,8 +124,10 @@ export function renderInlineRuns(
       if (m.italic) html = `<em>${html}</em>`;
       if (m.underline) html = `<u>${html}</u>`;
       if (m.strike) html = `<s>${html}</s>`;
+      // A transparent (non-painting) background isn't a surface of its own.
+      const ownSurface = Boolean(m.background) && !isNullBackground(m.background ?? "");
       const spanStyle = inlineStyle({
-        color: m.color,
+        color: m.color ?? (ownSurface ? onBackgroundColor : undefined),
         "background-color": m.background,
         "font-family": m.fontFamily,
         "font-size": m.fontSize ? `${m.fontSize}px` : undefined,
@@ -111,7 +140,8 @@ export function renderInlineRuns(
           "font-family": m.fontFamily,
           "font-size": m.fontSize ? `${m.fontSize}px` : undefined,
         });
-        html = `<a href="${href}" target="_blank"${
+        const cls = linkClass && !m.color && !ownSurface ? ` class="${linkClass}"` : "";
+        html = `<a href="${href}" target="_blank"${cls}${
           aStyle ? ` style="${aStyle}"` : ""
         }>${html}</a>`;
       } else if (spanStyle) {

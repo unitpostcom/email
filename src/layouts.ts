@@ -17,6 +17,9 @@
 // so a layout can be inserted repeatedly without id collisions.
 
 import { newBlockId } from "./blocks";
+import * as bands from "./bands";
+import { NEUTRAL_PALETTE, type BandBrand, type BrandPalette } from "./bands";
+import { emailPlaceholderUrl } from "./email-assets";
 import { BRAND, DEFAULT_LOGO_URL } from "./samples";
 import {
   ComponentFragmentSchema,
@@ -92,7 +95,7 @@ const image = (extra: B = {}): B => ({
   type: "image",
   id: id(),
   src: DEFAULT_LOGO_URL,
-  alt: "Logo",
+  alt: "Acme",
   align: "center",
   width: 48,
   ...extra,
@@ -254,8 +257,8 @@ register(
   "Full-width image above a headline, copy, and CTA — the announcement opener.",
   () => [
     image({
-      src: "https://images.unsplash.com/photo-1620121692029-d088224ddc74?auto=format&fit=crop&w=1120&q=80",
-      alt: "Hero",
+      src: emailPlaceholderUrl("wide"),
+      alt: "Describe the image",
       width: 480,
       borderRadius: 12,
     }),
@@ -462,7 +465,7 @@ register(
         column(
           [
             heading("Catch the update?", { level: 3, color: BRAND.ink, marginBottom: 6 }),
-            text("Coda is now Superhuman Docs. Still the doc you know and love, just with a new name and fresh features.", { fontSize: 14, color: BRAND.body, marginBottom: 12 }),
+            text("Acme Notes is now Acme Docs. Still the docs you know, with a new name and a few new features.", { fontSize: 14, color: BRAND.body, marginBottom: 12 }),
             link("Read the full announcement →", { fontSize: 14, color: BRAND.ink, underline: false, marginBottom: 0 }),
           ],
           85
@@ -481,10 +484,10 @@ register(
   "An eyebrow label, headline, full-width image, and a link — for deep dives and sponsored content.",
   () => [
     text("SPONSOR", { fontSize: 12, color: BRAND.muted, letterSpacing: 1, fontWeight: "600", marginBottom: 8 }),
-    heading("IndepAI", { level: 2, color: BRAND.ink, marginBottom: 20 }),
-    image({ src: "https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1120&q=80", width: 480, height: 270, borderRadius: 12 }),
+    heading("An article headline", { level: 2, color: BRAND.ink, marginBottom: 20 }),
+    image({ src: emailPlaceholderUrl("landscape"), alt: "Describe the image", width: 480, height: 270, borderRadius: 12 }),
     spacer(20),
-    text("IndepAI serves as a financial engine for individuals planning retirement across international borders. It provides users with a personalized FI score by analyzing data across more than 180 tax regimes and 11,400 cities worldwide.", { fontSize: 15, color: BRAND.body, marginBottom: 16 }),
+    text("Two or three sentences that tell the reader what the piece is about and why it is worth their time. Link out for the rest.", { fontSize: 15, color: BRAND.body, marginBottom: 16 }),
     link("Join the waitlist →", { fontSize: 15, color: BRAND.ink, underline: false, marginBottom: 0 }),
     spacer(8),
   ],
@@ -505,8 +508,8 @@ register(
         column(
           [
             image({
-              src: "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?auto=format&fit=crop&w=560&q=80",
-              alt: "Feature",
+              src: emailPlaceholderUrl("landscape"),
+              alt: "Describe the image",
               width: 240,
               borderRadius: 10,
               align: "left",
@@ -753,7 +756,7 @@ register(
           [
             text("Made with care by the Acme team.", {
               fontSize: 12,
-              color: BRAND.faint,
+              color: BRAND.muted,
               marginBottom: 0,
             }),
           ],
@@ -773,7 +776,7 @@ register(
               {
                 align: "right",
                 fontSize: 12,
-                color: BRAND.faint,
+                color: BRAND.muted,
                 marginBottom: 0,
               },
             ),
@@ -784,6 +787,166 @@ register(
       { columnGap: 16 },
     ),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Themed bands (bands.ts) — the EMAIL_DESIGN.md system. Full-bleed bands with
+// their own 32px gutter (compose them with `body-padding={0}`), drawn from a
+// BrandPalette. The rail and design_library insert them in the neutral palette
+// with sample copy; buildThemedLayout rebuilds one in a workspace's brand
+// colours, and design-guide.ts composes them into whole emails per type.
+// ---------------------------------------------------------------------------
+
+type Themed = (p: BrandPalette, brand: BandBrand) => B[];
+const THEMED: Map<string, Themed> = new Map();
+const SAMPLE_BRAND: BandBrand = { name: "Acme", logo: DEFAULT_LOGO_URL };
+const sampleHref = "https://example.com";
+
+function registerThemed(key: string, name: string, group: LayoutGroup, description: string, build: Themed): void {
+  THEMED.set(key, build);
+  register(key, name, group, description, () => build(NEUTRAL_PALETTE, SAMPLE_BRAND));
+}
+
+/** True when the layout is one of the palette-aware bands. */
+export function isThemedLayout(key: string): boolean {
+  return THEMED.has(key);
+}
+
+/** A themed band rebuilt in `palette` (fresh ids, sample copy); null for unknown or non-themed keys. */
+export function buildThemedLayout(key: string, palette: BrandPalette, brand: BandBrand = SAMPLE_BRAND): ComponentFragment | null {
+  const build = THEMED.get(key);
+  return build ? frag(build(palette, brand)) : null;
+}
+
+registerThemed("header-brand", "Brand header", "Header", "Logo and brand name on the left, a small label pill on the right (issue, date, 'New').", (p, b) =>
+  bands.headerBrand(p, b, { label: "October 2026" }),
+);
+registerThemed("header-wordmark", "Wordmark header", "Header", "The brand name set as a wordmark — the header for a brand with no logo image yet.", (p, b) =>
+  bands.headerWordmark(p, { name: b.name }),
+);
+registerThemed(
+  "hero-headline",
+  "Headline hero",
+  "Hero",
+  "Overline, big headline, one or two lines and a pill button, left-aligned — the default opener for product and marketing email.",
+  (p) => bands.heroHeadline(p, { overline: "New", title: "A clear headline that states the point", lead: "One or two sentences on what changed and why it matters to the reader.", cta: { label: "See what's new", href: sampleHref } }),
+);
+registerThemed(
+  "hero-contrast",
+  "Contrast hero",
+  "Hero",
+  "A full-width brand-coloured (or near-black) band with light text and a light button — launches, sales, big news.",
+  (p) => bands.heroContrast(p, { overline: "Introducing", title: "The headline goes here", lead: "A short line that sells the click.", cta: { label: "Try it now", href: sampleHref } }),
+);
+registerThemed(
+  "hero-gradient",
+  "Gradient hero",
+  "Hero",
+  "The contrast hero on a brand gradient. Clients without gradient support (Outlook, Yahoo) show the solid band colour, so text stays readable.",
+  (p) => bands.heroGradient(p, { overline: "Introducing", title: "The headline goes here", lead: "A short line that sells the click.", cta: { label: "Try it now", href: sampleHref } }),
+);
+registerThemed(
+  "hero-status",
+  "Status hero",
+  "Hero",
+  "A centred status chip, label, headline and line — order confirmed, payment received, booking set.",
+  (p) => bands.heroStatus(p, { icon: "circle-check", overline: "Order confirmed", title: "Thanks for your order", line: "We've received your payment. Your receipt is below." }),
+);
+registerThemed(
+  "hero-media",
+  "Media hero",
+  "Hero",
+  "A wide image (a placeholder until you add yours), then headline, line and button — image-led launches.",
+  (p) => bands.heroMedia(p, { alt: "Describe the image", title: "The headline goes here", lead: "One or two sentences on what it is and why it matters.", cta: { label: "Take a look", href: sampleHref } }),
+);
+registerThemed(
+  "content-feature",
+  "Feature section",
+  "Content",
+  "Overline, section headline, a paragraph, three bullets and a text link — one topic of a launch or newsletter.",
+  (p) =>
+    bands.feature(p, {
+      overline: "Feature",
+      title: "A section headline",
+      body: "Two or three sentences that explain the feature in the reader's terms.",
+      bullets: ["The first benefit, in one line.", "The second benefit.", "The third benefit."],
+      link: { label: "Learn more →", href: sampleHref },
+    }),
+);
+registerThemed("content-icon-rows", "Icon rows", "Content", "Three rows of icon + title + line — getting-started steps, what's included, why it matters.", (p) =>
+  bands.iconRows(p, {
+    title: "What you can do next",
+    rows: [
+      { icon: "rocket", title: "Set up your account", line: "Add your details so everything looks like you." },
+      { icon: "users", title: "Invite your team", line: "Work together from one place." },
+      { icon: "life-buoy", title: "Get help anytime", line: "Reply to this email and a person will answer." },
+    ],
+  }),
+);
+registerThemed("content-stats", "Stats row", "Content", "Three big numbers with labels on a tinted band — a digest, a year in review, results.", (p) =>
+  bands.stats(p, { items: [{ value: "12k", label: "emails sent" }, { value: "98%", label: "delivered" }, { value: "4.2×", label: "more replies" }] }),
+);
+registerThemed(
+  "content-summary",
+  "Order summary",
+  "Content",
+  "A tinted band of label/value lines with a bold total — receipts, invoices, order and booking summaries.",
+  (p) =>
+    bands.summary(p, {
+      heading: "Order #10421",
+      meta: "Oct 24, 2026",
+      lines: [{ label: "Pro plan (monthly)", value: "$29.00" }, { label: "Extra seats × 2", value: "$18.00" }, { label: "Tax", value: "$4.70" }],
+      total: { label: "Total paid", value: "$51.70" },
+    }),
+);
+registerThemed("content-code-card", "Code card", "Content", "A big spaced one-time code in a tinted card, with how long it lasts — sign-in and verification.", (p) =>
+  bands.codeCard(p, { label: "Your sign-in code", code: "482 913", note: "Expires in 10 minutes." }),
+);
+registerThemed("content-callout", "Callout card", "Content", "A brand-tinted card with a label, headline, line and link — a 'coming soon', a tip, a side note.", (p) =>
+  bands.callout(p, { overline: "Coming soon", title: "A short headline", body: "One or two lines about it.", link: { label: "Join the waitlist →", href: sampleHref } }),
+);
+registerThemed("content-offer", "Offer card", "Content", "A contrast card with the offer as the headline, the code in a pill and a light button — sales and promos.", (p) =>
+  bands.offer(p, {
+    overline: "This week only",
+    title: "30% off everything",
+    line: "Use this code at checkout.",
+    code: "SAVE30",
+    cta: { label: "Shop the sale", href: sampleHref },
+    terms: "Ends Sunday at midnight. Can't be combined with other offers.",
+  }),
+);
+registerThemed(
+  "content-event",
+  "Event details",
+  "Content",
+  "Date, time and place (or video link) as icon rows, then an add-to-calendar link — invites, bookings, reminders.",
+  (p) =>
+    bands.eventDetails(p, {
+      title: "Event details",
+      rows: [
+        { icon: "calendar", label: "Date", value: "Thursday, November 13" },
+        { icon: "clock", label: "Time", value: "10:00–11:00 AM PT" },
+        { icon: "video", label: "Where", value: "Online — the link is in your calendar invite" },
+      ],
+      link: { label: "Add to calendar →", href: sampleHref },
+    }),
+);
+registerThemed(
+  "columns-products",
+  "Product grid",
+  "Columns",
+  "Two product tiles (image, name, price, link) — promos, new arrivals, abandoned cart. Placeholders until you add photos.",
+  (p) => bands.products(p, { items: [{ name: "Product name", price: "$48", href: sampleHref }, { name: "Product name", price: "$64", href: sampleHref }] }),
+);
+registerThemed("cta-contrast", "Contrast CTA", "Call to action", "A rounded brand (or near-black) card with a headline, a line and a light button — the closing ask.", (p) =>
+  bands.ctaContrast(p, { title: "Ready when you are", line: "One line that removes the last bit of friction.", cta: { label: "Get started", href: sampleHref } }),
+);
+registerThemed(
+  "footer-signoff",
+  "Sign-off",
+  "Footer",
+  "A hairline, a 'just reply' help line and a team sign-off. No unsubscribe or address — the managed footer adds those to marketing email.",
+  (p, b) => bands.signoff(p, { help: "Questions? Reply to this email — a real person reads every reply.", signature: `The ${b.name} team` }),
 );
 
 export const SECTION_LAYOUTS: readonly SectionLayout[] = LAYOUTS;

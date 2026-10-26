@@ -1,10 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { libraryImagePath, resolveImageSrc, effectiveAssetBase } from "./library-image-url";
+import { libraryImagePath, resolveHtmlImageSrcs, resolveImageSrc, effectiveAssetBase } from "./library-image-url";
 
 const UUID = "6a210000-6a21-425c-a627-708f1986a4e3";
 const CDN = "https://assets.unitpost.com";
+
+test("resolveHtmlImageSrcs resolves library <img src> in raw HTML and leaves the rest", () => {
+  const html =
+    `<img src="/img/${UUID}" alt="a"><img alt='b' src='/api/library-images/${UUID}/raw'>` +
+    `<img src="https://cdn.example.com/x.png"><img src="{{logo}}"><a href="/img/${UUID}">link</a>`;
+  assert.equal(
+    resolveHtmlImageSrcs(html, CDN),
+    `<img src="${CDN}/img/${UUID}" alt="a"><img alt='b' src='${CDN}/img/${UUID}'>` +
+      `<img src="https://cdn.example.com/x.png"><img src="{{logo}}"><a href="/img/${UUID}">link</a>`,
+  );
+  // No usable asset host (the dashboard preview): unchanged.
+  assert.equal(resolveHtmlImageSrcs(html, ""), html);
+  assert.equal(resolveHtmlImageSrcs(html, "https://"), html);
+});
 
 test("libraryImagePath builds the opaque relative path", () => {
   assert.equal(libraryImagePath(UUID), `/img/${UUID}`);

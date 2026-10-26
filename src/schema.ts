@@ -140,6 +140,8 @@ export const STYLE_TOKENS = {
   codeFontFamily:
     "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
   codeFontSize: "13px",
+  // Stroke color of a body border (theme.bodyBorder) that names no color.
+  bodyBorderColor: "#e4e4e7",
 } as const;
 
 // Free-form custom CSS declarations (e.g. "letter-spacing: 1px; opacity: 0.9;")
@@ -330,6 +332,29 @@ export const ThemeSchema = z.object({
   // is attached edge-to-edge at the BOTTOM of the card and inherits the bottom
   // corners, so a rounded body yields a rounded footer bottom with no seam.
   bodyRadius: pxInt().default(0),
+  // Optional stroke around the body card (width/style/color; the corners are
+  // `bodyRadius`). Absent or width 0 = no border, so existing documents render
+  // byte-identically. The renderer switches the card to the separate-border
+  // table model only when a stroke is drawn (render.ts).
+  bodyBorder: BorderSchema.pick({ width: true, style: true, color: true }).optional(),
+  // Dark mode (0.4.0), opt-in. "auto": the rendered email carries
+  // `prefers-color-scheme: dark` CSS that swaps the backdrop, the body card,
+  // the theme-coloured text and links to a dark palette (images and anything
+  // with its own colour or background are left alone). Absent: rendered as
+  // before 0.4.0 (no dark CSS, `color-scheme: light dark`). "off": no dark
+  // CSS, and the email declares itself light-only.
+  darkMode: z.enum(["auto", "off"]).optional(),
+  // The dark palette. Each colour is optional: unset ones are derived (a
+  // near-black backdrop and card, light text, the link colour lifted to stay
+  // readable on the card). See dark-mode.ts.
+  darkColors: z
+    .object({
+      backgroundColor: Color.optional(),
+      bodyColor: Color.optional(),
+      textColor: Color.optional(),
+      linkColor: Color.optional(),
+    })
+    .optional(),
 });
 export type Theme = z.infer<typeof ThemeSchema>;
 
@@ -902,7 +927,10 @@ export type Variable = z.infer<typeof VariableSchema>;
 //   - transactional: 1:1 system mail (receipts, OTP, password reset). No
 //     unsubscribe legally required.
 //   - marketing: bulk/promotional. Requires an unsubscribe mechanism + sender
-//     postal address (CAN-SPAM / GDPR). The renderer enforces/warns on this.
+//     postal address (CAN-SPAM / GDPR). The send path appends the workspace's
+//     marketing footer (with the unsubscribe link) to marketing mail; the
+//     renderer itself checks neither, and the postal address is an open
+//     decision (campaign-send safety M-10).
 export const TEMPLATE_CATEGORIES = ["transactional", "marketing"] as const;
 export type TemplateCategory = (typeof TEMPLATE_CATEGORIES)[number];
 

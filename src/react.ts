@@ -28,12 +28,15 @@ import {
   type LeafBlock,
   type ListBlock,
   type SectionBlock,
+  type TemplateCategory,
   type TextBlock,
+  type Theme,
 } from "./schema";
 import { createBlock, newBlockId } from "./blocks";
 import { normalizeBorderAttrs } from "./border-attrs";
 import { dedentText } from "./dedent";
 import { renderToHtml, type RenderOptions } from "./render";
+import { applyDocumentAttrs } from "./document-attrs";
 
 // React authoring codec. Components are typed host tags; `fromJsx` / `render`
 // walk the element tree into EmailDocument and the existing renderer. React
@@ -143,6 +146,38 @@ export const Spacer = host<SpacerProps>("Spacer", "spacer");
 export const Markdown = host<MarkdownProps>("Markdown", "markdown");
 export const Code = host<CodeProps>("Code", "code");
 export const Html = host<HtmlProps>("Html", "html");
+
+// The document element: wraps the whole email and carries its page-level
+// settings — the theme, inbox preview text and category — the same attributes
+// as <Email> in the TSX dialect (document-attrs.ts). Optional: without it the
+// email gets the default theme (or the `base` document's).
+const EMAIL_ROOT = Symbol.for("unitpost.email.root");
+
+export type EmailProps = Partial<Omit<Theme, "bodyBorder" | "bodyPaddingSides">> & {
+  bodyBorder?: Theme["bodyBorder"];
+  bodyBorderWidth?: number;
+  bodyBorderStyle?: "solid" | "dashed" | "dotted";
+  bodyBorderColor?: string;
+  bodyPaddingSides?: Theme["bodyPaddingSides"];
+  previewText?: string;
+  category?: TemplateCategory;
+  className?: string;
+  children?: ReactNode;
+};
+
+export const Email = Object.assign(
+  ((props: EmailProps) => {
+    void props;
+    throw new Error(
+      "Email is the email document element — pass it to render() from @unitpost/email/react, not ReactDOM.",
+    );
+  }) as FunctionComponent<EmailProps>,
+  { displayName: "Email", [EMAIL_ROOT]: true },
+);
+
+function isEmailRoot(type: unknown): boolean {
+  return typeof type === "function" && EMAIL_ROOT in type;
+}
 
 export class JsxRenderError extends Error {}
 
@@ -277,7 +312,7 @@ function expand(node: ReactNode): ReactNode[] {
   if (type === Fragment || type === Symbol.for("react.fragment")) {
     return expand((node.props as { children?: ReactNode }).children);
   }
-  if (typeof type === "function" && !isHost(type)) {
+  if (typeof type === "function" && !isHost(type) && !isEmailRoot(type)) {
     const rendered = (type as (p: object) => ReactNode)(
       node.props as object,
     );
@@ -338,6 +373,9 @@ function toBlock(node: ReactNode): Block {
   }
   const el = n as ReactElement<{ children?: ReactNode } & Record<string, unknown>>;
   const hostType = el.type;
+  if (isEmailRoot(hostType)) {
+    throw new JsxRenderError("<Email> wraps the whole email — it can't go inside another element.");
+  }
   if (!isHost(hostType)) {
     throw new JsxRenderError(
       "Unknown element. Use catalog components (Section, Heading, Button, …) or your own function that returns them.",
@@ -414,16 +452,31 @@ export function fromJsx(
   node: ReactNode,
   base?: EmailDocument,
 ): EmailDocument {
-  const blocks = expand(node).flatMap((n) => {
+  let top = expand(node);
+  // Lift the <Email> document element: its children are the body, its props
+  // the page-level settings applied after the blocks parse.
+  const roots = top.filter((n) => isValidElement(n) && isEmailRoot(n.type));
+  if (roots.length > 1) {
+    throw new JsxRenderError("Only one <Email> element is allowed — it wraps the whole email.");
+  }
+  let rootProps: Record<string, unknown> | null = null;
+  if (roots.length === 1) {
+    const at = top.indexOf(roots[0]);
+    const { children, ...props } = (roots[0] as ReactElement<EmailProps>).props;
+    rootProps = props;
+    top = [...top.slice(0, at), ...expand(children), ...top.slice(at + 1)];
+  }
+  const blocks = top.flatMap((n) => {
     if (typeof n === "string" || typeof n === "number") {
       const t = String(n).trim();
       return t ? [createBlock("text", { text: t })] : [];
     }
     return [toBlock(n)];
   });
-  return base
+  const doc = base
     ? EmailDocumentSchema.parse({ ...base, blocks })
     : EmailDocumentSchema.parse({ blocks });
+  return rootProps ? applyDocumentAttrs(doc, rootProps).doc : doc;
 }
 
 export function render(

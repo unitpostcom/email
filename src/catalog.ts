@@ -18,7 +18,7 @@
 // expects. `{{variable}}` placeholders are intentional — they teach users the
 // dynamic-data syntax.
 
-import { COMPONENT_DEFAULTS, type BlockType } from "./schema";
+import { COMPONENT_DEFAULTS, STYLE_TOKENS, ThemeSchema, type BlockType } from "./schema";
 
 export type ComponentPropType =
   | "string"
@@ -70,7 +70,7 @@ export type ComponentDoc = {
 // from the shared COMPONENT_DEFAULTS by block type + key. Returns undefined when
 // the prop has no model default (so docs render "—").
 export function resolvePropDefault(
-  doc: ComponentDoc,
+  doc: Pick<ComponentDoc, "blockType"> | Pick<DocumentElementDoc, "blockType">,
   prop: ComponentProp,
 ): string | undefined {
   if (prop.default !== undefined) return prop.default;
@@ -349,7 +349,7 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
     group: "Content",
     snippet: `<Text>Hi {{first_name}}, thanks for signing up.</Text>`,
     details:
-      "Inner content may include inline HTML for formatting: <strong>, <em>, <u>, <a href>, and <span style> (color / background-color). These round-trip through the visual editor.",
+      "Inner content may include inline HTML for formatting: <strong>, <em>, <u>, <a href>, and <span style> (color / background-color). These round-trip through the visual editor. A pill label (a badge such as \"NEW\" or a date) is a short Text with custom-css=\"display:inline-block; padding:4px 10px; border-radius:999px; background-color:#f5f5f4\"; set text-align on its Column or Section to place it.",
     props: [
       {
         name: "align",
@@ -665,9 +665,63 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
 ];
 
 // Lookup by tag (case-insensitive), used by the editor's insert + hover UI.
+// The <Email> document element (document-attrs.ts): not a block, so it isn't
+// in COMPONENT_CATALOG (no insert pill, no block defaults) and getComponentDoc
+// doesn't return it — but agents and the docs look it up like a component
+// (DOCUMENTED_COMPONENTS, getDocumentedComponent). Defaults are the schema's
+// theme defaults.
+export type DocumentElementDoc = Omit<ComponentDoc, "blockType"> & { blockType: "document" };
+/** Anything the component reference documents: a block component or <Email>. */
+export type DocumentedComponent = ComponentDoc | DocumentElementDoc;
+const THEME_DEFAULTS = ThemeSchema.parse({});
+export const EMAIL_ELEMENT_DOC: DocumentElementDoc = {
+  tag: "Email",
+  blockType: "document",
+  slug: "email",
+  summary: "The document element: wraps the whole email and sets its theme, preview text and category.",
+  group: "Layout",
+  container: true,
+  snippet: `<Email background-color="#f5f5f4" body-color="#ffffff" content-width={560} body-radius={16} body-padding={0} category="marketing" preview-text="What we shipped this month">
+  <Section padding-x={24} padding-y={24}>
+    <Heading level={1}>Hello {{first_name}}</Heading>
+  </Section>
+</Email>`,
+  details:
+    "Optional, at most one, and always the outermost element. Its attributes are the page-level settings the Design tab's Page & body panel edits: one parse sets the look along with the blocks, so a branded email is a single write. Without it, the blocks keep the template's current theme.",
+  props: [
+    { name: "background-color", type: "color", default: THEME_DEFAULTS.backgroundColor, description: "Page backdrop around the email card." },
+    { name: "body-color", type: "color", default: THEME_DEFAULTS.bodyColor, description: "The email card's background." },
+    { name: "content-width", type: "number", default: String(THEME_DEFAULTS.contentWidth), description: "Card width (px). 560–640 reads best." },
+    { name: "body-padding", type: "number", default: String(THEME_DEFAULTS.bodyPadding), description: "Padding inside the card (px). 0 lets full-width sections reach the edges (they bring their own padding)." },
+    { name: "body-radius", type: "number", default: String(THEME_DEFAULTS.bodyRadius), description: "Card corner radius (px)." },
+    { name: "body-border-width", type: "number", description: "Stroke around the card (px); its corners follow body-radius." },
+    { name: "body-border-style", type: "enum", values: ["solid", "dashed", "dotted"], description: "Stroke style." },
+    { name: "body-border-color", type: "color", default: STYLE_TOKENS.bodyBorderColor, description: "Stroke color." },
+    { name: "font-family", type: "string", default: THEME_DEFAULTS.fontFamily, description: "Default font stack (email-safe fonts, with fallbacks)." },
+    { name: "text-color", type: "color", default: THEME_DEFAULTS.textColor, description: "Default text color." },
+    { name: "link-color", type: "color", default: THEME_DEFAULTS.linkColor, description: "Inline link color." },
+    { name: "dark-mode", type: "enum", values: ["auto", "off"], description: "\"auto\" opts in to dark mode: in mail apps set to dark, the card, its text and its links switch to a dark palette (copy on its own background keeps its colours). \"off\" declares the email light-only. Unset, the email renders as it always has." },
+    { name: "dark-colors", type: "string", description: "The dark palette as an object, e.g. {{ bodyColor: \"#111111\", textColor: \"#f5f5f5\" }} (backgroundColor, bodyColor, textColor, linkColor). Unset colours are derived." },
+    { name: "preview-text", type: "string", description: "Inbox preview text: the snippet shown after the subject." },
+    { name: "category", type: "enum", values: ["transactional", "marketing"], description: "Marketing emails get the managed unsubscribe / postal footer at send — never write it yourself." },
+  ],
+};
+
+/**
+ * Everything the component reference documents: the <Email> document element
+ * first, then every block component. The editor's insert pills keep using
+ * COMPONENT_CATALOG (there's nothing to insert for <Email>).
+ */
+export const DOCUMENTED_COMPONENTS: readonly DocumentedComponent[] = [EMAIL_ELEMENT_DOC, ...COMPONENT_CATALOG];
+
 export function getComponentDoc(tag: string): ComponentDoc | undefined {
   const lower = tag.toLowerCase();
   return COMPONENT_CATALOG.find((c) => c.tag.toLowerCase() === lower);
+}
+
+/** getComponentDoc, plus the <Email> document element. */
+export function getDocumentedComponent(tag: string): DocumentedComponent | undefined {
+  return tag.toLowerCase() === "email" ? EMAIL_ELEMENT_DOC : getComponentDoc(tag);
 }
 
 // Stable group order for rendering nav / pill rails.
