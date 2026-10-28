@@ -2,6 +2,16 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
+## Unreleased
+
+### Fixed
+
+- **Line breaks in TSX.** `parseTsx` read a `<br>` inside `<Text>`, `<Heading>` or a list item as nothing (`<Text>a<br />b</Text>` became "ab"), and `printTsx` printed a stored line break as a newline that read back as a space. A `<br>` (any spelling) is now the document's soft line break ("\n", the editor's Shift+Enter), and `printTsx` prints one as `<br />`, so print → parse keeps it; whitespace around a `<br>` is the markup's formatting. `htmlToBlocks` keeps a paragraph's `<br>` as a line break too (it was a space). Rendering is unchanged: the renderer already draws a stored line break as `<br />`, so no saved document renders differently; only TSX that contains `<br>` parses to what it says.
+
+### Added
+
+- **`printSimpleText(doc)`** prints a Simple document in the `text` format `parseSimpleText` reads: lines with their bold, italic, underline, strike, links, colour, highlight, size and font, centred or right-aligned lines, lists and images. Text that would read as markup, an entity or a list item is escaped so it reads back as written. **`simpleDocumentText(doc)`** returns that text only when parsing it again renders the same email, and null otherwise (an indented line, or a block a Simple email has no line for), so a caller never edits a lossy copy. Nothing that exists changes.
+
 ## 0.4.0
 
 Publishes when this version reaches `main` (`publish-email.yml`). This release adds a Design-mode document element, editor conversion and a body border. Every existing call (`parseTsx`, `printTsx`, `renderToHtml`, `getComponentDoc`) behaves as before; the rendering changes are the fixes below (`<title>` text, library images in HTML blocks, character references in TSX, rows narrower than their columns' total) and the opt-in dark-mode swap for `ink` icons.

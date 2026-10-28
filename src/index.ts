@@ -44,6 +44,8 @@ export {
   textToSimpleDocument,
   parseSimpleText,
   parseSimpleInline,
+  printSimpleText,
+  simpleDocumentText,
   SIMPLE_TEXT_GUIDE,
   type SimpleTextOptions,
   type SimpleTextResult,

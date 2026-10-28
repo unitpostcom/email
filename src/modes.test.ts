@@ -262,6 +262,13 @@ describe("template editors", () => {
 });
 
 describe("htmlToBlocks", () => {
+  test("a paragraph's <br> stays a line break (it was a space)", () => {
+    const r = htmlToBlocks(`<p>Ann Smith<br>Acme Support<br/>Berlin</p>`);
+    const text = r.blocks.find((b) => b.type === "text") as { text?: string; runs?: { text: string }[] };
+    const plain = text.text ?? (text.runs ?? []).map((x) => x.text).join("");
+    assert.equal(plain, "Ann Smith\nAcme Support\nBerlin");
+  });
+
   test("maps semantic HTML to components and keeps the rest as Html", () => {
     const r = htmlToBlocks(
       `<h2 style="text-align:center">Title</h2><p>Hello <b>you</b>&nbsp;there</p><ul><li>One</li><li>Two</li></ul>` +

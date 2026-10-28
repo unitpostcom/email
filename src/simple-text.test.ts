@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { renderSimpleHtml } from "./render-simple";
 import type { Block } from "./schema";
 import { normalizeSimpleDocument } from "./simple";
-import { SIMPLE_TEXT_GUIDE, parseSimpleInline, parseSimpleText } from "./simple-text";
+import { SIMPLE_TEXT_GUIDE, parseSimpleInline, parseSimpleText, printSimpleText, simpleDocumentText } from "./simple-text";
 
 type TextLine = Extract<Block, { type: "text" }>;
 
@@ -141,4 +141,74 @@ test("pairing is positional: a closing tag elsewhere doesn't turn a lone mention
     doc.blocks.map((b) => (b.type === "text" ? b.text : b.type)).filter(Boolean),
     ["Example: Hello", "The <p> tag on its own stays.", "Hi"],
   );
+});
+
+// ----- printSimpleText / simpleDocumentText (the read-back, parity IC-11) -----
+
+const roundTrip = (text: string) => {
+  const { doc } = parseSimpleText(text);
+  const printed = simpleDocumentText(doc);
+  assert.notEqual(printed, null, "a typed Simple email reads back as text");
+  assert.equal(renderSimpleHtml(parseSimpleText(printed!).doc), renderSimpleHtml(doc), "the text gives back the same email");
+  return printed!;
+};
+
+test("a Simple email reads back as the text it was written in", () => {
+  const text = [
+    '<div style="text-align:center"><b><span style="font-size:24px">Big news</span></b></div>',
+    "",
+    'Hi {{first_name}}, this is <span style="color:#cc0000; background-color:#fff3a0">important</span>.',
+    'In <span style="font-family:Georgia">Georgia</span> and <span style="font-size:13px">small</span>.',
+    "Line one<br>line two",
+    "- first <i>point</i>",
+    "- second",
+    "1. step",
+    "2. <u>next</u> <s>old</s>",
+    '<div align="right"><a href="https://x.example/?a=1&amp;b=2"><img src="/img/0f8fad5b-d9cb-469f-a165-70867728950e" alt="A &quot;chart&quot;" width="400"></a></div>',
+    'Read <a href="https://unitpost.com/changelog">the changelog</a>.',
+  ].join("\n");
+  const printed = roundTrip(text);
+  assert.match(printed, /^<div style="text-align:center"><b><span style="font-size:24px">Big news<\/span><\/b><\/div>\n\n/);
+  assert.match(printed, /\n- first <i>point<\/i>\n- second\n1\. step\n2\. <u>next<\/u> <s>old<\/s>\n/);
+  assert.match(printed, /href="https:\/\/x\.example\/\?a=1&amp;b=2"/);
+});
+
+test("text that looks like markup, an entity or a list item reads back as the same text", () => {
+  const { doc } = parseSimpleText(["The paragraph tag is <p>. Tom &amp;amp; Jerry, a < b, <your name>.", "<span>- not a list</span>", "<span>3. not numbered</span>"].join("\n"));
+  const lines = doc.blocks.map((b) => (b.type === "text" ? b.text : ""));
+  assert.deepEqual(lines, ["The paragraph tag is <p>. Tom &amp; Jerry, a < b, <your name>.", "- not a list", "3. not numbered"]);
+  const printed = simpleDocumentText(doc)!;
+  const again = parseSimpleText(printed).doc.blocks.map((b) => (b.type === "text" ? b.text : ""));
+  assert.deepEqual(again, lines);
+});
+
+test("a trailing space survives the read-back", () => {
+  const doc = parseSimpleText("x").doc;
+  const line = doc.blocks[0] as TextLine;
+  const spaced = { ...doc, blocks: [{ ...line, text: "Hi ", content: [{ text: "Hi " }, { text: "you", marks: { bold: true } }] }] } as typeof doc;
+  const printed = printSimpleText(spaced)!;
+  assert.equal(printed, "Hi <b>you</b>");
+  const trailing = { ...doc, blocks: [{ ...line, text: "end  ", content: [{ text: "end  " }] }] } as typeof doc;
+  assert.equal(printSimpleText(trailing), "end<span>  </span>");
+  assert.equal((parseSimpleText(printSimpleText(trailing)!).doc.blocks[0] as TextLine).text, "end  ");
+});
+
+test("a Simple email the text format can't carry whole reads back as null, never as lossy text", () => {
+  const { doc } = parseSimpleText("Indented\nplain");
+  const indented = { ...doc, blocks: [{ ...(doc.blocks[0] as TextLine), padding: { left: 40 } }, doc.blocks[1]!] } as typeof doc;
+  assert.equal(simpleDocumentText(indented), null, "an indent has no text form");
+  const heading = { ...doc, blocks: [{ type: "heading", id: "h", level: 1, text: "Title" }] } as unknown as typeof doc;
+  assert.equal(printSimpleText(heading), null, "a heading block has no line");
+  assert.equal(simpleDocumentText(heading), null);
+});
+
+test("every sample email, converted to Simple, reads back as text that gives the same email", async () => {
+  const { convertTemplateDocument } = await import("./modes");
+  const { SAMPLE_TEMPLATES } = await import("./samples");
+  const samples = Array.isArray(SAMPLE_TEMPLATES) ? SAMPLE_TEMPLATES : Object.values(SAMPLE_TEMPLATES);
+  assert.ok(samples.length > 10);
+  for (const sample of samples as { design: Parameters<typeof convertTemplateDocument>[0] }[]) {
+    const simple = convertTemplateDocument(sample.design, "simple").doc;
+    assert.notEqual(simpleDocumentText(simple), null);
+  }
 });

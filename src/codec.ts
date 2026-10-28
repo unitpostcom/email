@@ -140,7 +140,10 @@ function runsHaveMarks(runs: InlineRun[] | undefined): boolean {
 function printInlineRuns(runs: InlineRun[]): string {
   return runs
     .map((run) => {
-      let html = escapeInline(run.text);
+      // A soft line break ("\n", Shift+Enter in the editor) prints as <br />:
+      // a newline in the markup is only formatting and would read back as a
+      // space.
+      let html = escapeInline(run.text).replace(/\n/g, "<br />");
       const m = run.marks ?? {};
       if (m.bold) html = `<strong>${html}</strong>`;
       if (m.italic) html = `<em>${html}</em>`;
@@ -170,21 +173,44 @@ function parseInlineRuns(html: string): InlineRun[] {
   const merged = (): Active => Object.assign({}, ...stack);
 
   const re = /<\/?([a-zA-Z][\w-]*)([^>]*)>|([^<]+)/g;
+  // A soft line break ("\n" in a run's text) folds into the neighbouring run
+  // with the same marks, as the editor stores it (tiptap.ts readRuns).
+  const sameMarks = (a: InlineRun["marks"], b: InlineRun["marks"]) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+  const pushRun = (text: string, marks: Active) => {
+    const prev = runs[runs.length - 1];
+    const own = Object.keys(marks).length ? marks : undefined;
+    if (prev && (text === "\n" || prev.text.endsWith("\n")) && sameMarks(prev.marks, own)) {
+      prev.text += text;
+      return;
+    }
+    runs.push(own ? { text, marks: own } : { text });
+  };
+  // Whitespace next to a <br> is the markup's formatting, not text.
+  let afterBreak = false;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
     const [whole, tagName, attrs, textChunk] = m;
     if (textChunk != null) {
-      const text = decodeInline(textChunk).replace(/\s+/g, " ");
-      if (text) {
-        const marks = merged();
-        runs.push(
-          Object.keys(marks).length ? { text, marks } : { text },
-        );
-      }
+      let text = decodeInline(textChunk).replace(/\s+/g, " ");
+      if (afterBreak) text = text.replace(/^ /, "");
+      afterBreak = false;
+      if (text) pushRun(text, merged());
       continue;
     }
     const isClose = whole.startsWith("</");
     const tag = tagName.toLowerCase();
+    if (tag === "br") {
+      // <br>, <br/>, <br /> (and a stray </br>): a line break, never a mark.
+      if (isClose) continue;
+      const prev = runs[runs.length - 1];
+      if (prev && prev.text.endsWith(" ")) {
+        prev.text = prev.text.replace(/ +$/, "");
+        if (!prev.text) runs.pop();
+      }
+      pushRun("\n", merged());
+      afterBreak = true;
+      continue;
+    }
     if (isClose) {
       stack.pop();
       continue;
@@ -1139,11 +1165,14 @@ function printBlock(block: Block | ColumnBlock, indent: string): string {
                     `<li>${
                       runsHaveMarks(item.content) || item.content?.some((r) => r.variable)
                         ? printInlineRuns(item.content as InlineRun[])
-                        : escapeInline(item.text)
+                        : escapeInline(item.text).replace(/\n/g, "<br />")
                     }</li>`,
                 )
                 .join("\n")
-            : escapeTsxText((rec.text as string) ?? "");
+            : block.type === "text" || block.type === "heading"
+              ? // A soft line break prints as <br /> (it reads back as one).
+                escapeTsxText((rec.text as string) ?? "").replace(/\n/g, "<br />")
+              : escapeTsxText((rec.text as string) ?? "");
     // Text/Heading with inline formatting print their runs as inline HTML so
     // marks (bold/link/color/highlight) round-trip through code mode.
     if (
@@ -1277,8 +1306,8 @@ function decodeHtmlEntities(s: string): string {
 // characters are dropped after, however they were written.
 const INVISIBLE = /[\u034f\u200b-\u200d\u00ad]/g;
 function inlineBlockProps(inner: string): { text: string; content?: InlineRun[] } {
+  // A <br> stays a line break (parseInlineRuns), as the editor's Shift+Enter.
   const html = inner
-    .replace(/<br\s*\/?>/gi, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&(?:zwnj|zwj|shy);/gi, "")
     .trim();

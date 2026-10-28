@@ -489,3 +489,50 @@ test("List prints as <List> with <li> items and parses back", () => {
   assert.deepEqual(block.items.map((i) => i.text), ["plain", "bold item"]);
   assert.deepEqual(block.items[1]!.content, [{ text: "bold", marks: { bold: true } }, { text: " item" }]);
 });
+
+// ---------------------------------------------------------------------------
+// Soft line breaks (owner report 2026-10-26: `<Text>a<br />b</Text>` read back
+// as "ab"). A break is "\n" in the document (the editor's Shift+Enter, the
+// renderer's <br />); the codec reads <br> as one and prints one back.
+// ---------------------------------------------------------------------------
+
+test("a <br> inside Text, Heading and a list item is a line break, and prints back as <br />", () => {
+  const doc = parseTsx(
+    [
+      "<Text>Cheers,<br />Mike at Acme</Text>",
+      "<Heading level={2}>Big<br>news</Heading>",
+      "<Text><strong>Bold<br/>still bold</strong> and <em>plain<br />too</em></Text>",
+      "<List><li>One<br />line two</li><li>Two</li></List>",
+    ].join("\n"),
+  );
+  const [sig, heading, marked, list] = doc.blocks as Array<Record<string, any>>;
+  assert.equal(sig.text, "Cheers,\nMike at Acme");
+  assert.equal(heading.text, "Big\nnews");
+  assert.deepEqual(marked.content, [
+    { text: "Bold\nstill bold", marks: { bold: true } },
+    { text: " and " },
+    { text: "plain\ntoo", marks: { italic: true } },
+  ]);
+  assert.equal(list.items[0].text, "One\nline two");
+  const printed = printTsx(doc);
+  assert.match(printed, /Cheers,<br \/>Mike at Acme/);
+  assert.match(printed, /<strong>Bold<br \/>still bold<\/strong>/);
+  assert.match(printed, /<li>One<br \/>line two<\/li>/);
+  const again = parseTsx(printed);
+  assert.deepEqual(
+    again.blocks.map((b) => ({ ...b, id: "" })),
+    doc.blocks.map((b) => ({ ...b, id: "" })),
+    "print → parse keeps every break",
+  );
+});
+
+test("the markup's own line breaks around a <br> are formatting, not text", () => {
+  const b = parseTsx("<Text>\n  Thanks,<br />\n  The team\n</Text>").blocks[0] as Record<string, any>;
+  assert.equal(b.text, "Thanks,\nThe team");
+});
+
+test("a break renders as <br /> in the email", async () => {
+  const { renderToHtml } = await import("./render");
+  const html = renderToHtml(parseTsx("<Text>Line one<br />line two</Text>"));
+  assert.match(html, /Line one<br \/>line two/);
+});

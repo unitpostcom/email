@@ -31,6 +31,7 @@ import {
   type InlineRun,
 } from "./schema";
 import { newBlockId } from "./blocks";
+import { renderSimpleHtml } from "./render-simple";
 import {
   SIMPLE_EMAIL_MAX_CHARS,
   SIMPLE_EMAIL_THEME,
@@ -412,4 +413,101 @@ export function textToSimpleDocument(text: string, options: SimpleTextOptions = 
 
 function isBlankLine(b: Block): boolean {
   return b.type === "text" && b.text.trim() === "" && !(b.content && b.content.some((r) => r.text.trim()));
+}
+
+// ----- SIMPLE DOCUMENT → TEXT --------------------------------------------------
+// The inverse of parseSimpleText, so a Simple template reads back in the format
+// it is written in (the API's `text`; parity audit IC-11). Prints what the
+// format carries: lines with their inline styles and alignment, lists, images.
+// simpleDocumentText answers only when the printed text parses back to the
+// same email, so sending a read back never changes a template unasked.
+
+// Only text the parser would read as markup or as an entity is escaped: a tag
+// it knows, an entity it decodes. Everything else stays as written.
+function escapeSimpleText(s: string): string {
+  return s
+    .replace(/&(?=(?:lt|gt|quot|#39|nbsp|amp);)/g, "&amp;")
+    .replace(/<(?=\/?([a-zA-Z][a-zA-Z0-9]*))/g, (lt, _m, offset: number, whole: string) => {
+      const name = /^<\/?([a-zA-Z][a-zA-Z0-9]*)/.exec(whole.slice(offset))?.[1] ?? "";
+      return HTML_ELEMENTS.has(name.toLowerCase()) || TSX_COMPONENTS.has(name) ? "&lt;" : lt;
+    });
+}
+
+function escapeSimpleAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function printSimpleRun(run: InlineRun): string {
+  if (!run.text) return "";
+  let s = escapeSimpleText(run.text).replace(/\n/g, "<br>");
+  const m = run.marks ?? {};
+  const style = [
+    m.color ? `color:${m.color}` : "",
+    m.background ? `background-color:${m.background}` : "",
+    m.fontSize ? `font-size:${m.fontSize}px` : "",
+    m.fontFamily ? `font-family:${m.fontFamily}` : "",
+  ].filter(Boolean);
+  if (style.length) s = `<span style="${escapeSimpleAttr(style.join("; "))}">${s}</span>`;
+  if (m.strike) s = `<s>${s}</s>`;
+  if (m.underline) s = `<u>${s}</u>`;
+  if (m.italic) s = `<i>${s}</i>`;
+  if (m.bold) s = `<b>${s}</b>`;
+  if (m.link) s = `<a href="${escapeSimpleAttr(m.link)}">${s}</a>`;
+  return s;
+}
+
+function printSimpleRuns(text: string, content: InlineRun[] | undefined): string {
+  const runs = content?.length ? content : [{ text }];
+  const line = runs.map(printSimpleRun).join("");
+  // The parser trims a line's end; a space there survives inside a bare span.
+  return line.replace(/[ \t]+$/, (ws) => `<span>${ws}</span>`);
+}
+
+function alignLine(line: string, align: string | undefined): string {
+  return align === "center" || align === "right" ? `<div style="text-align:${align}">${line}</div>` : line;
+}
+
+/**
+ * A Simple document as the `text` format, or null when it holds a block the
+ * format has no line for (a heading, a button, a section). The result may
+ * still lose something (an indent); simpleDocumentText checks that.
+ */
+export function printSimpleText(doc: EmailDocument): string | null {
+  const lines: string[] = [];
+  for (const block of doc.blocks) {
+    if (block.type === "text") {
+      let line = printSimpleRuns(block.text, block.content);
+      // A line that starts like a list item would come back as one.
+      if (BULLET_RE.test(line) || NUMBER_RE.test(line)) line = `<span>${line}</span>`;
+      lines.push(alignLine(line, block.align));
+    } else if (block.type === "list") {
+      block.items.forEach((item, i) => {
+        lines.push(`${block.ordered ? `${i + 1}.` : "-"} ${printSimpleRuns(item.text, item.content)}`);
+      });
+    } else if (block.type === "image") {
+      const attrs = [`src="${escapeSimpleAttr(block.src)}"`, `alt="${escapeSimpleAttr(block.alt)}"`];
+      if (block.width) attrs.push(`width="${block.width}"`);
+      const img = `<img ${attrs.join(" ")}>`;
+      lines.push(alignLine(block.href ? `<a href="${escapeSimpleAttr(block.href)}">${img}</a>` : img, block.align));
+    } else {
+      return null;
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * A Simple template's body as `text`, or null when that text would not give
+ * back the same email (it renders differently once parsed again), e.g. an
+ * indented line or a block the format has no line for.
+ */
+export function simpleDocumentText(doc: EmailDocument): string | null {
+  const text = printSimpleText(doc);
+  if (text === null || text.length > SIMPLE_EMAIL_MAX_CHARS) return null;
+  try {
+    const again = parseSimpleText(text, { category: doc.category, previewText: doc.previewText }).doc;
+    return renderSimpleHtml(again) === renderSimpleHtml(doc) ? text : null;
+  } catch {
+    return null;
+  }
 }
