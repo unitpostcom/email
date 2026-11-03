@@ -536,3 +536,16 @@ test("a break renders as <br /> in the email", async () => {
   const html = renderToHtml(parseTsx("<Text>Line one<br />line two</Text>"));
   assert.match(html, /Line one<br \/>line two/);
 });
+
+test("parseTsx reads attributes as JSX does: bare names are true, single quotes are strings", () => {
+  const [list, link] = parseTsx(`<List ordered><li>a</li></List><Link href='https://example.com/a b'>Docs</Link>`)
+    .blocks as Array<Record<string, unknown>>;
+  assert.equal(list.ordered, true);
+  assert.equal(link.href, "https://example.com/a b");
+});
+
+test("parseTsx skips a spread without reading its words as attributes", () => {
+  const [list] = parseTsx(`<List {...props} ordered={false}><li>a</li></List>`).blocks as Array<Record<string, unknown>>;
+  assert.equal(list.ordered, false);
+  assert.equal("props" in list, false);
+});

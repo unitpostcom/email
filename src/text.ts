@@ -18,6 +18,8 @@ type Vars = Record<string, string>;
 export type TextRenderOptions = {
   marketingFooter?: ComponentFragment;
   footerVars?: Record<string, string>;
+  // The one-line "Sent with Unitpost" mark. Off unless asked for (see
+  // RenderOptions.showPoweredBy).
   showPoweredBy?: boolean;
   // false: body links print their label only, never the URL (our own system
   // emails). "action": the same, except a button prints "Label: url" on one
@@ -311,7 +313,7 @@ export function renderToText(
       if (unsub && unsub !== "{{unsubscribe_url}}") pieces.push(`Unsubscribe: ${unsub}`);
     }
     // The same one-line mark as every other text part (POWERED_BY_TEXT).
-    if (options.showPoweredBy ?? true) pieces.push(POWERED_BY_TEXT);
+    if (options.showPoweredBy ?? false) pieces.push(POWERED_BY_TEXT);
     if (pieces.length) parts.push(pieces.join(" · "));
     return cleanLines(parts.filter(Boolean).join("\n\n"));
   }
@@ -340,7 +342,7 @@ export function renderToText(
     }
   }
 
-  if (options.showPoweredBy ?? true) {
+  if (options.showPoweredBy ?? false) {
     parts.push(POWERED_BY_TEXT);
   }
 

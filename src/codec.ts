@@ -30,6 +30,7 @@ import { normalizeBorderAttrs } from "./border-attrs";
 import { dedentText } from "./dedent";
 import { applyDocumentAttrs, printDocumentOpenTag } from "./document-attrs";
 import { decodeCharacterReferences, escapeTsxAttr, escapeTsxText } from "./entities";
+import { COLUMN_OUTSIDE_ROW, ROW_CHILD_NOT_COLUMN, ROW_IN_SECTION, containerInColumn } from "./nesting-errors";
 
 // Constrained TSX <-> JSON codec.
 //
@@ -464,12 +465,20 @@ function parseObjectLiteral(expr: string): Record<string, unknown> | null {
 
 function parseAttrs(raw: string): Record<string, unknown> {
   const attrs: Record<string, unknown> = {};
-  // Matches: name="..."  |  name={  (the `{...}` payload is captured
+  // Matches, as in JSX: name="..."  |  name='...'  |  name={  |  a bare name,
+  // which is `true` (`<List ordered>`). The `{...}` payload is captured
   // separately below via findBalancedBraceEnd so a nested object literal's
-  // inner braces don't truncate the match).
-  const re = /([\w-]+)\s*=\s*(?:"([^"]*)"|\{)/g;
+  // inner braces don't truncate the match. A `{` with no name before it (a
+  // spread) is skipped whole, so the words inside never read as bare names.
+  const re = /\{|([\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\{)))?/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw))) {
+    if (m[1] === undefined) {
+      const end = findBalancedBraceEnd(raw, m.index);
+      if (end === -1) break;
+      re.lastIndex = end + 1;
+      continue;
+    }
     // Tailwind classes: accept both the HTML `class` and the JSX `className`
     // attribute (and a short `tw` alias) and normalize to the
     // canonical `className` block prop. Don't kebab-case the name.
@@ -478,8 +487,13 @@ function parseAttrs(raw: string): Record<string, unknown> {
       rawName === "class" || rawName === "className" || rawName === "tw"
         ? "className"
         : kebabToCamel(rawName);
-    if (m[2] !== undefined) {
-      attrs[key] = decodeInline(m[2]); // string literal: references decode, as in JSX
+    const quoted = m[2] ?? m[3];
+    if (quoted !== undefined) {
+      attrs[key] = decodeInline(quoted); // string literal: references decode, as in JSX
+      continue;
+    }
+    if (m[4] === undefined) {
+      attrs[key] = true;
       continue;
     }
     // `{` case: m.index + full match length - 1 is the position of the `{`.
@@ -846,9 +860,7 @@ function consumeElement(
 ): { block: Block; next: number } {
   const r = consumeNode(tokens, start);
   if (r.block.type === "column") {
-    throw new TsxParseError(
-      "<Column> is only valid inside a <Row>. Wrap your columns in a <Row>…</Row>.",
-    );
+    throw new TsxParseError(COLUMN_OUTSIDE_ROW);
   }
   return r as { block: Block; next: number };
 }
@@ -900,11 +912,8 @@ function consumeNode(
         continue;
       }
       const child = consumeNode(tokens, i);
-      if (child.block.type === "column" || child.block.type === "row") {
-        throw new TsxParseError(
-          "<Section> may only contain leaf blocks or nested <Section>s — a <Row> cannot go inside a <Section>. Move the <Row> to the top level (rows are their own horizontal band), or use a nested <Section> instead.",
-        );
-      }
+      if (child.block.type === "column") throw new TsxParseError(COLUMN_OUTSIDE_ROW);
+      if (child.block.type === "row") throw new TsxParseError(ROW_IN_SECTION);
       // A Section child is either a nested Section or a leaf block.
       if (child.block.type === "section") {
         children.push(child.block);
@@ -937,9 +946,7 @@ function consumeNode(
         continue;
       }
       if (t.kind !== "open" || t.tag !== "Column") {
-        throw new TsxParseError(
-          "<Row> may only contain <Column> components. Put content inside a <Column>…</Column> within the <Row>.",
-        );
+        throw new TsxParseError(ROW_CHILD_NOT_COLUMN);
       }
       const child = consumeNode(tokens, i);
       columns.push(lenientParse<ColumnBlock>(ColumnBlockSchema, child.block as unknown as Record<string, unknown>));
@@ -985,9 +992,7 @@ function consumeNode(
         child.block.type === "row" ||
         child.block.type === "column"
       ) {
-        throw new TsxParseError(
-          `<Column> may only contain leaf blocks (Text, Heading, Button, Image, …) — a <${TYPE_TO_TAG[child.block.type]}> can't go inside a <Column>. Put the leaf content directly in the <Column>, and keep <Section>/<Row> at the top level.`,
-        );
+        throw new TsxParseError(containerInColumn(TYPE_TO_TAG[child.block.type] as "Section" | "Row" | "Column"));
       }
       children.push(lenientParse<LeafBlock>(LeafBlockSchema, child.block as unknown as Record<string, unknown>));
       i = child.next;

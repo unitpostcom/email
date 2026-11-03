@@ -24,6 +24,12 @@ npm install @unitpost/email zod
 
 React and Next.js apps already have `react`. In a plain Node project, install it too. `zod` is a peer dependency. Node 18 or newer.
 
+Or let `init` set the project up: it adds a starter email to `emails/` and an `email:dev` script to `package.json`, then prints the install command for anything missing. It keeps files and scripts that are already there.
+
+```bash
+npx @unitpost/email init
+```
+
 ### 2. Create an email
 
 An email is a React component made of the library's components. Pass data in as props, like any other component.
@@ -64,6 +70,17 @@ await unitpost.email.send({
 
 Prefer SMTP? Send the same `html` through the [Unitpost SMTP relay](https://unitpost.com/components#unitpost-smtp). Already on another provider? Pass `html` to it. There are copy-paste examples for [Nodemailer](https://unitpost.com/components#nodemailer), [AWS SES](https://unitpost.com/components#aws-ses), [SendGrid](https://unitpost.com/components#sendgrid), [Postmark](https://unitpost.com/components#postmark), [Mailgun](https://unitpost.com/components#mailgun), [Brevo](https://unitpost.com/components#brevo), [Cloudflare Email Service](https://unitpost.com/components#cloudflare), [AutoSend](https://unitpost.com/components#autosend), and [more](https://unitpost.com/components#integrations).
 
+### 4. Preview while you build
+
+```bash
+npm install -D esbuild
+npx @unitpost/email dev
+```
+
+The preview server lists every email in `emails/` (or the folder you pass), reloads when a file changes, and shows each one at desktop and mobile width, in light and dark, with its HTML, plain text and design checks. Preview props come from `Welcome.PreviewProps = { name: "Ada" }`. A `.json` `EmailDocument` previews too. Files and folders starting with `_` are skipped, so keep shared parts there. After `init`, `npm run email:dev` starts the same server.
+
+To see an email in a real inbox, set `UNITPOST_API_KEY` and `UNITPOST_FROM` (an address on a verified domain) and use **Send test**.
+
 Using a coding agent? Run `npx skills add unitpostcom/email` and it learns every component and layout.
 
 ---
@@ -80,6 +97,8 @@ Most apps only need `render()`. The rest are for working without React, or for b
 | `renderToText(doc)` | An `EmailDocument` | A plain-text string | You want a plain-text part to send with the HTML. |
 | `fromJsx(<Email />)` | A React element | An `EmailDocument` (JSON) | You want to store an email as data, or turn it into plain text. |
 | `printTsx(doc)` | An `EmailDocument` | Source code, as a string | You want to show a document as code. `printFragmentTsx()` does the same for a layout. |
+
+The HTML is only your email: the library adds no branding, tracking or links of its own.
 
 `render()` is `fromJsx()` followed by `renderToHtml()`, and it's synchronous. It runs wherever your code runs: a server, a script, a serverless function. It doesn't use React DOM, so email components can't be mounted on a web page.
 
@@ -215,6 +234,8 @@ npm run typecheck
 npm test
 npm run preview   # HTML of every sample, open locally
 ```
+
+`npm test` pins the HTML and plain text of every sample and layout (`src/golden.json`), and checks that React and the TSX string render the same email. If a change to rendered output is intended, note it in the changelog as breaking and run `npm run golden:update`.
 
 A change to the HTML a published document renders to is a **breaking change**. See [CHANGELOG.md](./CHANGELOG.md).
 

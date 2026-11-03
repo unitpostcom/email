@@ -63,11 +63,13 @@ export type RenderOptions = {
   marketingFooter?: ComponentFragment;
   // Append a prominent "Sent with Unitpost" mark at the very bottom of the
   // email, on the outer backdrop BELOW the body card (a sibling row under the
-  // paper, not inside it). Resolved by the caller from the workspace's plan
+  // paper, not inside it). Off unless the caller asks for it: the library is
+  // used on its own, with any provider, and must not brand someone else's
+  // email. The Unitpost platform resolves it from the workspace's plan
   // entitlement + stored preference (free plans can't remove it; paid plans that
-  // opted out pass false). Rendered on EVERY email — marketing AND transactional
-  // — since it's a brand mark, not a compliance element. Defaults to true so an
-  // un-entitled / unconfigured send keeps it.
+  // opted out pass false) and always passes it explicitly. When on, it renders
+  // on marketing AND transactional email alike — it's a brand mark, not a
+  // compliance element.
   showPoweredBy?: boolean;
   // Reserved system/branding tokens the FOOTER fragment references but the body
   // usually does not: {{unsubscribe_url}}, {{company_name}}, {{company_address}}.
@@ -1219,7 +1221,7 @@ export function renderToHtml(
             companyAddress: fv.company_address || undefined,
           }
         : null,
-      showPoweredBy: options.showPoweredBy ?? true,
+      showPoweredBy: options.showPoweredBy ?? false,
       // Pasted / library images resolve against the same asset host as a
       // designed email's image blocks.
       assetBaseUrl: options.assetBaseUrl,
@@ -1335,13 +1337,13 @@ export function renderToHtml(
       : defaultFooterHtml(theme, footerCtx.vars)
     : "";
 
-  // "Sent with Unitpost" mark: a brand badge pinned at the very bottom of EVERY
-  // email — marketing AND transactional — unless the caller (which resolved the
-  // plan entitlement + stored preference) opted out. On marketing emails it sits
+  // "Sent with Unitpost" mark: a brand badge pinned at the very bottom of the
+  // email — marketing AND transactional — when the caller (which resolved the
+  // plan entitlement + stored preference) asked for it. On marketing emails it sits
   // just below the compliance footer; on transactional it's the only appended
   // band, so it reads as a clean, bare pill under the body.
   const poweredBy =
-    (options.showPoweredBy ?? true) ? poweredByHtml(theme) : "";
+    (options.showPoweredBy ?? false) ? poweredByHtml(theme) : "";
 
   // Mobile stacking for columns: only applied where supported (ignored by
   // Outlook, which keeps the table layout — acceptable degradation). In editor

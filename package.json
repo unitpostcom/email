@@ -1,6 +1,6 @@
 {
   "name": "@unitpost/email",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Email component library that works in Outlook, Gmail, and Apple Mail.",
   "license": "MIT",
   "homepage": "https://unitpost.com/email",
@@ -34,8 +34,12 @@
     "./brand-mark": "./src/brand-mark.ts",
     "./testing": "./src/testing/index.ts"
   },
+  "bin": {
+    "unitpost-email": "./bin/unitpost-email.mjs"
+  },
   "files": [
     "dist",
+    "bin",
     "README.md",
     "EMAIL_DESIGN.md",
     "CHANGELOG.md",
@@ -51,6 +55,7 @@
     "typecheck": "tsc --noEmit",
     "email:check": "npm run typecheck && npm run test",
     "test": "node --import tsx scripts/node-test.mjs",
+    "golden:update": "UPDATE_GOLDEN=1 node --import tsx --test src/golden.test.ts",
     "preview": "tsx scripts/preview.ts",
     "guide:write": "tsx scripts/write-design-guide.ts",
     "prepublishOnly": "npm run build"
@@ -59,6 +64,7 @@
     "@types/node": "^20",
     "@types/react": "^19.2.18",
     "@types/sanitize-html": "^2.16.1",
+    "esbuild": "^0.27.0",
     "react": "^19.2.8",
     "tsup": "^8.5.0",
     "tsx": "^4.23.12",
@@ -66,11 +72,15 @@
     "zod": "^4.0.0"
   },
   "peerDependencies": {
+    "esbuild": ">=0.18",
     "react": ">=18",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "esbuild": {
       "optional": true
     }
   },

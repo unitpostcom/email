@@ -2,19 +2,31 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
-## Unreleased
+## 0.5.0
 
-### Fixed
+Publishes when this version reaches `main` (`publish-email.yml`). **Breaking:** the "Sent with Unitpost" mark is now off unless you ask for it, so HTML and plain text rendered without `showPoweredBy` differ from 0.4.0 (they no longer end with the mark). Nothing else renders differently. This release also adds a local preview server, an `init` command that sets a project up for it, and fixes two ways the TSX dialect read attributes differently from JSX.
 
-- **Line breaks in TSX.** `parseTsx` read a `<br>` inside `<Text>`, `<Heading>` or a list item as nothing (`<Text>a<br />b</Text>` became "ab"), and `printTsx` printed a stored line break as a newline that read back as a space. A `<br>` (any spelling) is now the document's soft line break ("\n", the editor's Shift+Enter), and `printTsx` prints one as `<br />`, so print → parse keeps it; whitespace around a `<br>` is the markup's formatting. `htmlToBlocks` keeps a paragraph's `<br>` as a line break too (it was a space). Rendering is unchanged: the renderer already draws a stored line break as `<br />`, so no saved document renders differently; only TSX that contains `<br>` parses to what it says.
+### Changed (breaking: rendered HTML and text differ)
+
+- **No branding by default.** `renderToHtml`, `renderToText` and React `render()` added a "Sent with Unitpost" mark (a badge linking to unitpost.com, and a line in the plain text) to every email unless the caller passed `showPoweredBy: false`. The library renders email you send with any provider, so the mark is now opt-in: `{ showPoweredBy: true }`. The Unitpost platform passes it explicitly, so email sent through Unitpost is unchanged.
 
 ### Added
 
+- **`npx @unitpost/email dev [folder]`**: a local preview server for a folder of emails (default `emails/`). It lists React email modules (default export; preview props from `Component.PreviewProps`) and `.json` EmailDocuments, reloads on save, and shows each email at desktop and mobile width, in light and dark, with its HTML, plain text, size and `lintEmailDesign` checks. **Send test** sends the email you're looking at through Unitpost when `UNITPOST_API_KEY` and `UNITPOST_FROM` are set. React emails are bundled with the project's esbuild (`npm install -D esbuild`, an optional peer dependency). It listens on 127.0.0.1 only.
+- **`npx @unitpost/email init [folder]`** sets a project up: it writes a starter email (`welcome.tsx`, or `welcome.jsx` in a project without TypeScript) with `PreviewProps` to `emails/`, adds an `email:dev` script to `package.json`, and prints the install command for whichever of `@unitpost/email`, `react`, `zod` and `esbuild` (and `@types/react` in a TypeScript project) is missing, for the project's package manager (npm, pnpm, yarn or bun; in a workspace package, the workspace root's). It never overwrites a file or a script and installs nothing itself. The folder goes into the script, so it must be a plain relative path (letters, digits and `. _ - / @ +`).
 - **`printSimpleText(doc)`** prints a Simple document in the `text` format `parseSimpleText` reads: lines with their bold, italic, underline, strike, links, colour, highlight, size and font, centred or right-aligned lines, lists and images. Text that would read as markup, an entity or a list item is escaped so it reads back as written. **`simpleDocumentText(doc)`** returns that text only when parsing it again renders the same email, and null otherwise (an indented line, or a block a Simple email has no line for), so a caller never edits a lossy copy. Nothing that exists changes.
+- **Golden renders** (`src/golden.json`, `npm run golden:update`): `npm test` pins the HTML and plain text of every sample, every layout and a set of parity fixtures, and checks that each fixture written in React and as a TSX string gives the same document and the same HTML.
 
-## 0.4.0
+### Fixed
 
-Publishes when this version reaches `main` (`publish-email.yml`). This release adds a Design-mode document element, editor conversion and a body border. Every existing call (`parseTsx`, `printTsx`, `renderToHtml`, `getComponentDoc`) behaves as before; the rendering changes are the fixes below (`<title>` text, library images in HTML blocks, character references in TSX, rows narrower than their columns' total) and the opt-in dark-mode swap for `ink` icons.
+- **Bare attributes in TSX.** `parseTsx` dropped an attribute with no value, so `<List ordered>` was a bulleted list; in JSX it means `ordered={true}`, and now it does here too. A spread such as `{...props}` is skipped whole instead of having its words read as attributes.
+- **Nesting errors in React.** A `<Row>` inside a `<Section>` failed in React with an opaque schema error, and React worded the other nesting errors (a `<Row>` child that isn't a `<Column>`, a container inside a `<Column>`) differently from `parseTsx`. React now refuses the same markup as `parseTsx`, with the same message. Whitespace between `<Column>`s inside a `<Row>` is formatting in React too, as it already was in TSX. Nothing that rendered before changes.
+- **Single-quoted attributes in TSX.** `href='https://…'` (valid JSX) was dropped; it now reads as the string.
+- **Line breaks in TSX.** `parseTsx` read a `<br>` inside `<Text>`, `<Heading>` or a list item as nothing (`<Text>a<br />b</Text>` became "ab"), and `printTsx` printed a stored line break as a newline that read back as a space. A `<br>` (any spelling) is now the document's soft line break ("\n", the editor's Shift+Enter), and `printTsx` prints one as `<br />`, so print → parse keeps it; whitespace around a `<br>` is the markup's formatting. `htmlToBlocks` keeps a paragraph's `<br>` as a line break too (it was a space). Rendering is unchanged: the renderer already draws a stored line break as `<br />`, so no saved document renders differently; only TSX that contains `<br>` parses to what it says.
+
+## 0.4.0 — 2026-10-26
+
+Published 2026-10-26. This release adds a Design-mode document element, editor conversion and a body border. Every existing call (`parseTsx`, `printTsx`, `renderToHtml`, `getComponentDoc`) behaves as before; the rendering changes are the fixes below (`<title>` text, library images in HTML blocks, character references in TSX, rows narrower than their columns' total) and the opt-in dark-mode swap for `ink` icons.
 
 ### Added
 
@@ -44,9 +56,9 @@ Publishes when this version reaches `main` (`publish-email.yml`). This release a
 - `printTsx(doc, { document: true })` escapes `<` and `>` in `<Email>` attributes, so a preview text like `Save > spend` parses back unchanged instead of spilling into the body.
 - `htmlToBlocks` keeps an element whose images share it with copy or with other images (a logo beside a line of text, a row of badges) as HTML. Before, a paragraph like that became a single `Text` or `Image` block, and the image or the other images were dropped without a warning. A single image on its own still becomes an `Image`.
 
-## 0.3.0
+## 0.3.0 — 2026-10-16
 
-Not on npm yet: publishes when this version reaches `main` (`publish-email.yml`). 0.2.0 shipped the React entry; this release is the Simple-mode validator, the wider `text` format and a security fix.
+Published 2026-10-16. 0.2.0 shipped the React entry; this release is the Simple-mode validator, the wider `text` format and a security fix.
 
 ### Added
 

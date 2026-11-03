@@ -16,6 +16,7 @@ import {
 } from "./react";
 import { parseTsx } from "./codec";
 import { renderToHtml } from "./render";
+import { COLUMN_OUTSIDE_ROW, ROW_CHILD_NOT_COLUMN, ROW_IN_SECTION, containerInColumn } from "./nesting-errors";
 
 test("fromJsx maps catalog components to a document", () => {
   const doc = fromJsx(
@@ -186,4 +187,30 @@ test("List items keep inline formatting", () => {
     { text: "Fast setup", content: [{ text: "Fast", marks: { bold: true } }, { text: " setup" }] },
     { text: "Plain" },
   ]);
+});
+
+// The same markup is refused the same way whether it is written in React or
+// as a TSX string (nesting-errors.ts). A <Row> inside a <Section> used to fail
+// in React with an opaque schema error.
+test("nesting: React and TSX refuse the same markup with the same message", () => {
+  const col = (...children: ReturnType<typeof h>[]) => h(Column, null, ...children);
+  const cases: [string, string, ReturnType<typeof h>, string][] = [
+    ["Row in Section", `<Section><Row><Column><Text>a</Text></Column></Row></Section>`, h(Section, null, h(Row, null, col(h(Text, null, "a")))), ROW_IN_SECTION],
+    ["Column in Section", `<Section><Column><Text>a</Text></Column></Section>`, h(Section, null, col(h(Text, null, "a"))), COLUMN_OUTSIDE_ROW],
+    ["top-level Column", `<Column><Text>a</Text></Column>`, col(h(Text, null, "a")), COLUMN_OUTSIDE_ROW],
+    ["Text in Row", `<Row><Text>a</Text></Row>`, h(Row, null, h(Text, null, "a")), ROW_CHILD_NOT_COLUMN],
+    ["Section in Column", `<Row><Column><Section><Text>a</Text></Section></Column></Row>`, h(Row, null, col(h(Section, null, h(Text, null, "a")))), containerInColumn("Section")],
+    ["Row in Column", `<Row><Column><Row><Column><Text>a</Text></Column></Row></Column></Row>`, h(Row, null, col(h(Row, null, col(h(Text, null, "a"))))), containerInColumn("Row")],
+    ["Column in Column", `<Row><Column><Column><Text>a</Text></Column></Column></Row>`, h(Row, null, col(col(h(Text, null, "a")))), containerInColumn("Column")],
+  ];
+  for (const [name, tsx, element, message] of cases) {
+    assert.throws(() => parseTsx(tsx), { message }, `TSX: ${name}`);
+    assert.throws(() => fromJsx(element), { message }, `React: ${name}`);
+  }
+});
+
+test("nesting: whitespace between Columns is formatting in React too", () => {
+  const doc = fromJsx(h(Row, null, " ", h(Column, null, h(Text, null, "a")), "\n  ", h(Column, null, h(Text, null, "b"))));
+  assert.equal(doc.blocks[0].type, "row");
+  assert.equal((doc.blocks[0] as { columns: unknown[] }).columns.length, 2);
 });

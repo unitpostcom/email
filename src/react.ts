@@ -35,6 +35,7 @@ import {
 import { createBlock, newBlockId } from "./blocks";
 import { normalizeBorderAttrs } from "./border-attrs";
 import { dedentText } from "./dedent";
+import { COLUMN_OUTSIDE_ROW, ROW_CHILD_NOT_COLUMN, ROW_IN_SECTION, containerInColumn } from "./nesting-errors";
 import { renderToHtml, type RenderOptions } from "./render";
 import { applyDocumentAttrs } from "./document-attrs";
 
@@ -329,28 +330,24 @@ function leafBlocks(children: ReactNode): LeafBlock[] {
       if (t) out.push(createBlock("text", { text: t }) as TextBlock);
       continue;
     }
-    const block = toBlock(n);
-    if (block.type === "section" || block.type === "row") {
-      throw new JsxRenderError(
-        `<${block.type === "section" ? "Section" : "Row"}> is not valid inside <Column>.`,
-      );
+    if (isValidElement(n) && isHost(n.type)) {
+      const kind = n.type[HOST];
+      if (kind === "section" || kind === "row" || kind === "column") {
+        throw new JsxRenderError(containerInColumn(kind === "section" ? "Section" : kind === "row" ? "Row" : "Column"));
+      }
     }
-    out.push(block as LeafBlock);
+    out.push(toBlock(n) as LeafBlock);
   }
   return out;
 }
 
 function toColumn(node: ReactNode): ColumnBlock {
   const expanded = expand(node);
-  if (expanded.length !== 1 || !isValidElement(expanded[0])) {
-    throw new JsxRenderError("<Column> is only valid inside a <Row>.");
+  const el = expanded[0];
+  if (expanded.length !== 1 || !isValidElement(el) || !isHost(el.type) || el.type[HOST] !== "column") {
+    throw new JsxRenderError(ROW_CHILD_NOT_COLUMN);
   }
-  const el = expanded[0] as ReactElement<{ children?: ReactNode } & Record<string, unknown>>;
-  const colType = el.type;
-  if (!isHost(colType) || colType[HOST] !== "column") {
-    throw new JsxRenderError("<Row> children must be <Column> elements.");
-  }
-  const { children, ...attrs } = el.props;
+  const { children, ...attrs } = (el as ReactElement<{ children?: ReactNode } & Record<string, unknown>>).props;
   return ColumnBlockSchema.parse({
     type: "column",
     id: newBlockId(),
@@ -385,11 +382,7 @@ function toBlock(node: ReactNode): Block {
   const { children, ...rest } = el.props;
   const attrs = normalizeBorderAttrs(kind, { ...rest });
 
-  if (kind === "column") {
-    throw new JsxRenderError(
-      "<Column> is only valid inside a <Row>. Wrap your columns in a <Row>…</Row>.",
-    );
-  }
+  if (kind === "column") throw new JsxRenderError(COLUMN_OUTSIDE_ROW);
   if (kind === "section") {
     return createBlock("section", {
       ...attrs,
@@ -398,6 +391,7 @@ function toBlock(node: ReactNode): Block {
           const t = String(c).trim();
           return t ? [createBlock("text", { text: t })] : [];
         }
+        if (isValidElement(c) && isHost(c.type) && c.type[HOST] === "row") throw new JsxRenderError(ROW_IN_SECTION);
         return [toBlock(c)];
       }),
     });
@@ -405,7 +399,10 @@ function toBlock(node: ReactNode): Block {
   if (kind === "row") {
     return createBlock("row", {
       ...attrs,
-      columns: expand(children).map(toColumn),
+      // Whitespace between <Column>s is formatting, as in parseTsx.
+      columns: expand(children)
+        .filter((c) => !(typeof c === "string" && !c.trim()))
+        .map(toColumn),
     });
   }
 
