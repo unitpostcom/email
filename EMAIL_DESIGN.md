@@ -70,6 +70,7 @@ This guide is about the emails our customers send. The Unitpost app's own UI fol
 ### Dark mode
 
 - Design light; make it survive inversion. Gmail iOS and classic Outlook invert everything, Gmail Android and Outlook.com invert light backgrounds, Apple Mail leaves explicit colours alone. ([source](https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers))
+- Declare only what the email supports. A document without `darkMode` renders light-only (`color-scheme: light` in the meta tags and in CSS), so Apple Mail and iOS Mail show it as designed; `darkMode: "auto"` (`<Email dark-mode="auto">`) is the opt-in that ships dark CSS and declares `light dark`. Never declare `light dark` without dark styles: Apple Mail then darkens the card under the template's own dark text. ([source](https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers))
 - Dark mode: set explicit backgrounds, keep text near-black rather than #000, give transparent dark logos a light backing (the soft chip style) or use a logo with its own background, and never bake text into images.
 
 ### Accessibility

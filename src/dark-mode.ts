@@ -16,12 +16,18 @@
 // our hosted `ink` icons on the card, which swap to their white copy.
 //
 // Opt-in: `theme.darkMode: "auto"` (or `<Email dark-mode="auto">`) turns it
-// on. A theme without `darkMode` renders exactly as before 0.4.0, no dark CSS
-// and `color-scheme: light dark` (verifier on #1056: on by default it changed
-// every existing template sent through /v1, and text given its own dark
-// colour went unreadable on the dark card). `"off"` opts a brand out
-// explicitly: no dark CSS, and the email declares itself light-only
-// (`color-scheme: light`).
+// on; only then does the email declare `color-scheme: light dark`. A theme
+// without `darkMode` gets no dark CSS (verifier on #1056: on by default it
+// changed every existing template sent through /v1, and text given its own
+// dark colour went unreadable on the dark card) AND declares itself
+// light-only, exactly like `"off"`. Until 0.5.0 an unset theme kept the
+// pre-0.4.0 `light dark` declaration with no dark CSS, which told Apple Mail
+// and iOS Mail the email handled dark mode itself: they darkened the card
+// and left the template's own dark text on it (2026-11-05, a customer
+// newsletter in Apple Mail). Declaring what the email actually supports is
+// the documented way to keep a light design light (Litmus, Apple's
+// supported-color-schemes); the system emails made the same move on
+// 2026-11-04 (apps/web system-email.ts). "auto" and "off" render as before.
 // ---------------------------------------------------------------------------
 
 import { contrastRatio, parseColor, shadeToContrast } from "./color";
@@ -55,6 +61,22 @@ const DEFAULT_DARK = { backgroundColor: "#0f0f11", bodyColor: "#1c1c1f", textCol
 export function darkModeEnabled(theme: Pick<Theme, "darkMode">): boolean {
   return theme.darkMode === "auto";
 }
+
+/**
+ * Whether the rendered email declares itself light-only (`color-scheme:
+ * light` in the meta tags and in CSS): every theme that did not opt into dark
+ * mode, "off" and unset alike. The complement of darkModeEnabled.
+ */
+export function lightOnlyDeclaration(theme: Pick<Theme, "darkMode">): boolean {
+  return !darkModeEnabled(theme);
+}
+
+/**
+ * The `<style>` rule a light-only email carries next to its meta tags, for
+ * clients that read the CSS property rather than the tags (Apple Mail on
+ * macOS Catalina and later). Same rule the system emails ship.
+ */
+export const LIGHT_ONLY_CSS = ":root{color-scheme:light;supported-color-schemes:light;}";
 
 /** The dark palette: the theme's darkColors, else derived defaults. */
 export function darkPalette(theme: Pick<Theme, "linkColor" | "darkColors">): DarkPalette {

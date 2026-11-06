@@ -121,15 +121,27 @@ describe("dark mode", () => {
 
   // Verifier on #1056: on by default it changed every existing template sent
   // through /v1, and copy given its own dark colour went unreadable on the
-  // dark card. Without darkMode a template renders exactly as before 0.4.0.
-  test("a theme without darkMode renders as before: no dark CSS or classes, color-scheme light dark", () => {
+  // dark card. Without darkMode a template gets no dark CSS — and since
+  // 0.5.0 it declares itself light-only too: the pre-0.4.0 `light dark`
+  // declaration with no dark CSS let Apple Mail darken the card under the
+  // template's own dark text (2026-11-05, a customer newsletter).
+  test("a theme without darkMode: no dark CSS or classes, light-only declaration like \"off\"", () => {
     const legacy = doc({ darkMode: undefined });
     assert.equal(legacy.theme.darkMode, undefined);
     const html = renderToHtml(legacy, {}, { showPoweredBy: false });
     assert.doesNotMatch(html, /prefers-color-scheme|ee-dm-|ee-bg|data-ogsc/);
-    assert.match(html, /<meta name="color-scheme" content="light dark" \/>/);
-    assert.match(html, /<meta name="supported-color-schemes" content="light dark" \/>/);
+    assert.doesNotMatch(html, /light dark/);
+    assert.match(html, /<meta name="color-scheme" content="light" \/>/);
+    assert.match(html, /<meta name="supported-color-schemes" content="light" \/>/);
+    assert.match(html, /:root\{color-scheme:light;supported-color-schemes:light;\}<\/style>/, "the CSS property pins light too");
+    assert.equal(html, renderToHtml(doc({ darkMode: "off" }), {}, { showPoweredBy: false }), "unset renders byte-identically to off");
     assert.deepEqual(lintEmailDesign(doc({ darkMode: undefined, darkColors: { bodyColor: "#202020", textColor: "#303030" } })).filter((h) => h.rule === "dark-contrast"), []);
+  });
+
+  test("the editor canvas of a theme without darkMode carries the light-only declaration too", () => {
+    const html = renderToHtml(doc({ darkMode: undefined }), {}, { editor: true, showPoweredBy: false });
+    assert.match(html, /<meta name="color-scheme" content="light" \/>/);
+    assert.match(html, /:root\{color-scheme:light;supported-color-schemes:light;\}/);
   });
 
   test("<Email dark-mode=\"auto\"> opts in, prints back, and a bad value is reported", () => {
@@ -234,6 +246,14 @@ describe("dark mode", () => {
     assert.doesNotMatch(html, /prefers-color-scheme|ee-dm-|ee-bg/);
     assert.match(html, /<meta name="color-scheme" content="light" \/>/);
     assert.match(html, /<meta name="supported-color-schemes" content="light" \/>/);
+    assert.match(html, /:root\{color-scheme:light;supported-color-schemes:light;\}/);
+  });
+
+  test("darkMode \"auto\" declares light dark and carries no light-only rule", () => {
+    const html = renderToHtml(doc(), {}, { showPoweredBy: false });
+    assert.match(html, /<meta name="supported-color-schemes" content="light dark" \/>/);
+    assert.doesNotMatch(html, /color-scheme:light;supported-color-schemes:light;/);
+    assert.match(html, /:root\{color-scheme:light dark;supported-color-schemes:light dark;\}/);
   });
 
   test("the editor canvas renders without dark CSS or Outlook conditionals", () => {

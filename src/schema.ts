@@ -340,9 +340,11 @@ export const ThemeSchema = z.object({
   // Dark mode (0.4.0), opt-in. "auto": the rendered email carries
   // `prefers-color-scheme: dark` CSS that swaps the backdrop, the body card,
   // the theme-coloured text and links to a dark palette (images and anything
-  // with its own colour or background are left alone). Absent: rendered as
-  // before 0.4.0 (no dark CSS, `color-scheme: light dark`). "off": no dark
-  // CSS, and the email declares itself light-only.
+  // with its own colour or background are left alone), and declares
+  // `color-scheme: light dark`. "off" and absent: no dark CSS, and the email
+  // declares itself light-only (`color-scheme: light`, 0.5.0; before that an
+  // absent value declared `light dark` with no dark CSS, and Apple Mail
+  // darkened the card under the template's own dark text). See dark-mode.ts.
   darkMode: z.enum(["auto", "off"]).optional(),
   // The dark palette. Each colour is optional: unset ones are derived (a
   // near-black backdrop and card, light text, the link colour lifted to stay

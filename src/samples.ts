@@ -31,32 +31,14 @@ function makeId(prefix: string, n: number): string {
   return `${prefix}-${n}`;
 }
 
-// Unitpost brand palette — keep every sample on-identity and in light mode by
-// default. Mirrors the app tokens (near-black primary on white, zinc grays).
-// Authors can recolor in the editor; these are just good-looking defaults.
-// EXPORTED so the pre-built section layouts (layouts.ts) share the exact same
-// palette as the samples.
-export const BRAND = {
-  ink: "#18181b", // primary text + buttons (zinc-900, ≈ --primary)
-  onInk: "#ffffff", // text on the ink button
-  body: "#3f3f46", // body copy (zinc-700)
-  muted: "#71717a", // secondary / fine print (zinc-500)
-  faint: "#a1a1aa", // footer fine print (zinc-400)
-  surface: "#ffffff", // the email "paper"
-  page: "#f4f4f5", // page backdrop behind the paper (zinc-100)
-  tint: "#fafafa", // subtle section fill (zinc-50)
-  border: "#e4e4e7", // hairline dividers (zinc-200)
-  success: "#16a34a", // positive accents (receipts, confirmations)
-  successTint: "#f0fdf4", // success section fill
-} as const;
+// BRAND / DEFAULT_LOGO_URL / BRAND_THEME live in sample-kit.ts (shared with the
+// v2 samples) and are re-exported here so existing imports keep working.
+import { BRAND, BRAND_THEME, DEFAULT_LOGO_URL, type SampleTemplate } from "./sample-kit";
+export { BRAND, BRAND_THEME, DEFAULT_LOGO_URL, type SampleTemplate };
+import { TRANSACTIONAL_V2 } from "./samples-transactional-v2";
+import { MARKETING_V2 } from "./samples-marketing-v2";
 
-// The default brand logo used in sample templates — a CDN/prod-hosted PNG (the
-// Unitpost app mark). PNG (not SVG) so it resolves in Gmail/Outlook, at an
-// absolute origin so it loads in every inbox AND in the logged-out gallery
-// preview. Authors swap it for their own logo in the editor; it's just a
-// good-looking, always-resolving default (no broken-image placeholder).
-export const DEFAULT_LOGO_URL =
-  "https://www.unitpost.com/web-app-manifest-192x192.png";
+
 
 // Curated, free-to-use minimalist stock imagery (Unsplash) for the samples that
 // benefit from a hero. Sized + cropped via Unsplash's URL params so they load
@@ -83,25 +65,7 @@ const STOCK = {
     "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&h=400&q=80",
 } as const;
 
-// Shared light-mode theme: white paper centered on a soft zinc backdrop, our
-// system font stack, ink text, ink links. Used by every sample so they share
-// one visual identity out of the box. `contentWidth` 560 + the renderer's fluid
-// `.ee-body` rule keeps every sample responsive (fills the viewport below the
-// content width instead of forcing horizontal scroll). A subtle `bodyRadius`
-// rounds the paper to match the app's card aesthetic.
-//
-// EXPORTED so freshly-created templates (dashboard + API) can seed the same
-// on-brand look — the schema's own ThemeSchema defaults stay untouched as the
-// backward-compat baseline for older stored documents.
-export const BRAND_THEME = {
-  textColor: BRAND.ink,
-  linkColor: BRAND.ink,
-  backgroundColor: BRAND.page,
-  bodyColor: BRAND.surface,
-  contentWidth: 560,
-  bodyPadding: 40,
-  bodyRadius: 14,
-} as const;
+
 
 // The standard brand logo block — centered, hosted PNG, capped to a tidy width.
 // Shared by every sample so the header mark is identical (and never broken) out
@@ -397,17 +361,7 @@ function eyebrow(
   } as SampleBlocksInput[number];
 }
 
-export type SampleTemplate = {
-  // Stable key for referencing/seeding (e.g. "welcome", "password-reset").
-  key: string;
-  // Human label for a gallery / picker.
-  name: string;
-  category: "transactional" | "marketing";
-  // Default subject (templates may override at send time).
-  subject: string;
-  // The canonical document. Validated against EmailDocumentSchema on load below.
-  design: EmailDocument;
-};
+// SampleTemplate is declared in sample-kit.ts (re-exported above).
 
 // ---------------------------------------------------------------------------
 // Transactional
@@ -1939,7 +1893,40 @@ const referral: EmailDocument = EmailDocumentSchema.parse({
 // Registry
 // ---------------------------------------------------------------------------
 
-export const SAMPLE_TEMPLATES: readonly SampleTemplate[] = [
+// Demo values for the original samples' {{variables}} — see SampleTemplate.
+// sampleValues. Three fictional brands keep the previews coherent: Northwind
+// (software), Alder & Finch (shop), Harbor (the newsletter sender).
+const EX = "https://example.com";
+const COMPANY = { company_name: "Harbor", company_address: "120 Market St, San Francisco, CA 94103" };
+const SAMPLE_VALUES: Record<string, Record<string, string>> = {
+  welcome: { first_name: "Ada", product_name: "Northwind", get_started_url: `${EX}/start` },
+  "email-verification": { first_name: "Ada", verify_url: `${EX}/verify`, verification_code: "482913" },
+  "magic-link": { first_name: "Ada", login_url: `${EX}/login`, expiry_minutes: "15" },
+  "password-reset": { first_name: "Ada", reset_url: `${EX}/reset`, expiry_minutes: "60" },
+  receipt: { first_name: "Maya", order_number: "#1042", item_name: "Studio plan", amount: "$84.00", receipt_url: `${EX}/receipt` },
+  invoice: { first_name: "Ada", invoice_number: "INV-0231", amount_due: "$1,240.00", due_date: "30 Nov 2026", pay_url: `${EX}/pay` },
+  "team-invite": { inviter_name: "Jordan Lee", team_name: "Harbor Design", accept_url: `${EX}/invite` },
+  "shipping-confirmation": { first_name: "Maya", order_number: "#1042", carrier: "Express Post", tracking_number: "1Z 999 AA1 0123", estimated_delivery: "Thu 12 Nov", track_url: `${EX}/track` },
+  "subscription-renewal": { first_name: "Ada", plan_name: "Pro", renewal_amount: "$29.00", renewal_date: "1 Dec 2026", manage_url: `${EX}/billing` },
+  "trial-ending": { first_name: "Ada", product_name: "Northwind", days_left: "3", upgrade_url: `${EX}/upgrade` },
+  "security-alert": { first_name: "Ada", device: "Chrome on macOS", location: "Lisbon, Portugal", sign_in_time: "Today at 09:41", secure_url: `${EX}/security` },
+  "comment-mention": { first_name: "Ada", actor_name: "Priya Natarajan", context_name: "Q4 launch plan", comment_body: "Can you take a look at the pricing section before Thursday? I think we're underselling the free plan.", thread_url: `${EX}/thread` },
+  newsletter: { first_name: "Jules", headline: "What we shipped in October", cta_url: `${EX}/update`, ...COMPANY },
+  "july-newsletter": { first_name: "Jules", changelog_url: `${EX}/changelog`, ...COMPANY },
+  "product-announcement": { first_name: "Jules", feature_name: "Smart folders", cta_url: `${EX}/folders`, ...COMPANY },
+  "event-invite": { first_name: "Jules", event_name: "Design Systems Live", event_date: "Thu 20 Nov, 10:00 PT", register_url: `${EX}/register`, ...COMPANY },
+  "discount-offer": { first_name: "Maya", discount: "20%", promo_code: "THANKS20", shop_url: `${EX}/shop`, ...COMPANY },
+  "re-engagement": { first_name: "Jules", product_name: "Northwind", return_url: `${EX}/app`, ...COMPANY },
+  "feedback-survey": { first_name: "Jules", product_name: "Northwind", survey_url: `${EX}/survey`, ...COMPANY },
+  "waitlist-invite": { first_name: "Jules", product_name: "Northwind", claim_url: `${EX}/claim`, ...COMPANY },
+  "abandoned-cart": { first_name: "Maya", item_name: "Linen crew tee", cart_url: `${EX}/cart`, ...COMPANY },
+  "case-study": { first_name: "Jules", product_name: "Northwind", customer_name: "Lumen", story_url: `${EX}/story`, ...COMPANY },
+  "webinar-recap": { first_name: "Jules", event_name: "Design Systems Live", recording_url: `${EX}/recording`, cta_url: `${EX}/start`, ...COMPANY },
+  referral: { first_name: "Jules", product_name: "Northwind", reward: "$20", referral_url: `${EX}/refer`, ...COMPANY },
+};
+
+type Original = Omit<SampleTemplate, "sampleValues">;
+const ORIGINAL: readonly Original[] = [
   { key: "welcome", name: "Welcome", category: "transactional", subject: "Welcome to {{product_name}}!", design: welcome },
   { key: "email-verification", name: "Email verification", category: "transactional", subject: "Confirm your email address", design: emailVerification },
   { key: "magic-link", name: "Magic sign-in link", category: "transactional", subject: "Your sign-in link", design: magicLink },
@@ -1964,6 +1951,15 @@ export const SAMPLE_TEMPLATES: readonly SampleTemplate[] = [
   { key: "case-study", name: "Customer story", category: "marketing", subject: "How {{customer_name}} did it", design: caseStudy },
   { key: "webinar-recap", name: "Webinar recap", category: "marketing", subject: "Thanks for joining — here's the recording", design: webinarRecap },
   { key: "referral", name: "Referral invite", category: "marketing", subject: "Give {{reward}}, get {{reward}}", design: referral },
+];
+
+// The full registry: the original set first, then the v2 sets. Order here is
+// the fallback display order for pickers that don't group; the public gallery
+// (apps/web lib/templates/library.ts) curates its own order and grouping.
+export const SAMPLE_TEMPLATES: readonly SampleTemplate[] = [
+  ...ORIGINAL.map((t) => ({ ...t, sampleValues: SAMPLE_VALUES[t.key] ?? {} })),
+  ...TRANSACTIONAL_V2,
+  ...MARKETING_V2,
 ];
 
 export function getSampleTemplate(key: string): SampleTemplate | undefined {

@@ -37,6 +37,8 @@ import {
   DARK_TEXT_CLASS,
   darkModeCss,
   darkModeEnabled,
+  lightOnlyDeclaration,
+  LIGHT_ONLY_CSS,
   darkPalette,
 } from "./dark-mode";
 import { contrastRatio } from "./color";
@@ -1382,7 +1384,9 @@ export function renderToHtml(
       ? `[data-block-id]{cursor:pointer;} [data-block-id]:hover{outline:2px solid rgba(37,99,235,0.4);outline-offset:1px;} [data-block-id].ee-selected{outline:2px solid #2563eb !important;outline-offset:1px;}`
       : ``,
     // Dark mode (dark-mode.ts): backdrop, card, theme text and links only.
-    ctx.dark ? darkModeCss(theme) : ``,
+    // A theme that did not opt in pins the light scheme in CSS too, for the
+    // clients that read the property rather than the meta tags.
+    ctx.dark ? darkModeCss(theme) : lightOnlyDeclaration(theme) ? LIGHT_ONLY_CSS : ``,
     `</style>`,
   ].join("");
 
@@ -1402,11 +1406,15 @@ export function renderToHtml(
     ? ""
     : `<!--[if mso]><table role="presentation" align="center" width="${theme.contentWidth}" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->`;
   const msoClose = ctx.editor ? "" : `<!--[if mso]></td></tr></table><![endif]-->`;
-  // The color-scheme declaration: "light" when the brand opted out, so
-  // clients that honour it leave the colours alone; otherwise "light dark",
-  // which every email declared before dark mode existed (a theme without
-  // `darkMode` renders exactly as it did then, #1056).
-  const scheme = theme.darkMode === "off" ? "light" : "light dark";
+  // The color-scheme declaration: "light dark" only when the theme opted
+  // into dark mode (`darkMode: "auto"`), because only then does the email
+  // carry dark CSS. Everything else, "off" AND unset, declares light-only, so
+  // clients that honour the declaration leave the designed colours alone.
+  // Unset used to declare `light dark` with no dark CSS (#1056 kept it as the
+  // pre-0.4.0 output): Apple Mail then darkened the card under the template's
+  // own dark text (2026-11-05, a customer newsletter). Same rule as the
+  // system emails (apps/web system-email.ts, 2026-11-04). See dark-mode.ts.
+  const scheme = lightOnlyDeclaration(theme) ? "light" : "light dark";
   const bgClass = ctx.dark ? ` class="${DARK_BG_CLASS}"` : "";
 
   // Body row padding lives on the body <td> (moved off the container table) so

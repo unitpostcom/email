@@ -52,16 +52,16 @@ export type SimpleTextOptions = {
  * test holds the Skill and the tool descriptions to it.
  */
 export const SIMPLE_TEXT_GUIDE = [
-  "SIMPLE EMAIL `text` FORMAT — write what a person types into Gmail; it sends as a bare mail-client fragment that reads like a personal email (no layout, no brand band, the reader's own font and background).",
+  "SIMPLE EMAIL `text` FORMAT — what a person types into Gmail; it sends as a bare mail-client fragment that reads like a personal email (no layout, no brand band, the reader's own font and background).",
   "SUPPORTED (everything the Simple editor can do):",
   "- Lines: one line per line; a blank line between paragraphs (blank lines are the ONLY spacing).",
   '- Lists: "- " (or "* ") bullets and "1. " numbers, one item per line.',
   '- Inline: <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strike</s>, <a href="https://…">link</a>, <br> for a line break inside a line.',
   `- Colour / highlight / size / font: <span style="color:#cc0000; background-color:#fff3a0; font-size:${SIMPLE_TEXT_SIZES.large}px; font-family:Georgia">…</span>. Sizes snap to Gmail's Small ${SIMPLE_TEXT_SIZES.small}px / Normal / Large ${SIMPLE_TEXT_SIZES.large}px / Huge ${SIMPLE_TEXT_SIZES.huge}px; fonts: Arial, Helvetica, Verdana, Tahoma, Trebuchet MS, Georgia, Times New Roman, Courier New. A title is just <b><span style="font-size:${SIMPLE_TEXT_SIZES.huge}px">…</span></b> on its own line.`,
   '- Alignment: wrap ONE whole line in <div style="text-align:center">…</div> (or right).',
-  '- Images: <img src="/img/{id}" alt="…" width="400"> alone on its own line (optionally inside <a href>); src is a library /img/{id} or an https:// URL — never invent one.',
+  '- Images: <img src="/img/{id}" alt="…" width="400"> alone on its own line (optionally inside <a href>); src is a library /img/{id} or an https:// URL.',
   "- {{variables}} anywhere, e.g. Hi {{first_name}},",
-  "NOT SUPPORTED (removed, and reported back as a warning — switch the template to Design for these): headings (<h1>…), sections / columns / spacers / buttons / dividers, TSX components (<Section>, <Text>, <Button>…), <p>/<div>/<table>/<ul>, any other CSS, Markdown (**bold**, [link](url), # Heading stay literal), and a hand-written footer (marketing emails get one plain line — sender · Unsubscribe · Sent with Unitpost — at send time).",
+  "NOT SUPPORTED (removed, and reported back as a warning; the Design editor has them): headings (<h1>…), sections / columns / spacers / buttons / dividers, TSX components (<Section>, <Text>, <Button>…), <p>/<div>/<table>/<ul>, any other CSS, Markdown (**bold**, [link](url), # Heading stay literal), and a hand-written footer (marketing emails get one plain line — sender · Unsubscribe · Sent with Unitpost — at send time).",
   `Max ${SIMPLE_EMAIL_MAX_CHARS.toLocaleString("en-US")} characters.`,
 ].join("\n");
 
