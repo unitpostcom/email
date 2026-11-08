@@ -1,111 +1,111 @@
 {
   "sample/welcome": {
-    "html": "1254db84a44e94e9",
-    "text": "116d8bb4bf2f5572"
+    "html": "00381e803386bce0",
+    "text": "c109a47e1e463b79"
   },
   "sample/email-verification": {
-    "html": "f97cbb6b04a885cc",
-    "text": "b097231555d13464"
+    "html": "04d7c408357ddb6c",
+    "text": "44dd3f2ffd16e151"
   },
   "sample/magic-link": {
-    "html": "cd95ea7066519c13",
-    "text": "bf5d107025dc3906"
+    "html": "1265845e5e657982",
+    "text": "6df39c5d3278d89a"
   },
   "sample/password-reset": {
-    "html": "0b32240ab14cfc2c",
-    "text": "2798efe2fdfc131c"
+    "html": "19b1321499f62046",
+    "text": "92ffe02a321c4c8e"
   },
   "sample/receipt": {
-    "html": "dbf7a2799dc1dbde",
-    "text": "2177c3c18a287638"
+    "html": "842293f55f67b64b",
+    "text": "b71e193b71a63fea"
   },
   "sample/invoice": {
-    "html": "91a6297459076672",
-    "text": "cb4f0e1e22d8a6e3"
+    "html": "05048595abe23b64",
+    "text": "d58e49dbb47a8ab1"
   },
   "sample/team-invite": {
-    "html": "7fee5b6fa9278f98",
-    "text": "3d99ff626fde8711"
+    "html": "69a8ca188809ec55",
+    "text": "724d47afbe1028ea"
   },
   "sample/shipping-confirmation": {
-    "html": "097a03edd93e9e6f",
-    "text": "e3f4e80fbfeada70"
+    "html": "4d7b1865e88cb72c",
+    "text": "1743a1c5c228a537"
   },
   "sample/subscription-renewal": {
-    "html": "49db70ef81533d40",
-    "text": "ed39fd52fa86e167"
+    "html": "d9e9f7f225a97743",
+    "text": "496ce52332623022"
   },
   "sample/trial-ending": {
-    "html": "e755e7c0975ae747",
-    "text": "7ce9f694e71408f8"
+    "html": "8ab9fdffbf45146e",
+    "text": "f0ebbf14ef45255e"
   },
   "sample/security-alert": {
-    "html": "7627a60c529ceae5",
-    "text": "fb55df3cd309efc1"
+    "html": "95b9229ca2fa32fa",
+    "text": "4b1764b945cfe6ac"
   },
   "sample/comment-mention": {
-    "html": "bed5f6b67dd5052b",
-    "text": "558c8e05d40477ea"
+    "html": "e9af2de971f2860a",
+    "text": "a8e285492e500802"
   },
   "sample/newsletter": {
-    "html": "c5e10cffc542dfe9",
-    "text": "16883a3f2d5a8e17"
+    "html": "98190090fda39d62",
+    "text": "a2bbf0bab1125c54"
   },
   "sample/july-newsletter": {
-    "html": "fc07653172201995",
-    "text": "7b3661bf033916eb"
+    "html": "fd43db38e01097e4",
+    "text": "b69808b8aeffb6dc"
   },
   "sample/product-announcement": {
-    "html": "e928b140a9415df5",
-    "text": "e70a8ea63ea9580e"
+    "html": "ce4b07da19277c4c",
+    "text": "bd9dfdc17f65fc94"
   },
   "sample/event-invite": {
-    "html": "be7c3aff3a75013a",
-    "text": "dac54106713b0de8"
+    "html": "e42be9fdbf515006",
+    "text": "5e931c70bda1d42e"
   },
   "sample/discount-offer": {
-    "html": "6c8669c2e70135fc",
-    "text": "de88140514bff53c"
+    "html": "c75ed37c882d5602",
+    "text": "621aa77c828059a1"
   },
   "sample/re-engagement": {
-    "html": "b0a036486184d25b",
-    "text": "a2d0528969b0c02e"
+    "html": "fdda6e30c4f147a2",
+    "text": "f17ea88a7583a418"
   },
   "sample/feedback-survey": {
-    "html": "bb3f9ed5f41ac356",
-    "text": "488578db7907cdf9"
+    "html": "e797e411db18148f",
+    "text": "a71a307ed58141c7"
   },
   "sample/waitlist-invite": {
-    "html": "3ba5a61b51520a73",
-    "text": "e72e21802b59683b"
+    "html": "3a95b03c5ffb9c04",
+    "text": "5ed5242fd0b57d78"
   },
   "sample/abandoned-cart": {
-    "html": "ed66fa3393bc320d",
-    "text": "a1a14cf05875941b"
+    "html": "16359f53bf6c8907",
+    "text": "cd29f471851296e4"
   },
   "sample/case-study": {
-    "html": "00ef3dd767d38ee4",
-    "text": "0f5a68bcc8325f44"
+    "html": "d64fa3e23a2380fb",
+    "text": "8bbbbe97f0baf5f5"
   },
   "sample/webinar-recap": {
-    "html": "6e512cfcd5fb1718",
-    "text": "766c0436da2b770a"
+    "html": "e6da5d23e07c87b9",
+    "text": "2663cd97dedbd8b7"
   },
   "sample/referral": {
-    "html": "ff20f9bee88934a0",
-    "text": "51dbb05d7a00f0d6"
+    "html": "9e0cb5def5ada97a",
+    "text": "11ef04412651031d"
   },
   "sample/order-confirmation": {
-    "html": "e0d34bb16a4f2a48",
-    "text": "92b952e2607fe595"
+    "html": "f403ddd9f98d3bad",
+    "text": "0a8681cad4351351"
   },
   "sample/one-time-code": {
     "html": "af4c4c40e49b30d6",
     "text": "4ed2af03177fec13"
   },
   "sample/delivery-update": {
-    "html": "772beab62e230a4b",
-    "text": "08549d695ad66fcc"
+    "html": "16a2e1d15950b918",
+    "text": "4d8f6961c9734c45"
   },
   "sample/appointment-reminder": {
     "html": "2b5485f84e56f772",
@@ -120,8 +120,8 @@
     "text": "0851d11e8c245097"
   },
   "sample/export-ready": {
-    "html": "0f72ef87b7ea55df",
-    "text": "3a5f28772bceb0f8"
+    "html": "aa2faf7006fad9d0",
+    "text": "fab788230d96677e"
   },
   "sample/booking-confirmation": {
     "html": "7b7cf7ba939fc377",
@@ -132,92 +132,124 @@
     "text": "932de9d597455b5d"
   },
   "sample/weekly-report": {
-    "html": "24b6ff45f184decd",
-    "text": "adc6e081f0e4e55d"
+    "html": "bbc6e95a0cf04b7a",
+    "text": "fe305ccc58445529"
   },
   "sample/document-to-sign": {
     "html": "8c74ff69596d1f28",
     "text": "72258fb997fbb27b"
   },
   "sample/review-request": {
-    "html": "7a5b34662e419726",
-    "text": "58588f7da4f0f595"
+    "html": "c4bf301c65c11a35",
+    "text": "dba4ebc7889ea732"
   },
   "sample/password-changed": {
-    "html": "d00241e2b021ebe8",
-    "text": "c15148866ad8749e"
+    "html": "c54fea32d1201c6e",
+    "text": "25aa6a39e9d86ef6"
   },
   "sample/subscription-cancelled": {
     "html": "e52d9e71e6f6697d",
     "text": "a36a4917fb66289c"
   },
   "sample/monthly-product-update": {
-    "html": "4bfcc8a09f6a9230",
-    "text": "6b54759bd2e3bdbd"
+    "html": "2010216a1318e5c9",
+    "text": "daf03b8a064b8df6"
   },
   "sample/product-launch-dark": {
-    "html": "1981f79909a61993",
-    "text": "868f16bf74193029"
+    "html": "209efe3a8333b7f8",
+    "text": "f48031552a5358b6"
   },
   "sample/flash-sale": {
-    "html": "8fe69c75cb953531",
-    "text": "7d72b52fdd877536"
+    "html": "03b7869a7665248c",
+    "text": "89aab3164284d9e7"
   },
   "sample/new-collection": {
     "html": "6d877926b7c57b07",
     "text": "89e7c3243dba78dc"
   },
   "sample/back-in-stock": {
-    "html": "73fcaeca56065e8b",
-    "text": "7fd58f65e20a61b3"
+    "html": "2d38e12908af07ad",
+    "text": "da9db044d7560dfe"
   },
   "sample/onboarding-tips": {
-    "html": "10c8f3c96d93fb4f",
-    "text": "0756ca97754ace26"
+    "html": "989f831e36df0f64",
+    "text": "e8377e70b476f596"
   },
   "sample/content-digest": {
-    "html": "50e1bcfd281ba952",
-    "text": "960a4a7a45d97f59"
+    "html": "a7d0f5c50acce4b4",
+    "text": "4640cf1bdb3b1791"
   },
   "sample/conference-invite": {
-    "html": "715ab683f04819ae",
-    "text": "ff0c3eb1ace13c66"
+    "html": "21c393977d6d6270",
+    "text": "356058fa68283aa8"
   },
   "sample/pricing-update": {
-    "html": "e4556532a79842ac",
-    "text": "9e124e8c5877e082"
+    "html": "fff4f6ba8ca283c4",
+    "text": "187ccc98e420468e"
   },
   "sample/holiday-greeting": {
-    "html": "7ef86c5c0a8c2299",
-    "text": "ba4b5e7dc778114e"
+    "html": "49235f199b558f32",
+    "text": "156da3a7d0c27046"
   },
   "sample/app-release": {
-    "html": "97241b40161359b0",
-    "text": "e229282542d1e2ec"
+    "html": "686c58b5bd4858e3",
+    "text": "1df17781183e568e"
   },
   "sample/birthday-reward": {
-    "html": "43a2171c0b2d0ebe",
-    "text": "35e169ce0de7eebe"
+    "html": "e68b32e77cb7a6ac",
+    "text": "4d81f007f15e43a0"
   },
   "sample/founder-letter": {
-    "html": "f8e5ee85c2432a9b",
-    "text": "e97f93f6fd0d6592"
+    "html": "f799c6938265c399",
+    "text": "e697c0a6a28368a3"
   },
   "sample/new-listings": {
-    "html": "417adfaacb0dd2d7",
-    "text": "606deba9fec4162d"
+    "html": "2a82add64e22ab7c",
+    "text": "0206d2b0b36d65d4"
   },
   "sample/nonprofit-impact": {
-    "html": "71cd186d15eb2df1",
+    "html": "3918688b89d3af45",
     "text": "fcbc514b53bf1893"
   },
+  "sample/daily-brief": {
+    "html": "140db08b0a8b5d23",
+    "text": "bdeebfd5455d7edd"
+  },
+  "sample/link-roundup": {
+    "html": "de6d306c73f59a0f",
+    "text": "b89c155a162330fa"
+  },
+  "sample/essay-letter": {
+    "html": "ed8d71bb0d80388f",
+    "text": "79d6532613701292"
+  },
+  "sample/community-update": {
+    "html": "9664a91f0c683a53",
+    "text": "7ed26603cab30c26"
+  },
+  "sample/seasonal-menu": {
+    "html": "b80895e5fed80d78",
+    "text": "2b7933f487377aff"
+  },
+  "sample/rewards-poster": {
+    "html": "aa3f9bf3e7f68c09",
+    "text": "b001222e46c9b29e"
+  },
+  "sample/travel-guide": {
+    "html": "d3fe296c6e6c4170",
+    "text": "866c53a91e0a24a3"
+  },
+  "sample/webinar-invite": {
+    "html": "5c0f26ab77ffc4f9",
+    "text": "783809b8f5bb749e"
+  },
   "variant/welcome-dark-mode": {
-    "html": "e39e6c747af032ae",
-    "text": "116d8bb4bf2f5572"
+    "html": "6affec8b91224e9a",
+    "text": "c109a47e1e463b79"
   },
   "variant/welcome-powered-by": {
-    "html": "ba22695220425a1d",
-    "text": "c0492d94a5dda214"
+    "html": "898f8f22a808c1ba",
+    "text": "40f8f930ae64bdca"
   },
   "layout/header-logo": {
     "html": "04a10c74120b54ad",
@@ -374,6 +406,130 @@
   "layout/footer-signoff": {
     "html": "6320db8928ccaa2d",
     "text": "3049fba7953ceb31"
+  },
+  "layout/header-centered": {
+    "html": "c710195aca09f6f1",
+    "text": "2634660b3e687d76"
+  },
+  "layout/hero-banner": {
+    "html": "49440a393187e179",
+    "text": "e4df73ec616e710e"
+  },
+  "layout/hero-panel": {
+    "html": "3dc3d6a29cd0f994",
+    "text": "0b2589dc3bbea3d5"
+  },
+  "layout/hero-panel-soft": {
+    "html": "355bb4d1db2f6ed4",
+    "text": "faee778be8e17312"
+  },
+  "layout/hero-panel-photo": {
+    "html": "34d7b6ead000bcd1",
+    "text": "b7ea45462e82147b"
+  },
+  "layout/hero-split-panel": {
+    "html": "7792b8959d77ec93",
+    "text": "c6749a37bd016fec"
+  },
+  "layout/hero-event": {
+    "html": "377a775ae12c8842",
+    "text": "d629d9245c43d96c"
+  },
+  "layout/hero-poster": {
+    "html": "71e95cc8fbe204d6",
+    "text": "0e62b214fc96c9b5"
+  },
+  "layout/hero-masthead": {
+    "html": "d0dd13c7877a7ec3",
+    "text": "4e93d52ae92adcc6"
+  },
+  "layout/hero-masthead-serif": {
+    "html": "75904ce5f925a490",
+    "text": "61a916d472585b93"
+  },
+  "layout/hero-spot": {
+    "html": "fffa3efa14d030b2",
+    "text": "35561444268fdc97"
+  },
+  "layout/hero-split": {
+    "html": "62237103df82747b",
+    "text": "627babb4ebfa146f"
+  },
+  "layout/hero-photo": {
+    "html": "a68fa0ab87657dec",
+    "text": "2b653a6b8e696adb"
+  },
+  "layout/content-byline": {
+    "html": "9bbe50af4dee40b0",
+    "text": "f7fed8b30b61fbf5"
+  },
+  "layout/content-contents": {
+    "html": "60c332532c1e72e3",
+    "text": "90be9ad5cca138a6"
+  },
+  "layout/content-story-rows": {
+    "html": "a54b5d1101304cfd",
+    "text": "f80598a9f3630832"
+  },
+  "layout/columns-media-row": {
+    "html": "0a1e8f9c8e10c4ac",
+    "text": "805b0d7f0ce0762f"
+  },
+  "layout/columns-two-cards": {
+    "html": "777a3b55817bdcdc",
+    "text": "e8ed7a3a247b13e9"
+  },
+  "layout/columns-gallery": {
+    "html": "5e1357cdf43ee7fe",
+    "text": "9104a49013ecefd7"
+  },
+  "layout/content-quote-band": {
+    "html": "a0c546f52f1fbdc8",
+    "text": "e59a5da50289bd91"
+  },
+  "layout/content-sponsor": {
+    "html": "a8e264c3d43d60f8",
+    "text": "a175170cb43009b6"
+  },
+  "layout/content-link-list": {
+    "html": "d30163ef8d14a8b4",
+    "text": "7b13e06f21199b36"
+  },
+  "layout/content-section-label": {
+    "html": "d0f04bcfbd16a513",
+    "text": "7192a603df725af4"
+  },
+  "layout/content-steps": {
+    "html": "1746e4617bace9d9",
+    "text": "cd0b99ee480d1378"
+  },
+  "layout/header-strip": {
+    "html": "ffa5e0ae5d495d90",
+    "text": "2b25629b0778b13f"
+  },
+  "layout/content-trust-strip": {
+    "html": "c5b5f5aad90f1ad9",
+    "text": "296a41fbe007e3b2"
+  },
+  "layout/content-price-list": {
+    "html": "0df9cce4beb614b9",
+    "text": "1a08228d5deb52e5"
+  },
+  "layout/columns-reviews": {
+    "html": "0e94595baa244142",
+    "text": "7a85614214834b5f"
+  },
+  "layout/footer-signature": {
+    "html": "e810b77784d08dd1",
+    "text": "b47b726fbbc70682"
+  },
+  "layout/footer-reader-loop": {
+    "html": "c6dcb8be1c37ebd0",
+    "text": "054dfa815b8fb616"
+  },
+  "layout/footer-brand-signature": {
+    "html": "c9c1a7097fcf0fcf",
+    "text": "37036cd8f9746d33"
   },
   "parity/email-section-heading-text-button": {
     "html": "b9badf8dbac0ce31",

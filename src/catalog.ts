@@ -27,7 +27,9 @@ export type ComponentPropType =
   | "enum"
   | "color"
   | "url"
-  | "css";
+  | "css"
+  // A flat object literal, written `name={{ key: "value" }}` (background-image).
+  | "object";
 
 export type ComponentProp = {
   // Attribute name as written in code (kebab-case in TSX, e.g. "margin-bottom").
@@ -152,6 +154,12 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
         description: "Fill color behind the section.",
       },
       {
+        name: "background-image",
+        type: "object",
+        description:
+          "Optional picture behind the section's content: { src, size: \"cover\" | \"contain\" | \"auto\", position: \"center\" | \"top\" | …, repeat: \"no-repeat\" | \"repeat\" }. Rendered for every client, Outlook included (VML). Always set background-color too: it shows with images off, and text contrast is checked against it.",
+      },
+      {
         name: "padding-x",
         type: "number",
         defaultKey: "paddingX",
@@ -196,6 +204,12 @@ export const COMPONENT_CATALOG: readonly ComponentDoc[] = [
         defaultKey: "stackOnMobile",
         description:
           "Best-effort: let columns wrap on narrow viewports (table emails stay side-by-side in Outlook).",
+      },
+      {
+        name: "inset-x",
+        type: "number",
+        description:
+          "Optional: pull the row in from the card's edges by this many px on each side, so its background, border and radius sit inside the gutter (a rounded panel with columns).",
       },
       {
         name: "background-color",

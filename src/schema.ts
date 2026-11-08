@@ -656,11 +656,35 @@ export type LeafBlock = z.infer<typeof LeafBlockSchema>;
 // Sections). It carries padding + background so the visual builder can group
 // content. `children` is recursive via z.lazy to allow Section-in-Section.
 export type SectionChild = LeafBlock | SectionBlock;
+// A section's background picture (optional; additive since 0.6.0). The text
+// stays live text on top; `backgroundColor` is what shows wherever the image
+// doesn't (images off, Outlook.com, some webmail), so set one that the text
+// reads on. Rendered as CSS + the HTML `background` attribute + Outlook VML.
+export const BACKGROUND_IMAGE_POSITIONS = [
+  "center",
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "top left",
+  "top right",
+  "bottom left",
+  "bottom right",
+] as const;
+export const BackgroundImageSchema = z.object({
+  src: z.string().min(1),
+  size: z.enum(["cover", "contain", "auto"]).default("cover"),
+  position: z.enum(BACKGROUND_IMAGE_POSITIONS).default("center"),
+  repeat: z.enum(["no-repeat", "repeat"]).default("no-repeat"),
+});
+export type BackgroundImage = z.infer<typeof BackgroundImageSchema>;
+
 export const SectionBlockSchema: z.ZodType<SectionBlock> = z.lazy(() =>
   z.object({
     type: z.literal("section"),
     id: z.string(),
     backgroundColor: Color.optional(),
+    backgroundImage: BackgroundImageSchema.optional(),
     border: BorderSchema.optional(),
     paddingX: pxInt().default(COMPONENT_DEFAULTS.section.paddingX),
     paddingY: pxInt().default(COMPONENT_DEFAULTS.section.paddingY),
@@ -677,6 +701,7 @@ export type SectionBlock = {
   type: "section";
   id: string;
   backgroundColor?: string;
+  backgroundImage?: BackgroundImage;
   border?: Border;
   paddingX: number;
   paddingY: number;
@@ -726,6 +751,10 @@ export const RowBlockSchema = z.object({
   // `stackOnMobile` hints the renderer to allow columns to wrap on narrow
   // viewports (best-effort; pure-table emails stay side-by-side in Outlook).
   stackOnMobile: z.boolean().default(COMPONENT_DEFAULTS.row.stackOnMobile),
+  // Optional (additive since 0.6.0): pull the whole row in from the card's
+  // edges by this many px on each side, so its background, border and radius
+  // sit inside the gutter (a rounded panel with columns). Unset renders as before.
+  insetX: pxInt().optional(),
   margin: BoxSpacingSchema.optional(),
   padding: BoxSpacingSchema.optional(),
   customCss: CustomCss.optional(),

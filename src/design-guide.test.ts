@@ -11,16 +11,16 @@ import {
   EMAIL_DESIGN_RULES,
   EMAIL_RECIPES,
   EMAIL_RECIPE_KEYS,
-  emailDesignGuideMarkdown,
   emailDesignPromptSection,
   emailFontStack,
   getEmailRecipe,
   matchEmailRecipe,
   recipeStarter,
 } from "./design-guide";
+import { emailDesignGuideMarkdown } from "./design-guide-doc";
 import { lintEmailDesign } from "./design-lint";
 import { EMAIL_ASSETS_BASE, EMAIL_ICONS, EMAIL_ICON_VARIANTS, EMAIL_PLACEHOLDERS } from "./email-assets";
-import { getSectionLayout, isThemedLayout } from "./layouts";
+import { SECTION_LAYOUTS, getSectionLayout, isThemedLayout } from "./layouts";
 import type { Block, EmailDocument } from "./schema";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -104,6 +104,11 @@ describe("recipeStarter", () => {
     assert.equal(getEmailRecipe("webinar")?.key, "event-invite");
   });
 
+  test("layout keys are unique", () => {
+    const keys = SECTION_LAYOUTS.map((l) => l.key);
+    assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
+  });
+
   test("every recipe's bands are registered, palette-aware layouts", () => {
     for (const r of EMAIL_RECIPES) {
       for (const k of r.bands) {
@@ -129,6 +134,9 @@ describe("matchEmailRecipe", () => {
     ["a Black Friday sale email, 30% off", "promo"],
     ["win-back email for inactive users", "re-engagement"],
     ["invite people to our webinar", "event-invite"],
+    ["payment failed email", "service-notice"],
+    ["a scheduled maintenance notice for Saturday", "service-notice"],
+    ["tell customers about our price increase", "service-notice"],
     ["something nice", null],
   ];
   for (const [ask, key] of cases) {
@@ -162,7 +170,8 @@ describe("the guide's own text", () => {
     assert.match(p, /welcome \(transactional or marketing — ask: Is it sent when someone creates an account/);
     const core = EMAIL_DESIGN_RULES.flatMap((s) => s.rules.filter((r) => r.core));
     assert.ok(core.length >= 15, `core rules: ${core.length}`);
-    assert.ok(p.length < 9000, `prompt section is ${p.length} chars`);
+    // Raised from 9,000 for the opener line (2026-11-06): the first screen is where generated emails looked generic.
+    assert.ok(p.length < 10_500, `prompt section is ${p.length} chars`);
     assert.doesNotMatch(p, /`/);
   });
 

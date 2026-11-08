@@ -1054,7 +1054,8 @@ const SKIP_ATTRS = new Set([
 ]);
 
 // Object-valued props with a TSX form (`border` has its own scalar form).
-const OBJECT_ATTRS = new Set(["margin", "padding", "componentRef"]);
+// `backgroundImage` prints as `background-image={{ src: "…", size: "cover", … }}`.
+const OBJECT_ATTRS = new Set(["margin", "padding", "componentRef", "backgroundImage"]);
 
 // `{ top: 8, left: 24 }` for a flat object of strings / numbers / booleans,
 // in the grammar parseObjectLiteral reads; null when it has nothing to print

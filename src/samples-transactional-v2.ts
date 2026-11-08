@@ -7,7 +7,6 @@
 // Copy is sample copy for a fictional brand; {{variables}} mark the values a
 // real send supplies. `sampleValues` fills them for previews.
 
-import { DEFAULT_LOGO_URL } from "./sample-kit";
 import {
   bands,
   band,
@@ -46,7 +45,7 @@ const EX = "https://northwind.example";
 // ---------------------------------------------------------------------------
 const orderConfirmation = (() => {
   const p = palette("terracotta");
-  const brand = { name: "Alder & Finch", logo: DEFAULT_LOGO_URL };
+  const brand = { name: "Alder & Finch" };
   return {
     key: "order-confirmation",
     name: "Order confirmation",
@@ -67,7 +66,7 @@ const orderConfirmation = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("order_number", "order_date", "delivery_window", "shipping_address", "order_url")],
       blocks: [
-        ...bands.headerBrand(p, brand, { label: "Order {{order_number}}" }),
+        ...bands.headerWordmark(p, brand, { label: "Order {{order_number}}" }),
         ...bands.heroStatus(p, {
           icon: "shopping-bag",
           overline: "Order confirmed",
@@ -150,7 +149,7 @@ const oneTimeCode = (() => {
 // ---------------------------------------------------------------------------
 const deliveryUpdate = (() => {
   const p = palette("emerald");
-  const brand = { name: "Alder & Finch", logo: DEFAULT_LOGO_URL };
+  const brand = { name: "Alder & Finch" };
   return {
     key: "delivery-update",
     name: "Out for delivery",
@@ -170,7 +169,7 @@ const deliveryUpdate = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("order_number", "delivery_window", "shipping_address", "track_url")],
       blocks: [
-        ...bands.headerBrand(p, brand, { label: "Order {{order_number}}" }),
+        ...bands.headerWordmark(p, brand, { label: "Order {{order_number}}" }),
         ...bands.heroHeadline(p, {
           overline: "Out for delivery",
           title: "Arriving {{delivery_window}}",
@@ -395,7 +394,7 @@ const exportReady = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("export_name", "file_name", "row_count", "file_size", "expires_at", "download_url")],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }),
+        ...bands.headerWordmark(p, { name: "Northwind" }),
         ...bands.heroStatus(p, {
           icon: "download",
           overline: "Export complete",
@@ -558,7 +557,7 @@ const weeklyReport = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("workspace_name", "week_label", "sent", "delivery_rate", "open_rate", "dashboard_url")],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }, { label: "{{week_label}}" }),
+        ...bands.headerWordmark(p, { name: "Northwind" }, { label: "{{week_label}}" }),
         ...bands.heroHeadline(p, {
           overline: "Weekly report",
           title: "Your week in numbers",
@@ -668,7 +667,7 @@ const reviewRequest = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("product_name", "order_number", "review_url")],
       blocks: [
-        ...bands.headerBrand(p, { name: "Alder & Finch", logo: DEFAULT_LOGO_URL }, { label: "Order {{order_number}}" }),
+        ...bands.headerWordmark(p, { name: "Alder & Finch" }, { label: "Order {{order_number}}" }),
         ...bands.heroHeadline(p, {
           overline: "A week in",
           title: "How's the {{product_name}}?",
@@ -723,7 +722,7 @@ const passwordChanged = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("changed_at", "device", "location", "secure_url")],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }, { label: "Security" }),
+        ...bands.headerWordmark(p, { name: "Northwind" }, { label: "Security" }),
         ...bands.heroStatus(p, {
           icon: "shield-check",
           overline: "Password updated",

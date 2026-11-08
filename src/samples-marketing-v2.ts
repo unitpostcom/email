@@ -4,7 +4,6 @@
 // so the gallery shows range, not one email in ten colours. Every one carries
 // the managed compliance footer at render time (category "marketing").
 
-import { DEFAULT_LOGO_URL } from "./sample-kit";
 import {
   articleRow,
   bands,
@@ -18,23 +17,25 @@ import {
   h1,
   h2,
   h3,
-  icon,
   image,
   inputs,
   link,
   list,
-  numberedStep,
   overline,
   palette,
   peopleColumns,
-  photoBand,
   photoBleed,
   planColumns,
   sampleDocument,
   section,
   spacer,
   stockAvatar,
+  stockBanner,
+  stockCard,
+  stockCrop,
   stockLandscape,
+  stockPanel,
+  stockThumb,
   stockSquare,
   stockWide,
   text,
@@ -50,7 +51,7 @@ const COMPANY = { company_name: "Northwind", company_address: "120 Market St, Sa
 // sections with coloured overlines, images, lists, a "coming soon" card
 // ---------------------------------------------------------------------------
 const monthlyProductUpdate = (() => {
-  const p = palette("ink");
+  const p = palette("indigo");
   return {
     key: "monthly-product-update",
     name: "Monthly product update",
@@ -60,66 +61,55 @@ const monthlyProductUpdate = (() => {
     design: sampleDocument({
       key: "monthly",
       category: "marketing",
-      previewText: "Automations, a faster inbox, SMS in 40 more countries and what's next.",
+      previewText: "Automations, a faster inbox, texts in 40 more countries, and what's next.",
       palette: p,
       variables: [FIRST_NAME, ...inputs("month", "changelog_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }, { label: "{{month}} 2026" }),
-        band([image(stockWide("teamLaptops"), "The Northwind team at work", { width: 536, borderRadius: 12 })], { paddingY: 0 }),
+        ...bands.headerWordmark(p, { name: "Northwind" }),
+        ...bands.heroSplitPanel(p, {
+          label: "{{month}} 2026",
+          title: "What we shipped in {{month}}",
+          lead: "Automations are out of beta, the inbox is twice as fast, and texts reach 40 more countries.",
+          cta: { label: "See the changelog", href: "{{changelog_url}}" },
+          image: { src: stockCrop("violetGlass", 392, 392), alt: "Violet glass blocks lit from inside" },
+        }),
         band(
           [
-            h1("What we shipped in {{month}}", p.ink, { marginBottom: 6 }),
-            text("Hi {{first_name}}, the monthly roundup from the Northwind team", { fontSize: 14, lineHeight: "1.45", color: p.muted, marginBottom: 16 }),
-            copy("This month automations left beta, the inbox got twice as fast, and texts now reach 40 more countries. Here's everything that landed, plus a look at what's next.", p.body, { marginBottom: 0 }),
+            copy("Hi {{first_name}},", p.ink, { marginBottom: 12 }),
+            copy("This was the month automations left beta. Here's everything that landed, the two changes you'll notice first, and a look at what's next.", p.body, { marginBottom: 0 }),
           ],
-          { paddingY: 24 },
+          { paddingY: 32 },
         ),
-        divider(p.border),
         band([
-          overline("New", "#1d74e2"),
+          overline("New", p.accentText),
           h2("Automations are out of beta", p.ink, { marginBottom: 16 }),
-          image(stockWide("presentation"), "An automation with a trigger, a wait and two branches", { width: 536, borderRadius: 12, marginBottom: 18 }),
+          image(stockWide("presentation"), "A team reviewing a journey on a big screen", { width: 536, borderRadius: 12, marginBottom: 18 }),
           copy("Draw a journey or describe it in a sentence. Triggers, waits, branches and sends, built on the templates you already have.", p.body, { marginBottom: 14 }),
           list(["Start from a sign-up, a tag, a purchase or an API event.", "Branch on opens, clicks and replies.", "Every run is logged, with the exact email each contact got."], p.body, { marginBottom: 20 }),
           button("Build an automation", `${EX}/automations`, p.accent, p.onAccent),
         ]),
-        divider(p.border),
-        band([
-          overline("Inbox", "#008665"),
-          h2("Twice as fast, with search that keeps up", p.ink, { marginBottom: 16 }),
-          image(stockWide("laptopCode"), "The new inbox with search and filters", { width: 536, borderRadius: 12, marginBottom: 18 }),
-          copy("Threads open instantly, search covers every message you've ever received, and filters stick between visits.", p.body, { marginBottom: 14 }),
-          list(["Keyboard shortcuts for archive, reply and next.", "Attachments preview inline.", "Block a sender in one click."], p.body, { marginBottom: 20 }),
-          link("See what's new in the inbox →", `${EX}/inbox`, p.accentText),
-        ]),
-        divider(p.border),
-        band([
-          overline("SMS", "#c2410c"),
-          h2("40 more countries, one balance", p.ink, { marginBottom: 12 }),
-          copy("Texts now go to 177 countries from the same balance as your email. Sender IDs are free; US and Canadian numbers register in a day.", p.body, { marginBottom: 20 }),
-          link("See the country list →", `${EX}/sms/countries`, p.accentText),
-        ]),
-        band(
-          [
-            section(
-              [
-                overline("Coming soon", "#6d28d9"),
-                h2("WhatsApp", p.ink, { marginBottom: 12 }),
-                copy("Conversations with your customers on the app they already use, from the same inbox and API. Early access opens next month.", p.body, { marginBottom: 12 }),
-                link("Join the waitlist →", `${EX}/whatsapp`, "#6d28d9"),
-              ],
-              { backgroundColor: "#f6f4fc", paddingX: 22, paddingY: 20, border: { width: 1, style: "solid", color: "#ebe6fa", radius: 14 } },
-            ),
+        ...bands.mediaRow(p, {
+          tone: "tint",
+          flip: true,
+          image: { src: stockCard("laptopCode"), alt: "A laptop showing the new inbox" },
+          overline: "Inbox",
+          title: "Twice as fast, with search that keeps up",
+          body: "Threads open instantly, search covers every message you've ever received, and filters stick between visits.",
+          link: { label: "See what's new →", href: `${EX}/inbox` },
+        }),
+        ...bands.cards(p, {
+          items: [
+            { icon: "globe", overline: "SMS", title: "40 more countries, one balance", line: "Texts now reach 177 countries from the same balance as your email.", link: { label: "See the country list →", href: `${EX}/sms/countries` } },
+            { icon: "message-circle", overline: "Coming soon", title: "Chat on your website", line: "A chat window that lands in the same inbox as your email and texts. Early access opens next month.", link: { label: "Join the waitlist →", href: `${EX}/chat` } },
           ],
-          { paddingY: 4 },
-        ),
-        spacer(20),
-        divider(p.border),
-        band([
-          copy("That's {{month}}. Reply and tell us what you'd like to see next; we read every one.", p.body, { marginBottom: 14 }),
-          copy("The Northwind team", p.body, { marginBottom: 12 }),
-          link("Read the full changelog →", "{{changelog_url}}", p.accentText),
-        ], { paddingY: 24 }),
+        }),
+        ...bands.signature(p, {
+          line: "That's {{month}}. Reply and tell us what you'd like to see next; we read every one.",
+          name: "Mike and Dana",
+          role: "Co-founders, Northwind",
+          image: stockAvatar("portraitMan"),
+        }),
+        ...bands.readerLoop(p, { feedback: { question: "Was this update useful?", yes: `${EX}/feedback/yes`, no: `${EX}/feedback/no` }, forward: { label: "Read the full changelog", href: "{{changelog_url}}" } }),
       ],
     }),
   };
@@ -144,13 +134,13 @@ const productLaunchDark = (() => {
       variables: [FIRST_NAME, ...inputs("feature_name", "cta_url"), ...FOOTER_VARS],
       blocks: [
         ...bands.headerWordmark(p, { name: "Orbit" }, { label: "Launch" }),
-        ...bands.heroGradient(p, {
-          overline: "Introducing",
+        ...bands.heroPanel(p, {
+          label: "Introducing",
           title: "{{feature_name}}",
           lead: "Hi {{first_name}}. Two years of work, one upgrade. Everything you do in Orbit, now faster, with an assistant that does the boring parts.",
           cta: { label: "See what's new", href: "{{cta_url}}" },
+          image: { src: stockPanel("glowCubes"), alt: "Dark cubes lit by small yellow lights" },
         }),
-        ...photoBand(stockWide("laptopDark"), "{{feature_name}} on a laptop"),
         spacer(8),
         ...bands.iconRows(p, {
           title: "What's new",
@@ -196,7 +186,8 @@ const flashSale = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("discount", "promo_code", "shop_url", "ends_at"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Alder & Finch", logo: DEFAULT_LOGO_URL }, { label: "48 hours" }),
+        ...bands.headerStrip(p, { items: ["48 hours only", "Ends Sunday 11:59 pm PT"] }),
+        ...bands.headerWordmark(p, { name: "Alder & Finch" }),
         ...bands.offer(p, {
           overline: "Flash sale",
           title: "{{discount}} off everything",
@@ -303,14 +294,15 @@ const backInStock = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("product_name", "price", "stock_left", "product_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Alder & Finch", logo: DEFAULT_LOGO_URL }),
-        ...bands.heroHeadline(p, {
+        ...bands.headerWordmark(p, { name: "Alder & Finch" }),
+        ...bands.heroSplit(p, {
+          tone: "tint",
           overline: "Back in stock",
           title: "{{product_name}} is back",
           lead: "Hi {{first_name}}, you asked us to let you know. It's in stock again as of this morning, in the size you wanted.",
+          image: { src: stockCrop("watch", 432, 432), alt: "{{product_name}}", href: "{{product_url}}" },
         }),
-        band([image(stockWide("watch"), "{{product_name}}", { width: 536, height: 340, objectFit: "cover", borderRadius: 14, href: "{{product_url}}" })], { paddingY: 0 }),
-        spacer(20),
+        spacer(24),
         band(
           [
             section(
@@ -350,16 +342,20 @@ const onboardingTips = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("product_name", "app_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }, { label: "Day 3" }),
-        ...bands.heroHeadline(p, {
-          overline: "Getting started",
+        ...bands.headerWordmark(p, { name: "Northwind" }, { label: "Day 3" }),
+        ...bands.heroSpot(p, {
+          icon: "lightbulb",
           title: "Three things to try this week",
-          lead: "Hi {{first_name}}, you've been on {{product_name}} for three days. These are the features people tell us they wish they'd found on day one.",
+          subtitle: "Day 3 with {{product_name}}",
+          lead: "Hi {{first_name}}. These are the features people tell us they wish they'd found on day one.",
         }),
-        numberedStep(p, 1, "Connect your first integration", "Pull your contacts in from the tools you already use. Two clicks, and they stay in sync."),
-        numberedStep(p, 2, "Send a test to yourself", "Open any template, hit Test send, and see exactly what your customers will see on your phone."),
-        numberedStep(p, 3, "Invite a teammate", "Everything in {{product_name}} is better with the people you work with. Seats are free on every plan."),
-        spacer(16),
+        ...bands.steps(p, {
+          items: [
+            { title: "Connect your first integration", line: "Pull your contacts in from the tools you already use. Two clicks, and they stay in sync." },
+            { title: "Send a test to yourself", line: "Open any template, hit Test send, and see exactly what your customers will see on your phone." },
+            { title: "Invite a teammate", line: "Everything in {{product_name}} is better with the people you work with. Seats are free on every plan." },
+          ],
+        }),
         ...bands.callout(p, {
           overline: "Most people's favourite",
           title: "Keyboard shortcuts",
@@ -373,48 +369,56 @@ const onboardingTips = (() => {
 })();
 
 // ---------------------------------------------------------------------------
-// Content digest — ink, three articles with thumbnails, a reading list
+// Content digest — ink, an editor's pick with a photo, three article rows, a reading list
 // ---------------------------------------------------------------------------
 const contentDigest = (() => {
-  const p = palette("ink");
+  const p = palette("teal");
   return {
     key: "content-digest",
     name: "Content digest",
     category: "marketing" as const,
-    subject: "This week's reads: deliverability, dark mode, and a pricing teardown",
+    subject: "This week's reads: open rates, dark mode, and a pricing teardown",
     sampleValues: { first_name: "Jules", blog_url: `${EX}/blog`, ...COMPANY, company_name: "Fieldnotes" },
     design: sampleDocument({
       key: "digest",
       category: "marketing",
-      previewText: "Three pieces worth your time this week, plus what the community is building.",
+      previewText: "Four pieces worth your time this week, plus what the community built.",
       palette: p,
       variables: [FIRST_NAME, ...inputs("blog_url"), ...FOOTER_VARS],
       blocks: [
         ...bands.headerWordmark(p, { name: "Fieldnotes" }, { label: "Issue 42" }),
-        band(
-          [
-            h1("This week's reads", p.ink, { marginBottom: 8 }),
-            copy("Hi {{first_name}}. Three pieces worth your time, picked by hand. About twelve minutes all in.", p.body, { marginBottom: 0 }),
-          ],
-          { paddingY: 24 },
-        ),
-        divider(p.border),
-        spacer(16),
-        articleRow(p, { image: stockLandscape("deskFlatlay"), meta: "Deliverability · 5 min", title: "Why your open rate dropped in October (it didn't)", excerpt: "Mail scanners now open everything within seconds. Here's how to tell real opens from robots.", href: "{{blog_url}}/open-rates" }),
-        articleRow(p, { image: stockLandscape("codeScreen"), meta: "Design · 4 min", title: "Dark mode email that doesn't invert your logo", excerpt: "Three CSS rules, one PNG trick, and a checklist for the clients that ignore all of it.", href: "{{blog_url}}/dark-mode" }),
-        articleRow(p, { image: stockLandscape("teamMeeting"), meta: "Business · 3 min", title: "We cut our prices by a third. Here's the math.", excerpt: "What changed in our costs, what we expected to happen, and what actually happened in the first month.", href: "{{blog_url}}/pricing" }),
-        spacer(16),
-        divider(p.border),
+        ...bands.heroPanel(p, {
+          tone: "wash",
+          label: "This week · 16 min",
+          title: "This week's reads",
+          lead: "Hi {{first_name}}. Four pieces worth your time, picked by hand.",
+          image: { src: stockPanel("mintCubes"), alt: "Mint-green cubes stacked into a block" },
+        }),
         band([
-          h2("From the community", p.ink, { marginBottom: 12 }),
-          list([
-            "A Rust SDK, built by a customer, now in the official docs.",
-            "A Figma plugin that exports frames straight into a template.",
-            "The office hours recording: 40 minutes on sending domains.",
-          ], p.body, { marginBottom: 16 }),
-          link("See everything on the blog →", "{{blog_url}}", p.accentText),
-        ]),
-        ...bands.signoff(p, { help: "Read something good this week? Reply with the link and it might make the next issue.", signature: "Nadia, editor" }),
+          overline("Editor's pick · Deliverability · 5 min", p.accentText),
+          h2("Why your open rate dropped in October (it didn't)", p.ink, { marginBottom: 16 }),
+          image(stockWide("laptopDark"), "A laptop, half open, glowing in a dark room", { width: 536, borderRadius: 12, marginBottom: 18, href: "{{blog_url}}/open-rates" }),
+          copy("Mail scanners now open almost every message within seconds of delivery, so your open rate counts robots. How to tell real opens from automatic ones, and the two numbers to watch instead.", p.body, { marginBottom: 12 }),
+          link("Read the piece →", "{{blog_url}}/open-rates", p.accentText),
+        ], { paddingY: 32 }),
+        ...bands.storyRows(p, {
+          title: "More this week",
+          items: [
+            { image: stockThumb("codeScreen"), alt: "Code on a screen", overline: "Design · 4 min", title: "Dark mode email that doesn't invert your logo", line: "Three CSS rules, one PNG trick, and a checklist for the mail apps that ignore all of it.", href: "{{blog_url}}/dark-mode" },
+            { image: stockThumb("teamMeeting"), alt: "A team in a meeting", overline: "Business · 3 min", title: "We cut our prices by a third. Here's the math.", line: "What changed in our costs, what we expected, and what happened in the first month.", href: "{{blog_url}}/pricing" },
+            { image: stockThumb("writingHand"), alt: "A hand writing a letter", overline: "Copy · 4 min", title: "The plain-text email that beat our designed one", line: "Same offer, same list, two versions. Why the one with no images got twice the replies.", href: "{{blog_url}}/plain-text" },
+          ],
+        }),
+        ...bands.linkList(p, {
+          title: "From the community",
+          items: [
+            { title: "A Rust SDK, built by a reader", href: "{{blog_url}}/community/rust-sdk", summary: "Now linked from the official docs.", source: "Community · Code" },
+            { title: "Export design frames straight into a template", href: "{{blog_url}}/community/frames-plugin", summary: "A plugin from a reader for the design tool you already use.", source: "Community · Plugin" },
+            { title: "Office hours: setting up sending domains", href: "{{blog_url}}/office-hours", summary: "Forty minutes, recorded, with the questions people asked.", source: "Video · 40 min" },
+          ],
+        }),
+        ...bands.signature(p, { line: "Read something good this week? Reply with the link and it might make the next issue.", name: "Nadia", role: "Editor, Fieldnotes", image: stockAvatar("portraitWoman") }),
+        ...bands.readerLoop(p, { forward: { label: "Sign up on the blog", href: "{{blog_url}}" } }),
       ],
     }),
   };
@@ -439,14 +443,13 @@ const conferenceInvite = (() => {
       variables: [FIRST_NAME, ...inputs("event_name", "event_date", "register_url"), ...FOOTER_VARS],
       blocks: [
         ...bands.headerWordmark(p, { name: "Wavelength" }, { label: "Save the date" }),
-        ...bands.heroGradient(p, {
+        ...bands.heroPhoto(p, {
+          image: { src: stockCrop("conference", 1200, 640), alt: "Last year's main stage, from the back of the hall" },
           overline: "{{event_date}} · Lisbon",
           title: "{{event_name}}",
           lead: "Two days on the craft of customer messaging. Forty talks, hands-on workshops, and the people who build the tools you use.",
           cta: { label: "Get your ticket", href: "{{register_url}}" },
         }),
-        ...photoBand(stockWide("conference"), "Last year's main stage"),
-        spacer(8),
         ...bands.eventDetails(p, {
           title: "The details",
           rows: [
@@ -501,7 +504,7 @@ const pricingUpdate = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("effective_date", "pricing_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Northwind", logo: DEFAULT_LOGO_URL }, { label: "Pricing" }),
+        ...bands.headerWordmark(p, { name: "Northwind" }, { label: "Pricing" }),
         ...bands.heroHeadline(p, {
           overline: "From {{effective_date}}",
           title: "Simpler pricing, lower for most of you",
@@ -546,16 +549,13 @@ const holidayGreeting = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("promo_code", "shop_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Alder & Finch", logo: DEFAULT_LOGO_URL }),
-        ...photoBleed(stockWide("coffee"), "A warm drink on a winter morning"),
-        band(
-          [
-            overline("Season's greetings", p.accentText, { align: "center" }),
-            h1("Thank you, {{first_name}}", p.ink, { align: "center", marginBottom: 14 }),
-            copy("This was our best year yet, and it's because of people like you. From the four of us in the workshop and everyone who packed your orders: thank you, and happy holidays.", p.body, { align: "center", marginBottom: 0 }),
-          ],
-          { paddingY: 32 },
-        ),
+        ...bands.headerWordmark(p, { name: "Alder & Finch" }),
+        ...bands.heroBanner(p, {
+          image: { src: stockCrop("giftKraft", 1072, 600), alt: "A kraft-paper gift tied with a pink ribbon" },
+          overline: "Season's greetings",
+          title: "Thank you, {{first_name}}",
+          lead: "This was our best year yet, and it's because of people like you. From the four of us in the workshop and everyone who packed your orders: thank you, and happy holidays.",
+        }),
         ...bands.offer(p, {
           overline: "A little something",
           title: "20% off",
@@ -594,14 +594,13 @@ const appRelease = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("version", "ios_url", "android_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Orbit", logo: DEFAULT_LOGO_URL }, { label: "Version {{version}}" }),
-        ...bands.heroHeadline(p, {
+        ...bands.headerWordmark(p, { name: "Orbit" }, { label: "Version {{version}}" }),
+        ...bands.heroSplit(p, {
           overline: "New release",
           title: "Orbit {{version}} works without a signal",
-          lead: "Hi {{first_name}}. Everything you open is now available offline, widgets land on your home screen, and the app starts twice as fast.",
+          lead: "Hi {{first_name}}. Everything you open is now available offline, and the app starts twice as fast.",
+          image: { src: stockCrop("oceanAerial", 432, 432), alt: "Open ocean from above, far from any signal" },
         }),
-        ...photoBand(stockWide("gradient3d"), "Orbit {{version}} on a phone", { top: 0 }),
-        spacer(8),
         ...bands.iconRows(p, {
           title: "In this release",
           rows: [
@@ -645,16 +644,14 @@ const birthdayReward = (() => {
       palette: p,
       variables: [FIRST_NAME, ...inputs("promo_code", "expires_at", "shop_url"), ...FOOTER_VARS],
       blocks: [
-        ...bands.headerBrand(p, { name: "Alder & Finch", logo: DEFAULT_LOGO_URL }),
-        band(
-          [
-            icon("party-popper", "soft", { align: "center", marginBottom: 16 }),
-            overline("Happy birthday", p.accentText, { align: "center" }),
-            h1("It's your day, {{first_name}}", p.ink, { align: "center", marginBottom: 12 }),
-            copy("We put $25 on your account to spend on whatever you like. No minimum, and it stacks with sale prices.", p.body, { align: "center", marginBottom: 0 }),
-          ],
-          { paddingY: 36 },
-        ),
+        ...bands.headerWordmark(p, { name: "Alder & Finch" }),
+        ...bands.heroSpot(p, {
+          image: { src: stockCrop("confettiPink", 336, 336), alt: "Pink and gold confetti" },
+          title: "It's your day, {{first_name}}",
+          subtitle: "Happy birthday",
+          lead: "We put $25 on your account to spend on whatever you like. No minimum, and it stacks with sale prices.",
+          rule: false,
+        }),
         ...bands.offer(p, {
           overline: "Your gift",
           title: "$25 off",
@@ -681,7 +678,7 @@ const birthdayReward = (() => {
 // Founder letter — a plain, personal note. Long copy, one pull quote
 // ---------------------------------------------------------------------------
 const founderLetter = (() => {
-  const p = palette("ink");
+  const p = palette("slate");
   return {
     key: "founder-letter",
     name: "Founder letter",
@@ -695,31 +692,26 @@ const founderLetter = (() => {
       palette: p,
       variables: [FIRST_NAME, ...FOOTER_VARS],
       blocks: [
-        ...bands.headerWordmark(p, { name: "Northwind" }),
-        band(
-          [
-            h1("A note on what we're building next", p.ink, { fontSize: 24, letterSpacing: -0.4, marginBottom: 20 }),
-            copy("Hi {{first_name}},", p.ink, { marginBottom: 16 }),
-            copy("Three years ago we started Northwind because sending a receipt from our last company took a week of plumbing. We thought that was silly. It turns out a lot of you did too: this month the ten-thousandth workspace sent its first email.", p.body),
-            copy("I want to tell you what we've learned, and what we're going to do about it.", p.body),
-            copy("The first thing is that deliverability is the whole product. Nobody cares how nice the editor is if the email lands in spam. So for the next six months, every engineer on the team is working on the sending side: smarter warm-up, per-domain reputation you can see, and a pause that kicks in before a bad list hurts you.", p.body),
-            copy("The second is that most of you aren't marketers. You're the one engineer who got handed 'the email stuff'. The product should assume that. Fewer settings, more defaults that are already right.", p.body, { marginBottom: 24 }),
-            section(
-              [
-                text("“The best email tool is the one you set up once and never think about again.”", { fontSize: 19, lineHeight: "1.45", fontFamily: "Georgia, 'Times New Roman', serif", color: p.ink, marginBottom: 0 }),
-              ],
-              { paddingX: 20, paddingY: 4, customCss: `border-left: 3px solid ${p.ink}` },
-            ),
-            spacer(24),
-            copy("The third is pricing. We charged for contacts because everyone did. We're stopping. From January you pay for what you send, and the free plan gets bigger. There's a separate email about that coming; the short version is that nobody's bill goes up.", p.body),
-            copy("That's it. No launch, no offer. If any of this is wrong, reply and tell me. I read every one, and the replies to the last letter changed two things on this list.", p.body, { marginBottom: 24 }),
-            copy("Thanks for being here,", p.body, { marginBottom: 4 }),
-            text("Mike", { fontSize: 15, fontWeight: "600", color: p.ink, marginBottom: 2 }),
-            text("Co-founder, Northwind", { fontSize: 13, color: p.muted, marginBottom: 20 }),
-            link("Read the previous letters →", `${EX}/letters`, p.accentText),
-          ],
-          { paddingY: 24 },
-        ),
+        ...bands.headerCentered(p, { name: "Northwind" }),
+        ...bands.heroSpot(p, {
+          image: { src: stockAvatar("portraitMan"), alt: "Mike, co-founder of Northwind", size: 112 },
+          title: "A note on what we're building next",
+          subtitle: "From Mike, co-founder · November 2026",
+        }),
+        band([
+          copy("Hi {{first_name}},", p.ink, { marginBottom: 16 }),
+          copy("Three years ago we started Northwind because sending a receipt from our last company took a week of plumbing. We thought that was silly. It turns out a lot of you did too: this month the ten-thousandth workspace sent its first email.", p.body),
+          copy("I want to tell you what we've learned, and what we're going to do about it.", p.body),
+          copy("The first thing is that deliverability is the whole product. Nobody cares how nice the editor is if the email lands in spam. So for the next six months, every engineer on the team is working on the sending side: smarter warm-up, per-domain reputation you can see, and a pause that kicks in before a bad list hurts you.", p.body),
+          copy("The second is that most of you aren't marketers. You're the one engineer who got handed 'the email stuff'. The product should assume that. Fewer settings, more defaults that are already right.", p.body, { marginBottom: 0 }),
+        ], { paddingY: 32 }),
+        ...bands.quote(p, { tone: "band", quote: "The best email tool is the one you set up once and never think about again.", serif: true }),
+        band([
+          copy("The third is pricing. We charged for contacts because everyone did. We're stopping. From January you pay for what you send, and the free plan gets bigger. There's a separate email about that coming; the short version is that nobody's bill goes up.", p.body),
+          copy("That's it. No launch, no offer. If any of this is wrong, reply and tell me. I read every one, and the replies to the last letter changed two things on this list.", p.body, { marginBottom: 0 }),
+        ], { paddingY: 32 }),
+        ...bands.signature(p, { line: "Thanks for being here,", name: "Mike", role: "Co-founder, Northwind", image: stockAvatar("portraitMan") }),
+        ...bands.readerLoop(p, { forward: { label: "Read the previous letters", href: `${EX}/letters` } }),
       ],
     }),
   };
@@ -744,13 +736,13 @@ const newListings = (() => {
       variables: [FIRST_NAME, ...inputs("area", "search_url"), ...FOOTER_VARS],
       blocks: [
         ...bands.headerWordmark(p, { name: "Keel" }, { label: "Saved search" }),
-        band(
-          [
-            h1("New in {{area}} this week", p.ink, { marginBottom: 8 }),
-            copy("Hi {{first_name}}, six places matched your search: 2 bedrooms, under €2,000 a month, within a 15-minute walk of the river. Here are the best three.", p.body, { marginBottom: 0 }),
-          ],
-          { paddingY: 24 },
-        ),
+        ...bands.heroPanel(p, {
+          tone: "wash",
+          label: "Saved search · 6 matches",
+          title: "New in {{area}} this week",
+          lead: "Hi {{first_name}}, six places matched your search: 2 bedrooms, under €2,000 a month, within a 15-minute walk of the river. Here are the best three.",
+        }),
+        spacer(20),
         band(
           [
             image(stockWide("livingRoom"), "Riverside apartment", { width: 536, height: 300, objectFit: "cover", borderRadius: 12, marginBottom: 14, href: "{{search_url}}" }),
@@ -793,15 +785,12 @@ const nonprofitImpact = (() => {
       variables: [FIRST_NAME, ...inputs("donate_url"), ...FOOTER_VARS],
       blocks: [
         ...bands.headerWordmark(p, { name: "Brightside" }, { label: "2026 report" }),
-        ...photoBleed(stockWide("valley"), "The Alder valley, replanted"),
-        band(
-          [
-            overline("Your impact", p.accentText),
-            h1("Thank you, {{first_name}}. Here's what you did.", p.ink, { marginBottom: 12 }),
-            copy("A year ago the Alder valley was bare hillside after the fires. This autumn, with your help, it's green again. These numbers are yours.", p.body, { marginBottom: 0 }),
-          ],
-          { paddingY: 32 },
-        ),
+        ...bands.heroPhoto(p, {
+          image: { src: stockCrop("valley", 1200, 640), alt: "The Alder valley, replanted" },
+          overline: "Your impact",
+          title: "Thank you, {{first_name}}. Here's what you did.",
+          lead: "A year ago the Alder valley was bare hillside after the fires. This autumn, with your help, it's green again. These numbers are yours.",
+        }),
         ...bands.stats(p, {
           items: [
             { value: "2,400", label: "trees planted" },
@@ -812,7 +801,7 @@ const nonprofitImpact = (() => {
         ...bands.feature(p, {
           overline: "On the ground",
           title: "The river runs clear",
-          image: { src: stockWide("hiker"), alt: "The Alder river this summer" },
+          image: { src: stockWide("pineRidge"), alt: "The Alder river this summer" },
           body: "With the slopes planted, the spring rains stopped washing silt into the river. Trout are back for the first time in six years, and the village downstream is drinking from it again.",
           link: { label: "Read the full report →", href: `${EX}/report` },
         }),
@@ -846,4 +835,3 @@ export const MARKETING_V2: readonly SampleTemplate[] = [
 ];
 
 void h3;
-void photoBand;

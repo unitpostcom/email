@@ -18,7 +18,6 @@
 import * as bands from "./bands";
 import { BAND_GUTTER, brandPalette, type BandBlock, type BandBrand, type BrandPalette } from "./bands";
 import { printTsx } from "./codec";
-import { EMAIL_ICONS, EMAIL_ICON_VARIANTS, EMAIL_PLACEHOLDERS, emailIconUrl, emailPlaceholderUrl } from "./email-assets";
 import { EmailDocumentSchema, FONT_STACKS, type Block, type EmailDocument } from "./schema";
 
 // ------------------------------------------------------------- tokens --
@@ -70,6 +69,20 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
     ],
   },
   {
+    key: "composition",
+    title: "Openers and composition",
+    rules: [
+      { core: true, text: "One visual anchor in the first screen (the top ~500px), from an opener: campaign art, a colour panel, a poster, a masthead, a spot, a split hero or a photo (see Openers). A heading and a paragraph alone suit only a deliberate letter or a transactional notice. Pick the opener by the email's type, never the same one for every email; with no images, use one that needs none: the poster, the panel, the masthead, or the spot with an icon.", source: "https://reallygoodemails.com/" },
+      { core: true, text: "Change the shape from section to section: after a list comes a picture, a number, a quote or a tinted band, never two sections of the same shape in a row. A tinted band marks each new part of a long email." },
+      { text: "One accent, one tint family and the neutrals. Pictures share one radius (12px in content, 16 for a banner, 20 for a panel) and one treatment; a gradient only as a hero or panel surface." },
+      { text: "Type contrast carries the hierarchy: the H1 at about twice the body size (28–34px; 44px upper-case on a poster), a serif masthead or title for editorial letters, body copy in two-to-four-line paragraphs." },
+      { text: "A recurring email keeps a fixed frame (masthead, issue line, section labels, one format per item), so only the content changes from issue to issue." },
+      { text: "A person is visible where the type allows: \"Hi {{first_name}},\" or a byline at the top, and a signature with a name, role and photo at the end." },
+      { text: "Design the closer: a CTA card, a quote band, the reader loop (a P.S., \"Was this useful? Yes · No\", \"Forwarded this? Subscribe\") or the brand signature, never a dangling last line." },
+      { text: "Imagery follows one recipe per email: crops of the product's own UI, its output, one render or illustration style, or real photos of one subject. Never generic stock that could belong to any company, never a grey box where art should be." },
+    ],
+  },
+  {
     key: "type",
     title: "Typography",
     rules: [
@@ -89,7 +102,7 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
       { core: true, text: "Use one contrast band per email for weight: a brand or near-black hero, offer card or closing CTA card, with light text and a light button. Two at most." },
       { core: true, text: "Gradients only as a band background with a solid `background-color` (the gradient's first stop) and the gradient as `custom-css=\"background: #4f46e5 linear-gradient(…)\"`, the same solid colour first inside the shorthand (on its own the shorthand clears background-color, and some mail apps then darken white text). Outlook, Outlook.com and Yahoo show only the solid colour, so the text must pass contrast on it.", source: "https://www.caniemail.com/features/css-linear-gradient/" },
       { text: "Never pure #000000 on large areas; near-black inverts more gracefully in dark mode. Hex colours only (6 digits), no rgba().", source: "https://www.litmus.com/blog/background-colors-html-email" },
-      { core: true, text: "Email-safe CSS only. Layout comes from Section / Row / Column (tables), never display:flex or grid, position, float, gap, transform, calc(), CSS variables or negative margins — Gmail and Outlook drop them. custom-css is for touches that degrade gracefully: an inline-block pill, border-radius (square in Outlook), a gradient as `background:` over a solid background-color, vertical-align, a fixed px width on a column.", source: "https://www.caniemail.com/" },
+      { core: true, text: "Email-safe CSS only. Layout comes from Section / Row / Column (tables), never display:flex or grid, position, float, gap, transform, calc(), CSS variables or negative margins — Gmail and Outlook drop them. custom-css is for touches that degrade gracefully: an inline-block pill, border-radius (square in Outlook), a gradient as `background:` over a solid background-color, vertical-align, a fixed px width on a column. Text over a picture uses `<Section background-image={{ src, size, position }}>` with a background-color it reads on, never a CSS background-image in custom-css.", source: "https://www.caniemail.com/" },
     ],
   },
   {
@@ -109,7 +122,9 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
       { core: true, text: "No image is better than a fake one. With no brand imagery, carry the email with type, colour and icons: a contrast or gradient hero, an offer card, icon rows, stats. Use a neutral placeholder only where the email needs a picture the user must supply (product tiles, a product screenshot, a speaker photo) — and tell them to swap it before sending." },
       { core: true, text: "Every image gets alt text that says what it shows (a logo's alt is the brand name). Decorative icons next to a text label get alt=\"\". Never put the headline, offer, price or date only inside an image: many inboxes block images by default." },
       { text: "Icons are PNG (Gmail and classic Outlook don't render SVG): the `soft` chip (ink on a light chip) beside text on white, `ink` for small inline markers, `white` on dark or brand bands, `solid` for emphasis. Pick by the background the icon sits on, never by habit: an ink icon on a dark band (or a white one on white) disappears. A dark-mode email swaps ink icons on the card to white by itself. Emoji only inline in copy, at most one per block.", source: "https://www.caniemail.com/features/image-svg/" },
-      { text: "Set `width` on every image (536 for a full-width image inside the 32px gutters) so Outlook doesn't render it at its natural size; round photos 10–12px." },
+      { text: "Set `width` on every image (536 for a full-width image inside the 32px gutters, 472 inside a panel) so Outlook doesn't render it at its natural size; round photos 10–12px. Crop each picture to its frame at the source (the exact width and ratio it shows at): object-fit and CSS background images don't survive classic Outlook." },
+      { text: "Keep each photo under about 200KB and the whole email under about 1MB of images; export at twice the display width." },
+      { text: "Live text over a photo (Section background-image) needs the photo darkened or lightened in the picture itself, so the text passes contrast on every part of it, and a background-color in the photo's main tone for clients that show no image. Keep the words over a quiet area; never put the only copy of the headline in the picture." },
     ],
   },
   {
@@ -134,10 +149,13 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
     rules: [
       { core: true, text: "Write for skimmers: short paragraphs (1–3 sentences), the most important item first, a heading for every section.", source: "https://www.nngroup.com/articles/e-mail-newsletters-usability/" },
       { core: true, text: "Subject: plain and specific, about 30–50 characters, the key fact first (amount, feature, offer, date). Preview text complements it in one line — the payoff, the deadline or a question — and never repeats it." },
-      { core: true, text: "Specific beats generic: name the product, the plan, the amount, the date with its time zone. Never lorem ipsum, never [brackets]." },
+      { core: true, text: "Specific beats generic: name the product, the plan, the amount, the date with its time zone; a deadline is a weekday, a date and why. Never lorem ipsum, never [brackets]." },
       { core: true, text: "Never invent facts: features, numbers, prices, policies, dates, durations, materials, and anything the recipient did come only from the ask, the Brand Kit or a tool result. When a section needs news you weren't given, write it from what the Brand Kit says the product is, or leave the section out. An example line you can't avoid stays free of specifics (no percentages, schedules or materials) and your reply names it as one to replace. Never a made-up price, discount or policy. A newsletter, launch or event the ask gives no content for: ask for it once, offering to draft with examples; examples you then write are listed in your reply for the user to replace." },
       { core: true, text: "Variables sparingly: only what changes per recipient or per send and is supplied then — {{first_name}} from the contact, an order total, a code or a reset link the app passes. Write in what you already know (product, website, plans, the offer, an event's name). A template should read finished in the preview; more than about five custom variables means you left the user work. {{company_name}} fills itself only on campaigns and marketing sends." },
       { core: true, text: "Transactional or marketing decides consent and the footer: marketing email gets the managed unsubscribe / reason / postal-address footer at send, so never write any of it; transactional email has none and needs none. When an ask could be either (a bare welcome, a pricing or policy change, an announcement), ask; when one reading is the common one, decide and say so in one line." },
+      { text: "Copy that works has a person in it, exact numbers, one ask and a P.S.: a named sender (\"automated, but replies come to me\"), the real figure (\"22,235 of 25,000 used\"), one question to reply to, and the second action in a P.S.", source: "https://www.goodemailcopy.com/" },
+      { text: "Offers show the maths and how to redeem: now and was (only for a real previous price), the pack against single units or \"from $X\", what the percentage applies to, and one line on how (\"no code needed\" or \"enter X at checkout\") next to the terms. Never \"up to N% off\" without saying what is at N." },
+      { text: "Operational email (payment failed, incident, maintenance, price change, shutdown) follows one order: what happened, what it means for the reader, what to do or \"no action needed\", by when, who to ask. The subject carries the fact (amount, date, duration, time zone)." },
       { text: "Sign as the team or a named person. Transactional email is neutral and factual; marketing can be warmer. Marketing email never carries a hand-written unsubscribe line or postal address: the managed footer adds them." },
     ],
   },
@@ -148,6 +166,38 @@ export const EMAIL_DESIGN_RULES: readonly DesignRuleSection[] = [
       { text: "Single column reads on every phone; keep two-column rows to short, parallel content. Keep the HTML under about 90KB: Gmail clips at about 102KB and hides the rest, including the footer.", source: "https://help.blueshift.com/hc/en-us/articles/42292160006675-Understanding-Gmail-email-clipping" },
     ],
   },
+];
+
+// ------------------------------------------------------------ openers --
+
+/**
+ * The first screen, by email type. Each opener is a registered, palette-aware
+ * layout (layouts.ts) built from bands.ts; `picture` says whether it needs the
+ * sender's art. Distilled from .audit/email-design-2026-11-06/research-patterns.md
+ * (Really Good Emails, well-read newsletters, the owner's references).
+ */
+export type EmailOpener = {
+  key: string;
+  name: string;
+  /** design_library layout keys. */
+  layouts: readonly string[];
+  use: string;
+  picture: "none" | "optional" | "needed";
+  from: readonly string[];
+};
+
+export const EMAIL_OPENERS: readonly EmailOpener[] = [
+  { key: "masthead", name: "Newsletter masthead", layouts: ["hero-masthead", "hero-masthead-serif"], use: "Any recurring newsletter: the name, the issue line between two rules, then the issue's headline. Serif for essays and curated letters.", picture: "optional", from: ["Tiny Startups", "Morning Brew", "Lenny's Newsletter", "Thira"] },
+  { key: "panel", name: "Panel", layouts: ["hero-panel", "hero-panel-soft", "hero-split-panel", "hero-panel-photo"], use: "Monthly updates, digests, launches: a date or issue pill, a big title and art inside a rounded gradient or pale-wash panel, beside it (split panel) or behind the words (photo panel).", picture: "optional", from: ["Bubble", "Stripe", "Stripe developer digest", "foodpanda"] },
+  { key: "event", name: "Event poster", layouts: ["hero-event"], use: "Invites, webinars, save-the-dates: key art first, the date as a pill above the title, on near-black.", picture: "optional", from: ["Zapier ZapConnect", "Unspam"] },
+  { key: "poster", name: "Poster", layouts: ["hero-poster"], use: "Sales, loyalty, statements, win-backs: a big upper-case title on the brand colour in a framed panel, optionally over a dark texture. No picture needed.", picture: "none", from: ["Starbucks Rewards", "Kayak", "Figma"] },
+  { key: "banner", name: "Banner", layouts: ["hero-banner"], use: "Seasonal promos, welcomes, announcements with a mood: rounded campaign art across the email, then a centred headline.", picture: "needed", from: ["foodpanda", "Gamma", "Internet Brunch"] },
+  { key: "spot", name: "Spot", layouts: ["hero-spot"], use: "Monthly letters, welcomes, gentle news: one round picture (or an icon) over a big centred title, a subtitle in the accent and a hairline.", picture: "optional", from: ["Todoist", "Apollo"] },
+  { key: "split", name: "Split", layouts: ["hero-split"], use: "Webinars, reports, B2B news: a brand-colour band with the headline beside a picture.", picture: "needed", from: ["Front", "Webflow", "Chargebee"] },
+  { key: "photo", name: "Photo", layouts: ["hero-photo"], use: "Collections, trips, recaps: a photo bleeding to the card's edges over a brand-colour band with the headline.", picture: "needed", from: ["Squarespace", "CETTE", "Starbucks"] },
+  { key: "contrast", name: "Contrast or gradient", layouts: ["hero-contrast", "hero-gradient"], use: "Big news with no art: a full-width brand band with light text and a light button.", picture: "none", from: ["Google AI Studio", "Ollama"] },
+  { key: "status", name: "Status", layouts: ["hero-status"], use: "Receipts, confirmations, account states: a status chip, the state as an overline, the fact as the headline.", picture: "none", from: ["Uber One", "Vercel"] },
+  { key: "headline", name: "Headline", layouts: ["hero-headline", "hero-media"], use: "Plain product and transactional notices, or a letter that should read as one: overline, headline, line, button (an image above with hero-media).", picture: "optional", from: ["Framer", "Linear", "Claude Code"] },
 ];
 
 // ------------------------------------------------------------ recipes --
@@ -162,6 +212,7 @@ export const EMAIL_RECIPE_KEYS = [
   "promo",
   "re-engagement",
   "event-invite",
+  "service-notice",
 ] as const;
 export type EmailRecipeKey = (typeof EMAIL_RECIPE_KEYS)[number];
 
@@ -217,17 +268,17 @@ const RECIPES: EmailRecipe[] = [
     categoryQuestion: "Is it sent when someone creates an account (transactional) or when they join a newsletter or list (marketing)?",
     when: "Right after sign-up: confirm they're in and get them to the first useful action.",
     skeleton: [
-      "Logo or wordmark header [header-brand / header-wordmark]",
-      "Headline hero: \"Welcome to {Product}\" + one line of what it does for them + ONE button to the first action [hero-headline]",
-      "2–4 next-step rows: icon + bold title + one line, ordered by first value [content-icon-rows]",
+      "Centred logo or wordmark [header-centered]",
+      "Spot hero: the brand's art in a circle, or an icon, over \"Welcome to {Product}\", one line of what it does for them and ONE button to the first action [hero-spot]",
+      "2–4 numbered first steps: title + one line each, ordered by first value [content-steps]",
       "Sign-off: how to get help (reply / docs) + the team [footer-signoff]",
     ],
-    bands: ["header-brand", "hero-headline", "content-icon-rows", "footer-signoff"],
+    bands: ["header-centered", "hero-spot", "content-steps", "footer-signoff"],
     subject: "Welcome to {Product}",
     preview: "The payoff or a question: \"Here's how to get started in two minutes\"",
     copy: ["55–200 words. Lead with one benefit, then one action.", "Name links by what they open (\"Read the guide\"), not \"Learn more\".", "Warm, second person; sign as the team or a named founder."],
     avoid: ["Feature dumps: 3–4 next steps at most.", "Competing buttons: repeat the same one at the end instead.", "A headline baked into a hero image."],
-    imagery: "None needed: logo + icon rows. A product screenshot only if the user has one.",
+    imagery: "None needed: the spot takes an icon. The brand's own art or a product screenshot in the spot when the user has one.",
     words: [55, 200],
     sources: ["https://reallygoodemails.com/emails/welcome-to-linear", "https://reallygoodemails.com/emails/welcome-to-figma", "https://reallygoodemails.com/emails/welcome-to-calendly", "https://knock.app/blog/welcome-email-examples"],
     match: /\b(welcome|onboard(ing)?|sign[- ]?up|signed up|new (user|member|account)|getting started)\b/i,
@@ -235,18 +286,19 @@ const RECIPES: EmailRecipe[] = [
       subject: `Welcome to ${brand.name}`,
       previewText: "Here's how to get set up in a couple of minutes.",
       blocks: [
-        ...bands.headerBrand(p, brand),
-        ...bands.heroHeadline(p, {
+        ...bands.headerCentered(p, brand),
+        ...bands.heroSpot(p, {
+          icon: "rocket",
           title: `Welcome to ${brand.name}, {{first_name}}`,
           lead: "Your account is ready. Here's the fastest way to get your first result.",
           cta: { label: `Open ${brand.name}`, href: link("", "get_started_url") },
         }),
-        ...bands.iconRows(p, {
+        ...bands.steps(p, {
           title: "Your first steps",
-          rows: [
-            { icon: "settings", title: "Set up your account", line: "Add your details so everything looks like you." },
-            { icon: "rocket", title: "Do the first thing", line: "It takes about two minutes and shows you how it works." },
-            { icon: "users", title: "Invite your team", line: "Bring the people you work with into one place." },
+          items: [
+            { title: "Set up your account", line: "Add your details so everything looks like you." },
+            { title: "Do the first thing", line: "It takes about two minutes and shows you how it works." },
+            { title: "Invite your team", line: "Bring the people you work with into one place." },
           ],
         }),
         ...bands.signoff(p, { help: "Questions? Just reply to this email — a real person reads every reply.", signature: `The ${brand.name} team` }),
@@ -369,18 +421,18 @@ const RECIPES: EmailRecipe[] = [
     when: "Something new shipped: what it is, who gets it, how to try it.",
     skeleton: [
       "Logo header with a 'New' label [header-brand]",
-      "Contrast or gradient hero: overline \"Introducing\" + the benefit as the headline + who gets it + ONE button [hero-gradient / hero-contrast]",
+      "Panel hero: a 'New' or date pill + the benefit as the headline + who gets it + ONE button, with a product screenshot inside the panel when the user has one [hero-panel]",
       "2–4 feature sections or icon rows: benefit first, one line each; a screenshot only if the user has one [content-feature / content-icon-rows]",
       "Availability / pricing / what's next as a callout [content-callout]",
       "Closing CTA card repeating the action [cta-contrast]",
       "Sign-off [footer-signoff]",
     ],
-    bands: ["header-brand", "hero-gradient", "content-icon-rows", "content-callout", "cta-contrast", "footer-signoff"],
+    bands: ["header-brand", "hero-panel", "content-icon-rows", "content-callout", "cta-contrast", "footer-signoff"],
     subject: "Introducing {Feature}  /  {Feature} is here",
     preview: "The benefit in one line",
     copy: ["30–250 words.", "Show the benefit before the mechanism; one line per feature.", "Say who gets it and when (plans, rollout, beta)."],
     avoid: ["Copy only inside an image.", "Several buttons for different goals.", "A changelog dump — link to the changelog."],
-    imagery: "A screenshot or GIF when the user has one; otherwise a contrast/gradient hero and icon rows (never a stock photo standing in for the product).",
+    imagery: "A screenshot or GIF inside the panel when the user has one; otherwise the gradient panel and icon rows carry it (never a stock photo standing in for the product).",
     words: [30, 250],
     sources: ["https://reallygoodemails.com/emails/introducing-dropbox-rewind", "https://reallygoodemails.com/emails/meet-the-new-notion-projects", "https://reallygoodemails.com/emails/introducing-dashboards"],
     match: /\b(launch|announc(e|ement|ing)|introduc(e|ing)|new feature|feature (update|release)|release|shipped|now (live|available))\b/i,
@@ -389,8 +441,8 @@ const RECIPES: EmailRecipe[] = [
       previewText: "The fastest way yet to get it done — live in your account today.",
       blocks: [
         ...bands.headerBrand(p, brand, { label: "New" }),
-        ...bands.heroGradient(p, {
-          overline: "Introducing",
+        ...bands.heroPanel(p, {
+          label: "New",
           title: "{{feature_name}} is here",
           lead: "One sentence on what it does for you, and who gets it.",
           cta: { label: "Try {{feature_name}}", href: link("", "feature_url") },
@@ -416,19 +468,19 @@ const RECIPES: EmailRecipe[] = [
     contentQuestion: "What's in this issue? Paste notes or a link — or I can draft it with example stories for you to replace.",
     when: "A periodic round-up: what's new this month, top stories, a usage digest.",
     skeleton: [
-      "Brand header with the issue or month as the label [header-brand]",
-      "Headline hero: \"What's new in {Month}\" + 1–3 sentences naming the top items, no button [hero-headline]",
-      "Optional stats band for a digest [content-stats]",
-      "3–5 feature sections, the most important first: overline + H2 + 2–3 lines (+ bullets when there are details) + one text link each, hairlines between [content-feature]",
-      "Optional 'coming soon' callout [content-callout]",
-      "Sign-off asking for replies [footer-signoff]",
+      "Masthead: the newsletter's name, then the issue line (issue or month, date) between two rules; serif for an editorial letter [hero-masthead / hero-masthead-serif]",
+      "The issue's headline as the H1 + 1–3 sentences naming the top items, no button [hero-headline]",
+      "'In this issue': the items with read times [content-contents]",
+      "3–5 sections, the most important first, each a different shape: a feature with its picture, story rows, two cards, a quote on a tinted band, a link list [content-feature / content-story-rows / columns-two-cards / content-quote-band / content-link-list]",
+      "Optional sponsor slot, labelled as one [content-sponsor]",
+      "The reader loop: a P.S., 'Was this useful? Yes · No', 'Forwarded this? Subscribe' [footer-reader-loop]",
     ],
-    bands: ["header-brand", "hero-headline", "content-feature", "content-callout", "footer-signoff"],
+    bands: ["hero-masthead", "hero-headline", "content-contents", "content-feature", "content-quote-band", "footer-reader-loop"],
     subject: "Name the lead item (or the top two or three), not \"Newsletter #12\"",
     preview: "The other items: \"Plus: …, … and …\"",
     copy: ["One heading per item; title + 1–2 sentences + a verb link.", "Most readers skim: the best item goes first.", "Text links per item, at most one button per issue."],
     avoid: ["One button per item.", "Long sections with no headings.", "Images without alt text."],
-    imagery: "One image per major item when the user has them; otherwise none — overlines and section rhythm carry it.",
+    imagery: "The masthead carries the first screen with no art; one picture per major item when the user has them (a feature image, story thumbnails, two cards). Without pictures, change the shape instead: contents, quote band, link list.",
     words: [150, 500],
     sources: ["https://reallygoodemails.com/emails/release-notes-new-things-to-love-in-figma", "https://reallygoodemails.com/emails/framer-monthly-product-update", "https://reallygoodemails.com/emails/stripe-developer-digest-workbench-is-now-available-to-everyone", "https://www.nngroup.com/articles/e-mail-newsletters-usability/"],
     match: /\b(newsletter|digest|round[- ]?up|changelog|release notes|monthly (update|recap)|weekly (update|recap)|what'?s new|recap|wrapped)\b/i,
@@ -437,12 +489,17 @@ const RECIPES: EmailRecipe[] = [
       subject: `The biggest update, plus two more from ${brand.name}`,
       previewText: "The biggest update, two more, and what's coming next.",
       blocks: [
-        ...bands.headerBrand(p, brand, { label: now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }) }),
+        ...bands.heroMasthead(p, {
+          name: brand.name,
+          tagline: "What's new, once a month",
+          issue: "Monthly update",
+          date: now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }),
+        }),
         ...bands.heroHeadline(p, {
           title: "What's new this month",
           lead: "A sentence or two that names the biggest updates, so a skimmer gets the point here.",
         }),
-        { type: "divider", id: "", color: p.border, marginBottom: 0 },
+        ...bands.contents(p, { items: [{ title: "The biggest update" }, { title: "The second update" }, { title: "The third update" }] }),
         ...bands.feature(p, {
           overline: "New",
           title: "The biggest update",
@@ -450,7 +507,7 @@ const RECIPES: EmailRecipe[] = [
           bullets: ["The first detail, in one line.", "The second detail."],
           link: { label: "Read more →", href: link("", "post_url") },
         }),
-        { type: "divider", id: "", color: p.border, marginBottom: 0 },
+        ...bands.quote(p, { quote: "One line from a customer or the team about why the biggest update matters.", name: "Name, role" }),
         ...bands.feature(p, {
           overline: "Improved",
           title: "The second update",
@@ -464,8 +521,10 @@ const RECIPES: EmailRecipe[] = [
           body: "One or two sentences on a smaller change readers will notice.",
           link: { label: "Read the changelog →", href: link("", "post_url") },
         }),
-        ...bands.callout(p, { overline: "Coming soon", title: "What's next", body: "A line about what's on the way, and how to get early access." }),
-        ...bands.signoff(p, { help: "That's it for this month. Reply and tell us what you'd like to see next.", signature: `The ${brand.name} team` }),
+        ...bands.readerLoop(p, {
+          ps: "Reply and tell us what you'd like to see next month. We read every reply.",
+          feedback: { question: "Was this update useful?", yes: link("", "feedback_yes_url"), no: link("", "feedback_no_url") },
+        }),
       ],
     }),
   },
@@ -475,18 +534,18 @@ const RECIPES: EmailRecipe[] = [
     category: "marketing",
     when: "A time-limited offer: a sale, a discount code, a free month.",
     skeleton: [
-      "Logo header [header-brand]",
-      "Offer card: overline with the occasion + the offer as a big headline + one line + the code in a pill + a button that carries the offer + terms [content-offer]",
+      "Centred logo or wordmark [header-centered]",
+      "Poster hero: the occasion as the overline, the offer as the big upper-case title, the code and deadline in one line, a button that carries the offer; or a banner hero with campaign art when the user has it [hero-poster / hero-banner]",
       "2–3 reasons or how-to-redeem rows [content-icon-rows]",
       "Optional product tiles (placeholders until they add photos) [columns-products]",
-      "Sign-off [footer-signoff]",
+      "Sign-off with the terms in small print [footer-signoff]",
     ],
-    bands: ["header-brand", "hero-headline", "content-offer", "content-icon-rows", "footer-signoff"],
+    bands: ["header-centered", "hero-poster", "content-icon-rows", "footer-signoff"],
     subject: "{Offer} + deadline: \"30% off everything — ends Sunday\"",
     preview: "The deadline or the benefit",
     copy: ["60–200 words. One offer.", "Benefit first, then the number; the button label carries the offer (\"Get 30% off\").", "Real deadlines as absolute dates; terms in small print next to the button."],
     avoid: ["The offer only in an image.", "Fake urgency, vague \"save big\", ALL CAPS paragraphs.", "Several unrelated offers."],
-    imagery: "Product photos only when the user has them; a typographic offer on a brand band is the default.",
+    imagery: "The poster carries it with no picture; campaign art in a banner hero or product photos only when the user has them.",
     words: [60, 200],
     sources: ["https://reallygoodemails.com/emails/final-hours-40-off-headspace-ends-tonight", "https://reallygoodemails.com/emails/duolingo-back-school-family-sale", "https://reallygoodemails.com/emails/last-chance-to-save-40-off-on-grammarly-premium"],
     match: /\b(promo(tion)?|sale|discount|coupon|offer|deal|black friday|cyber monday|% off|percent off|free (month|trial)|limited time)\b/i,
@@ -494,15 +553,12 @@ const RECIPES: EmailRecipe[] = [
       subject: "{{discount}} off — this week only",
       previewText: "Use {{promo_code}} at checkout before Sunday.",
       blocks: [
-        ...bands.headerBrand(p, brand),
-        ...bands.heroHeadline(p, { title: "A little thank-you, {{first_name}}", lead: "For this week only, everything is on sale." }).map((b) => ({ ...b, paddingY: 28 })),
-        ...bands.offer(p, {
+        ...bands.headerCentered(p, brand),
+        ...bands.heroPoster(p, {
           overline: "This week only",
           title: "{{discount}} off everything",
-          line: "Use this code at checkout:",
-          code: "{{promo_code}}",
+          line: "A thank-you, {{first_name}}. Use {{promo_code}} at checkout before {{end_date}}.",
           cta: { label: "Get {{discount}} off", href: link("", "shop_url") },
-          terms: "Ends {{end_date}}. One use per customer.",
         }),
         ...bands.iconRows(p, {
           rows: [
@@ -511,7 +567,7 @@ const RECIPES: EmailRecipe[] = [
             { icon: "refresh-cw", title: "Easy returns", line: "Changed your mind? Send it back free." },
           ],
         }),
-        ...bands.signoff(p, { help: "Questions about your order? Reply to this email.", signature: `The ${brand.name} team` }),
+        ...bands.signoff(p, { help: "Questions about your order? Reply to this email.", signature: `The ${brand.name} team`, small: "Ends {{end_date}}. One use per customer." }),
       ],
     }),
   },
@@ -522,11 +578,11 @@ const RECIPES: EmailRecipe[] = [
     when: "Someone went quiet: a specific reason to come back, and an easy way out.",
     skeleton: [
       "Logo header [header-brand]",
-      "Headline hero naming the gap (\"We miss you, {name}\") + why it's worth coming back, from the Brand Kit + ONE button [hero-headline]",
+      "Soft panel hero naming the gap (\"We miss you, {name}\") + why it's worth coming back, from the Brand Kit + ONE button [hero-panel-soft]",
       "2–3 'new since you left' rows ONLY with news the user gave; otherwise an invitation to reply with what would bring them back, or an incentive callout when they named one [content-callout / content-icon-rows]",
       "Sign-off: a reply-to-us help line and the team [footer-signoff]. No opt-down or unsubscribe line in the body: the managed footer carries unsubscribe and preferences",
     ],
-    bands: ["header-brand", "hero-headline", "content-callout", "footer-signoff"],
+    bands: ["header-brand", "hero-panel-soft", "content-callout", "footer-signoff"],
     subject: "Personal: \"{first_name}, we miss you\" (or what changed, when the user named news)",
     preview: "The hook: the brand's promise, the incentive, or news the user gave",
     copy: ["35–200 words. One ask.", "Reassure without promising what you don't know: \"whenever you're ready\", not claims about their saved data or new features.", "\"We miss you\" beats \"We want you back\"; state incentives as amounts."],
@@ -540,7 +596,9 @@ const RECIPES: EmailRecipe[] = [
       previewText: "Whenever you're ready, we'd love to have you back.",
       blocks: [
         ...bands.headerBrand(p, brand),
-        ...bands.heroHeadline(p, {
+        ...bands.heroPanel(p, {
+          tone: "wash",
+          label: "It's been a while",
           title: "We miss you, {{first_name}}",
           lead: `It's been a while since we've seen you at ${brand.name}. Whenever you're ready, we'd love to have you back.`,
           cta: { label: "Pick up where you left off", href: link("", "app_url") },
@@ -562,17 +620,17 @@ const RECIPES: EmailRecipe[] = [
     when: "An invitation, save-the-date or registration confirmation for an online or in-person event.",
     skeleton: [
       "Logo header with the format as the label (\"Live webinar\") [header-brand]",
-      "Contrast hero: overline with format + date, the event name as the headline, why attend, ONE button (Register / Save my spot) [hero-contrast]",
+      "Event poster hero: key art when the user has it, the format and date as a pill, the event name as the headline, why attend, ONE button (Register / Save my spot) [hero-event]",
       "Event details: date, time with time zone, place or 'Online', price [content-event]",
-      "What you'll learn: 3–4 bullets; speakers as name + role when known [content-feature]",
+      "What you'll learn: 3 numbered takeaways; speakers as name + role when known [content-steps]",
       "Can't make it? Recording line [footer-signoff]",
     ],
-    bands: ["header-brand", "hero-contrast", "content-event", "content-feature", "footer-signoff"],
+    bands: ["header-brand", "hero-event", "content-event", "content-steps", "footer-signoff"],
     subject: "You're invited: {Event} on {date}",
     preview: "Format, length and cost: \"Free, online, 45 minutes\"",
     copy: ["80–250 words (under 120 for a confirmation).", "Absolute date + time + time zone, always live text.", "Say the format, cost and length up front."],
     avoid: ["The date only in an image.", "\"Tomorrow\" without a date; no time zone.", "Long speaker bios."],
-    imagery: "Optional speaker photos (placeholders until supplied); the contrast hero and the details rows carry it.",
+    imagery: "Key art in the event poster and speaker photos when the user has them; without them the dark poster and the details rows carry it.",
     words: [80, 250],
     sources: ["https://reallygoodemails.com/emails/save-the-date-for-webflow-conf-2023", "https://reallygoodemails.com/emails/youre-invited-to-asanas-virtual-workshops", "https://reallygoodemails.com/emails/you-are-registered-building-products-on-claude-opus-46"],
     match: /\b(event|webinar|invite|invitation|rsvp|save the date|conference|meetup|workshop|livestream|register for)\b/i,
@@ -581,8 +639,9 @@ const RECIPES: EmailRecipe[] = [
       previewText: "Free, online, 45 minutes — save your spot.",
       blocks: [
         ...bands.headerBrand(p, brand, { label: "Live webinar" }),
-        ...bands.heroContrast(p, {
-          overline: "Live webinar · {{event_date}}",
+        ...bands.heroPanel(p, {
+          tone: "ink",
+          label: "Live webinar · {{event_date}}",
           title: "{{event_name}}",
           lead: "One sentence on what attendees will walk away with.",
           cta: { label: "Save my spot", href: link("", "register_url") },
@@ -595,13 +654,65 @@ const RECIPES: EmailRecipe[] = [
           ],
           link: { label: "Register now →", href: link("", "register_url") },
         }),
-        ...bands.feature(p, {
-          overline: "Agenda",
+        ...bands.steps(p, {
           title: "What you'll learn",
-          body: "Three things you can use the same day.",
-          bullets: ["The first takeaway.", "The second takeaway.", "Live Q&A at the end."],
+          items: [
+            { title: "The first takeaway", line: "One line on what they can do with it the same day." },
+            { title: "The second takeaway", line: "One line on what it saves them." },
+            { title: "Live Q&A", line: "Bring your questions; we'll stay until they're answered." },
+          ],
         }),
         ...bands.signoff(p, { help: "Can't make it? Register anyway and we'll send you the recording.", signature: `The ${brand.name} team` }),
+      ],
+    }),
+  },
+  {
+    key: "service-notice",
+    name: "Service notice (payment failed, incident, maintenance, price change, shutdown)",
+    category: "transactional",
+    when: "Something about the account or the service changed or will change: say what, what it means, what to do and by when.",
+    skeleton: [
+      "Logo header [header-brand]",
+      "Status hero: the state as the overline (\"Payment failed\", \"Scheduled maintenance\", \"Price change\"), the fact as the headline, one line on what it means for them [hero-status]",
+      "The facts as label/value lines: what, when (date, time, time zone), the amount or who is affected, the deadline [content-summary]",
+      "What to do, as one button, or \"No action needed\" [button / text]",
+      "Who to ask, signed by a named person when it costs the reader [footer-signoff]",
+    ],
+    bands: ["header-brand", "hero-status", "content-summary", "footer-signoff"],
+    subject: "The fact first: \"Your payment of $29 didn't go through\", \"Maintenance on Sat 9 Nov, 02:00–03:00 UTC\"",
+    preview: "What to do and by when, or \"No action needed\"",
+    copy: [
+      "60–180 words, in this order: what happened, what it means for them, what to do (or \"no action needed\"), by when, who to ask.",
+      "Exact numbers and times with the time zone; a deadline is a weekday, a date and what happens after it.",
+      "No preamble before the news and no blame. An incident says what was and wasn't affected, the cause in plain words and what changes; a price change gives old and new numbers and the date.",
+    ],
+    avoid: ["A corporate preamble before the fact.", "Vague timing (\"soon\", \"shortly\").", "Burying the action under the explanation."],
+    imagery: "None: the status icon and the facts lines carry it.",
+    words: [60, 180],
+    sources: ["https://www.goodemailcopy.com/", "https://reallygoodemails.com/emails/your-zapier-trial-has-ended"],
+    match: /\b(payment (?:failed|declined)|failed payment|card (?:declined|failed|expir\w*)|billing (?:failed|issue|problem)|incident|outage|downtime|maintenance|price (?:change|increase)|pricing change|shut(?:ting)? down|shutdown|sunset(?:ting)?|deprecat\w*|service (?:notice|update)|status update)\b/i,
+    build: ({ p, brand, link }) => ({
+      subject: "Your payment of {{amount}} didn't go through",
+      previewText: "Update your card by {{retry_date}} to keep your account active.",
+      blocks: [
+        ...bands.headerBrand(p, brand),
+        ...bands.heroStatus(p, {
+          icon: "credit-card",
+          overline: "Payment failed",
+          title: "Your payment of {{amount}} didn't go through",
+          line: "Your card was declined on {{failed_date}}. Your account stays active while we try again.",
+          tone: "neutral",
+        }),
+        ...bands.summary(p, {
+          heading: "What happens next",
+          lines: [
+            { label: "We try your card again", value: "{{retry_date}}" },
+            { label: "If that fails too", value: "The account pauses" },
+          ],
+          total: { label: "Amount due", value: "{{amount}}" },
+        }),
+        ...bands.buttonBand(p, { cta: { label: "Update your card", href: link("/settings/billing", "billing_url") }, note: "It takes a minute. Nothing is lost while the account is paused." }),
+        ...bands.signoff(p, { help: "Questions about the charge? Reply to this email and a person will answer.", signature: `The ${brand.name} team` }),
       ],
     }),
   },
@@ -616,7 +727,7 @@ export function getEmailRecipe(key: string): EmailRecipe | undefined {
 
 /** The recipe an ask most likely wants ("make a welcome email" → welcome), or null. Order matters: specific types first. */
 export function matchEmailRecipe(ask: string): EmailRecipe | null {
-  const order: EmailRecipeKey[] = ["sign-in-code", "password-reset", "receipt", "event-invite", "promo", "re-engagement", "newsletter", "product-launch", "welcome"];
+  const order: EmailRecipeKey[] = ["sign-in-code", "password-reset", "receipt", "service-notice", "event-invite", "promo", "re-engagement", "newsletter", "product-launch", "welcome"];
   for (const key of order) {
     const r = RECIPES.find((x) => x.key === key)!;
     if (r.match.test(ask)) return r;
@@ -708,84 +819,11 @@ function withIds(blocks: BandBlock[]): BandBlock[] {
 export function emailDesignPromptSection(): string {
   const rules = EMAIL_DESIGN_RULES.flatMap((s) => s.rules.filter((r) => r.core).map((r) => `• ${r.text.replace(/`/g, "")}`));
   const recipes = RECIPES.map((r) => `${r.key} (${r.categoryQuestion ? `${r.category} or marketing — ask: ${r.categoryQuestion}` : r.category}): ${r.bands.join(" → ")}${r.contentQuestion ? " (no content in the ask → ask for it)" : ""}`).join("; ");
+  const openers = EMAIL_OPENERS.map((o) => `${o.layouts.join("/")} (${o.picture === "none" ? "no picture" : o.picture === "needed" ? "needs a picture" : "picture optional"})`).join("; ");
   return [
     "EMAIL DESIGN GUIDE — DESIGNED EMAILS ONLY (the house style; full guide: design_library topic=\"guide\"). A good email needs no context beyond its type: these rules make a bare ask (\"a welcome email\", \"a receipt\") come out finished and on-brand.",
     ...rules,
+    `OPENERS (layouts for the first screen; design_library topic="layouts" has each): ${openers}.`,
     `RECIPES (type → bands; fetch one with design_library topic="guide" key=<type> plus accent / logo / brand / website / font from the Brand Kit to get a complete brand-themed starter email to adapt): ${recipes}.`,
   ].join("\n  ");
-}
-
-function mdEscapePipes(s: string): string {
-  return s.replace(/\|/g, "\\|");
-}
-
-/** EMAIL_DESIGN.md, generated. */
-export function emailDesignGuideMarkdown(): string {
-  const t = EMAIL_DESIGN_TOKENS;
-  const lines: string[] = [];
-  lines.push(
-    "<!-- Generated from packages/email/src/design-guide.ts — edit that file, then run `npm run guide:write -w @unitpost/email`. -->",
-    "",
-    "# Email design guide",
-    "",
-    "How Unitpost builds a good email from a short ask — \"a welcome email\", \"a receipt\", \"a launch announcement\" — with the `@unitpost/email` components, our layout bands and the workspace's Brand Kit. Ask Unit, the MCP server's `design_library` tool and the agent skill all follow it, and `lintEmailDesign()` checks its measurable rules on every write.",
-    "",
-    "This guide is about the emails our customers send. The Unitpost app's own UI follows the repo-root `DESIGN.md`.",
-    "",
-    "## Tokens",
-    "",
-    "| Token | Value |",
-    "|---|---|",
-    `| Content width | ${t.contentWidth}px card, \`body-padding={${t.bodyPadding}}\`, \`body-radius={${t.bodyRadius}}\` |`,
-    `| Side gutter | ${t.gutter}px, carried by every band |`,
-    `| Band padding | ${t.bandPaddingY}px top and bottom; heroes ${t.heroPaddingY}; card bands ${t.cardBandPaddingY} — adjacent paddings add up |`,
-    `| Block spacing | ${t.blockGaps} |`,
-    ...Object.entries(t.type).map(([k, v]) => `| ${k === "finePrint" ? "Fine print" : k.charAt(0).toUpperCase() + k.slice(1)} | ${mdEscapePipes(v)} |`),
-    `| Font stack | \`${t.fontStack}\` (serif: \`${t.serifStack}\`) |`,
-    "| Neutral palette | ink `#18181b`, body `#3f3f46`, muted `#71717a`, hairline `#e4e4e7`, tint `#fafafa`, backdrop `#f4f4f5`, card `#ffffff` |",
-    "",
-    "## Rules",
-    "",
-  );
-  for (const s of EMAIL_DESIGN_RULES) {
-    lines.push(`### ${s.title}`, "");
-    for (const r of s.rules) lines.push(`- ${r.text}${r.source ? ` ([source](${r.source}))` : ""}`);
-    lines.push("");
-  }
-  lines.push(
-    "## Recipes",
-    "",
-    "One per common email type. `design_library` with `topic: \"guide\"` and `key: \"<type>\"` returns the recipe plus a complete starter email in our components; pass `accent`, `logo`, `brand`, `website` and `font` from the Brand Kit and the starter comes back in the brand's colours.",
-    "",
-  );
-  for (const r of RECIPES) {
-    lines.push(
-      `### ${r.name} — \`${r.key}\``,
-      "",
-      `${r.when} Category: **${r.category}**${r.categoryQuestion ? ` unless the ask says otherwise — when it doesn't, ask: "${r.categoryQuestion}"` : ""}. Length: ${r.words[0]}–${r.words[1]} words.${r.contentQuestion ? ` Content: when the ask gives none, ask first: "${r.contentQuestion}"` : ""}`,
-      "",
-      "Skeleton:",
-      "",
-      ...r.skeleton.map((s, i) => `${i + 1}. ${s}`),
-      "",
-      `- **Subject:** ${r.subject}`,
-      `- **Preview:** ${r.preview}`,
-      ...r.copy.map((c) => `- ${c}`),
-      `- **Imagery:** ${r.imagery}`,
-      `- **Avoid:** ${r.avoid.join(" ")}`,
-      `- **Drawn from:** ${r.sources.map((u) => `<${u}>`).join(", ")}`,
-      "",
-    );
-  }
-  lines.push(
-    "## Assets",
-    "",
-    "Hosted by Unitpost and safe to use in any email. Icons are Lucide (ISC), rasterised to PNG at 2x.",
-    "",
-    `- Icons: \`${emailIconUrl("rocket", "soft").replace("rocket-soft", "{name}-{variant}")}\` — variants ${EMAIL_ICON_VARIANTS.map((v) => `\`${v}\``).join(", ")}.`,
-    `- Icon names: ${Object.keys(EMAIL_ICONS).map((n) => `\`${n}\``).join(", ")}.`,
-    `- Placeholders: ${Object.entries(EMAIL_PLACEHOLDERS).map(([n, v]) => `\`${emailPlaceholderUrl(n as keyof typeof EMAIL_PLACEHOLDERS)}\` (${v.width}×${v.height}, ${v.use})`).join("; ")}. Replace before sending; the lint flags any left in.`,
-    "",
-  );
-  return lines.join("\n");
 }

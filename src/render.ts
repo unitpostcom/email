@@ -121,6 +121,10 @@ type RenderCtx = {
   // they were chosen against that background, not the theme's body card.
   dark?: boolean;
   offSurface?: boolean;
+  // The px width available to the current container, tracked only so a
+  // section's background image can size its Outlook VML shape. Unset = the
+  // theme's content width. It never changes any other output.
+  width?: number;
 };
 
 // Text / links in the THEME's colours on the theme's body card get the dark
@@ -216,10 +220,10 @@ function paintsOwnBackground(
 // Children of a container with its own background render "off surface".
 function surfaceCtx(
   ctx: RenderCtx,
-  block: { backgroundColor?: string | null; className?: string; customCss?: string | null },
+  block: { backgroundColor?: string | null; className?: string; customCss?: string | null; backgroundImage?: unknown },
 ): RenderCtx {
   if (!ctx.dark || ctx.offSurface) return ctx;
-  const ownBg = paintsOwnBackground(ctx, block) || CONDITIONAL_BG_RE.test(block.className ?? "");
+  const ownBg = paintsOwnBackground(ctx, block) || CONDITIONAL_BG_RE.test(block.className ?? "") || Boolean(block.backgroundImage);
   return ownBg ? { ...ctx, offSurface: true } : ctx;
 }
 
@@ -932,7 +936,106 @@ function renderSectionChild(child: SectionChild, ctx: RenderCtx): string {
     : renderLeaf(child, ctx);
 }
 
+/** Left + right padding of a container, in px (the per-side box wins, as in resolvePadding). */
+function horizontalPadding(block: { padding?: Side; paddingX?: number }): number {
+  if (block.padding && hasAnySide(block.padding)) return (block.padding.left ?? 0) + (block.padding.right ?? 0);
+  return 2 * (block.paddingX ?? 0);
+}
+
+/** A child context with the px width left after `inset` (used only for VML sizing). */
+function narrowed(ctx: RenderCtx, inset: number): RenderCtx {
+  const width = Math.max(0, (ctx.width ?? ctx.theme.contentWidth) - inset);
+  return width === ctx.width ? ctx : { ...ctx, width };
+}
+
+// Fractional origin/position for a VML `frame` fill, by CSS position keyword.
+const VML_POSITION: Record<string, string> = {
+  center: "0.5,0.5",
+  top: "0.5,0",
+  bottom: "0.5,1",
+  left: "0,0.5",
+  right: "1,0.5",
+  "top left": "0,0",
+  "top right": "1,0",
+  "bottom left": "0,1",
+  "bottom right": "1,1",
+};
+
+// A section with a background image. Separate from renderSection so every
+// section without one renders byte-for-byte as before. The picture goes in
+// three places, as email clients each read a different one: CSS longhands on
+// the cell (Apple Mail, Gmail, iOS), the HTML `background` attribute (older
+// webmail), and an Outlook-only VML rectangle (classic Outlook ignores CSS
+// backgrounds). The colour goes in two (`bgcolor` and CSS) and is what shows
+// where the image doesn't. The padding moves to an inner cell inside the VML
+// shape, so Outlook paints the picture under the padding too.
+const CSS_URL_ESCAPES: Record<string, string> = { '"': "%22", "'": "%27", "(": "%28", ")": "%29" };
+
+function renderImageSection(block: SectionBlock, ctx: RenderCtx, url: string): string {
+  const img = block.backgroundImage!;
+  // Every character the style pipeline would touch is percent-encoded first:
+  // quotes and parentheses (they'd close `url('…')`; encodeURIComponent leaves
+  // ' ( ) alone), whitespace, and everything cssValue strips (`; { } < > \`),
+  // so the URL reaches the style attribute unchanged: no stripped `;` asking
+  // for the wrong image, and no stripped brace rejoining `&{#59` into `&#59`.
+  // Then a numeric character reference (`&#59`, `&#39`), which would decode
+  // inside the attribute with or without its semicolon, has its `&`
+  // percent-encoded. A plain `&` between query parameters stays as it is
+  // (reviews 2026-11-07).
+  const cssUrl = url
+    .replace(/["'()\s;{}<>\\]/g, (c) => CSS_URL_ESCAPES[c] ?? encodeURIComponent(c))
+    .replace(/&#/g, "%26#");
+  const { style: cellStyle, classAttr } = composeStyle(
+    ctx,
+    block.className,
+    {
+      margin: resolveMargin(block),
+      "background-color": block.backgroundColor ?? undefined,
+      // A data: image keeps the `;` in its header (`data:image/png;base64,`),
+      // which the style attribute can't carry (cssValue strips it, and
+      // percent-encoding breaks the header), so it is given only by the
+      // `background` attribute and VML, which escape it as HTML.
+      "background-image": /^data:/i.test(url) ? undefined : `url('${cssUrl}')`,
+      "background-size": img.size,
+      "background-position": img.position,
+      "background-repeat": img.repeat,
+      ...resolveBorder(block.border),
+    },
+    block.customCss,
+  );
+  const width = Math.round(ctx.width ?? ctx.theme.contentWidth);
+  const childCtx = narrowed(surfaceCtx(ctx, block), horizontalPadding(block));
+  const inner = block.children.map((c) => renderSectionChild(c, childCtx)).join("\n");
+  const padStyle = inlineStyle({ padding: resolvePadding(block) });
+  const fill =
+    img.repeat === "repeat"
+      ? `type="tile"`
+      : `type="frame"${img.size === "cover" ? ` aspect="atleast"` : img.size === "contain" ? ` aspect="atmost"` : ""} origin="${VML_POSITION[img.position]}" position="${VML_POSITION[img.position]}"`;
+  const color = block.backgroundColor ?? ctx.theme.bodyColor;
+  const bgcolorAttr = block.backgroundColor ? ` bgcolor="${escapeHtml(block.backgroundColor)}"` : "";
+  return [
+    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">`,
+    `<tr><td${idAttr(block.id, ctx)}${classAttr} background="${escapeHtml(url)}"${bgcolorAttr} style="${cellStyle}">`,
+    `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${width}px;"><v:fill ${fill} src="${escapeHtml(url)}" color="${escapeHtml(color)}" /><v:textbox style="mso-fit-shape-to-text:true" inset="0,0,0,0"><![endif]-->`,
+    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="${padStyle}">`,
+    inner,
+    `</td></tr></table>`,
+    `<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->`,
+    `</td></tr></table>`,
+  ].join("");
+}
+
+/** The background picture's resolved, sanitized URL; null when there's none (or it isn't a safe image URL). */
+function sectionBackgroundUrl(block: SectionBlock, ctx: RenderCtx): string | null {
+  if (!block.backgroundImage?.src) return null;
+  const url = safeImageUrl(resolveImageSrc(interpolate(block.backgroundImage.src, ctx.vars), ctx.assetBaseUrl));
+  return url && url !== "#" && url !== "about:blank" ? url : null;
+}
+
 function renderSection(block: SectionBlock, ctx: RenderCtx): string {
+  const bgUrl = sectionBackgroundUrl(block, ctx);
+  if (bgUrl) return renderImageSection(block, ctx, bgUrl);
+  const childCtx = narrowed(surfaceCtx(ctx, block), horizontalPadding(block));
   const { style: cellStyle, classAttr } = composeStyle(
     ctx,
     block.className,
@@ -953,7 +1056,7 @@ function renderSection(block: SectionBlock, ctx: RenderCtx): string {
   // the ONLY outer spacing, top and bottom, no matter which line is last.
   if (ctx.dropEmptyText) {
     const rendered = block.children
-      .map((c) => renderSectionChild(c, surfaceCtx(ctx, block)))
+      .map((c) => renderSectionChild(c, childCtx))
       .filter((html) => html.trim().length > 0);
     const inner = rendered
       .map((html, i) =>
@@ -968,7 +1071,7 @@ function renderSection(block: SectionBlock, ctx: RenderCtx): string {
     ].join("");
   }
   const inner = block.children
-    .map((c) => renderSectionChild(c, surfaceCtx(ctx, block)))
+    .map((c) => renderSectionChild(c, childCtx))
     .join("\n");
   return [
     `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">`,
@@ -1025,7 +1128,7 @@ function renderColumn(block: ColumnBlock, ctx: RenderCtx): string {
     block.customCss,
     "ee-col",
   );
-  const inner = block.children.map((c) => renderLeaf(c, surfaceCtx(ctx, block))).join("\n");
+  const inner = block.children.map((c) => renderLeaf(c, narrowed(surfaceCtx(ctx, block), horizontalPadding(block)))).join("\n");
   // Empty columns still render their <td> so the row keeps its shape.
   return `<td${classAttr} width="${block.width}%" valign="top"${idAttr(block.id, ctx)} style="${cellStyle}">${inner || "&nbsp;"}</td>`;
 }
@@ -1059,28 +1162,40 @@ function renderRow(block: RowBlock, ctx: RenderCtx): string {
   const filler = rest
     ? `${spacer}<td class="ee-gap" width="${rest}%" style="font-size:1px;line-height:1px;">&nbsp;</td>`
     : "";
+  // Columns share what's left after the inset, the row's padding and the gaps (for VML sizing only).
+  const inset = block.insetX ?? 0;
+  const rowCtx = surfaceCtx(ctx, block);
+  const inner = Math.max(0, (ctx.width ?? ctx.theme.contentWidth) - 2 * inset - horizontalPadding(block) - gap * Math.max(0, block.columns.length - 1));
   const cols =
     block.columns
-      .map((c) => renderColumn(c, surfaceCtx(ctx, block)))
+      .map((c) => renderColumn(c, { ...rowCtx, width: Math.round((inner * c.width) / 100) }))
       .join(spacer) + filler;
   // `ee-cols` marks a row whose columns should stack on narrow viewports (the
   // head <style> media query keys on it). Only applied when the author left
   // stackOnMobile on — so the inspector toggle actually controls stacking.
   const colsClass = block.stackOnMobile ? ` class="ee-cols"` : "";
+  // insetX (optional): the row sits inside a padded cell, so its background,
+  // border and radius start `insetX` px in from the card's edges.
+  const wrap = (html: string) =>
+    inset > 0
+      ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td style="padding:0 ${inset}px;">${html}</td></tr></table>`
+      : html;
   // Inner fixed table holds the columns; outer cell carries row padding/bg.
   // `table-layout:fixed` is CRITICAL for editor↔email parity: with auto layout
   // the percentage widths + the px gap spacer over-constrain the table
   // (50% + 16px + 50% > 100%) and browsers resolve it by silently shrinking
   // ONE column (e.g. 272px vs 256px on a 50/50 split). Fixed layout scales the
   // declared widths proportionally, keeping the split true to the canvas.
-  return [
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"${idAttr(block.id, ctx)}${classAttr} style="${wrapStyle}">`,
-    `<tr><td style="${cellPad}">`,
-    `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"${colsClass} style="table-layout:fixed;"><tr>`,
-    cols,
-    `</tr></table>`,
-    `</td></tr></table>`,
-  ].join("");
+  return wrap(
+    [
+      `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"${idAttr(block.id, ctx)}${classAttr} style="${wrapStyle}">`,
+      `<tr><td style="${cellPad}">`,
+      `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"${colsClass} style="table-layout:fixed;"><tr>`,
+      cols,
+      `</tr></table>`,
+      `</td></tr></table>`,
+    ].join(""),
+  );
 }
 
 function renderBlock(block: Block, ctx: RenderCtx): string {
@@ -1240,6 +1355,8 @@ export function renderToHtml(
     // Dark mode ships with a send, never in the editor canvas (its preview
     // frame would follow the author's OS theme mid-edit).
     dark: !options.editor && darkModeEnabled(theme),
+    // The card's inner width (for VML sizing only).
+    width: theme.contentWidth - (theme.bodyPaddingSides && hasAnySide(theme.bodyPaddingSides) ? (theme.bodyPaddingSides.left ?? 0) + (theme.bodyPaddingSides.right ?? 0) : 2 * (theme.bodyPadding ?? 0)),
   };
   const body = doc.blocks.map((b) => renderBlock(b, ctx)).join("\n");
 
@@ -1548,7 +1665,12 @@ export function collectVariables(
   // Also scan document-level fields (preview text can carry variables).
   scan(doc.previewText);
   const scanNode = (b: Block | SectionChild) => {
-    if (b.type === "section") b.children.forEach(scanNode);
+    if (b.type === "section") {
+      // A background image interpolates {{vars}} like an <img> src
+      // (renderImageSection), so its tokens are referenced too.
+      scan(b.backgroundImage?.src);
+      b.children.forEach(scanNode);
+    }
     else if (b.type === "row") {
       b.columns.forEach((col) => col.children.forEach(scanLeaf));
     } else scanLeaf(b);

@@ -2,6 +2,55 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
+## 0.6.0
+
+Publishes when this version reaches `main` (`publish-email.yml`). **Not breaking:** every existing document renders byte-for-byte as before (`golden.json` pins the parity fixtures and every layout that existed in 0.5.0; they're unchanged). Everything new is optional. Sections can carry a background picture and rows can sit inset in the gutter, there are new openers and sections to build with, the design guide has rules for openers and composition, and the sample templates are rebuilt. The samples' own HTML changes because their content changed, and so do the two `welcome` fixtures that render the welcome sample with dark mode and with the branding mark.
+
+### Added
+
+- **`<Section background-image={{ src, size, position, repeat }}>`** (`backgroundImage` on `SectionBlock`, React `backgroundImage`): live text over a picture in every client. The picture goes in three places: CSS longhands (Apple Mail, Gmail, iOS), the HTML `background` attribute, and an Outlook-only VML rectangle sized to the section's real width. The colour goes in two (`bgcolor` and CSS). `size` is `cover` (default), `contain` or `auto`; `position` is one of nine keywords; `repeat` is `no-repeat` (default) or `repeat`. A library path (`/img/{id}`) resolves like an `<Image>`, and an unsafe URL is dropped (the section renders plain). The section's padding moves inside the VML shape, so Outlook paints the picture under it too. Set a `background-color`: it's what shows with images off, and the lint checks text contrast against it.
+- **`<Row inset-x={32}>`** (`insetX`): the row sits that many px in from the card's edges, so its background, border and radius form a rounded panel with columns.
+- **Openers** in `bands.ts`, each a palette-aware layout (`design_library`, the editor's Layouts rail, `/components`):
+  - `heroBanner`: rounded campaign art, then a centred headline.
+  - `heroPanel`: a rounded gradient, pale-wash or near-black panel with a label pill, title and art inside, or a `photo` behind the words. Layouts `hero-panel`, `hero-panel-soft`, `hero-event` and `hero-panel-photo`.
+  - `heroSplitPanel`: an inset panel with the words beside a picture (`hero-split-panel`).
+  - `heroPoster`: a framed upper-case poster, with an optional `photo` texture.
+  - `heroMasthead`: a newsletter nameplate with the issue line between rules (`hero-masthead`, `hero-masthead-serif`).
+  - `heroSpot`: a round picture or icon over a centred title, subtitle and hairline.
+  - `heroSplit`: the headline beside a picture on a colour band.
+  - `heroPhoto`: an edge-to-edge photo over a colour band.
+  - `headerCentered` and `headerStrip`: a thin top strip for delivery, deadline or code facts.
+- **Sections:** `byline`, `contents` (in this issue), `storyRows`, `mediaRow`, `cards`, `gallery`, `quote`, `sponsor`, `linkList`, `sectionLabel`, `steps`, `signature`, `readerLoop`, `brandSignature`, and for shops `trustStrip`, `priceList` (menu-style rows with a struck-through old price) and `reviews`. 30 new layout keys in all.
+- **The guide (`EMAIL_DESIGN.md`, from `design-guide.ts`):**
+  - an "Openers and composition" rules section: one visual anchor in the first screen, never two same-shaped sections in a row, one accent, a visible person, a designed closer;
+  - an `EMAIL_OPENERS` catalog of which first screen each email type uses and whether it needs a picture;
+  - a Sections list, and copy rules for offers, operational mail and deadlines.
+- **Unit's starters:**
+  - The welcome, product-launch, newsletter, promo, re-engagement and event-invite starters open with a spot, a panel, a masthead, a poster, a soft panel and an event panel, still image-free.
+  - A new **`service-notice`** recipe (payment failed, incident, maintenance, price change, shutdown) follows a fixed order: what happened, what it means, what to do, by when, who to ask.
+- **Lint:** `background-image-fallback`, for a section with a background picture and no background colour.
+- **`rotateHue()`** in `color.ts`: one brand colour gives a gradient its second stop. The catalog's `ComponentPropType` gains `"object"` (for `background-image`).
+- **Samples, 61 in all:**
+  - Every marketing sample opens with its own first screen and changes shape from section to section.
+  - The ten original marketing samples are rebuilt with the same keys and variables.
+  - 8 new: `daily-brief`, `link-roundup`, `essay-letter`, `community-update`, `seasonal-menu`, `rewards-poster`, `travel-guide` and `webinar-invite`.
+  - Photos are cropped to their frame in the URL.
+
+### Changed
+
+- **Samples carry the sender's name, not the Unitpost logo** (the 36 that used `DEFAULT_LOGO_URL` now set a wordmark). `newsletter` and `july-newsletter` are rebuilt with the same keys; `newsletter` no longer declares `{{headline}}`.
+- **`emailDesignGuideMarkdown()`** moved to `design-guide-doc.ts`; it's still exported from the package root.
+
+### Fixed
+
+- **Design lint false alarms:**
+  - `text-transform` no longer counts as an unsupported `transform`.
+  - A text block that paints its own background (an inline-block chip) is checked against that background.
+  - Hairline-only and spacer-only sections count as dividers and space.
+  - A section holding only images is a photo meant to bleed, not a missing gutter.
+  - The starter-copy check reads a quote inside its curly quotes.
+- **The `summary` band without a `meta` line** printed a lone space that the TSX round trip turned into an empty block; it now uses a spacer.
+
 ## 0.5.0
 
 Publishes when this version reaches `main` (`publish-email.yml`). **Breaking:** the "Sent with Unitpost" mark is now off unless you ask for it, so HTML and plain text rendered without `showPoweredBy` differ from 0.4.0 (they no longer end with the mark), and a document that never opted into dark mode now declares itself light-only (its `<head>` differs; the body does not). Nothing else renders differently. This release also adds a local preview server, an `init` command that sets a project up for it, and fixes two ways the TSX dialect read attributes differently from JSX.

@@ -42,6 +42,7 @@ export type DesignHintRule =
   | "small-text"
   | "centered-long-copy"
   | "gradient-fallback"
+  | "background-image-fallback"
   | "markdown-syntax"
   | "footer-in-body"
   | "no-preview-text"
@@ -92,19 +93,26 @@ function contrastSeverity(ratio: number | null, need: number): DesignHint["sever
 type Ctx = { bg: string; doc: EmailDocument; bgUnknown?: boolean };
 type Visit = (block: LeafBlock, ctx: Ctx) => void;
 /** Section / Row / Column: what the lint reads off a container. */
-type Container = { id: string; customCss?: string; className?: string; backgroundColor?: string };
+type Container = { id: string; customCss?: string; className?: string; backgroundColor?: string; backgroundImage?: { src: string } };
 
 /** A background set from customCss or a (possibly variant) bg- class. */
 function paintsCssBackground(b: { customCss?: string; className?: string }): boolean {
   return /(^|;)\s*background(-color|-image)?\s*:/i.test(b.customCss ?? "") || /(^|\s)(?:[\w-]+:)*bg-/.test(b.className ?? "");
 }
 
+/** The solid colour a leaf paints behind itself in custom-css (an inline-block chip or pill), if any. */
+function ownBackground(customCss: string | undefined): string | null {
+  const m = /(?:^|;)\s*background(?:-color)?\s*:\s*(#[0-9a-f]{6}|#[0-9a-f]{3})\b/i.exec(customCss ?? "");
+  return m ? m[1]! : null;
+}
+
 /** The context inside a container: its own colour, and whether CSS may override it. */
-function inside(ctx: Ctx, b: { backgroundColor?: string; customCss?: string; className?: string }): Ctx {
+function inside(ctx: Ctx, b: { backgroundColor?: string; customCss?: string; className?: string; backgroundImage?: unknown }): Ctx {
   return {
     ...ctx,
     bg: b.backgroundColor || ctx.bg,
-    bgUnknown: paintsCssBackground(b) || (!b.backgroundColor && Boolean(ctx.bgUnknown)),
+    // Over a background picture the colour under an icon isn't knowable; the icon check stays quiet.
+    bgUnknown: paintsCssBackground(b) || Boolean(b.backgroundImage) || (!b.backgroundColor && Boolean(ctx.bgUnknown)),
   };
 }
 type ContainerVisit = (block: Container) => void;
@@ -164,6 +172,7 @@ export const STARTER_FILLER_LINES: readonly string[] = [
   "A short headline",
   "The first takeaway",
   "The second takeaway",
+  "Name, role",
 ];
 export const STARTER_FILLER_OPENINGS: readonly string[] = [
   "A clear headline that states the point",
@@ -177,12 +186,15 @@ export const STARTER_FILLER_OPENINGS: readonly string[] = [
   "Say who gets it and when",
   "One line that removes the last bit of friction",
   "A line about what's on the way",
+  "One line from a customer or the team",
 ];
 export const STARTER_FILLER: readonly string[] = [...STARTER_FILLER_LINES, ...STARTER_FILLER_OPENINGS];
 const norm = (t: string) => t.trim().replace(/[.!?…]+$/, "").toLowerCase();
 const FILLER_LINES = new Set(STARTER_FILLER_LINES.map(norm));
+// A quote band wraps its line in curly quotes; read the line inside them.
+const unquote = (t: string) => t.trim().replace(/^[“"]|[”"]$/g, "");
 const isStarterFiller = (t: string) =>
-  FILLER_LINES.has(norm(t)) || STARTER_FILLER_OPENINGS.some((o) => t.trim().toLowerCase().startsWith(o.toLowerCase()));
+  FILLER_LINES.has(norm(unquote(t))) || STARTER_FILLER_OPENINGS.some((o) => unquote(t).toLowerCase().startsWith(o.toLowerCase()));
 const MARKDOWN = /\*\*[^*\n]+\*\*|\[[^\]\n]+\]\(https?:[^)\s]+\)|^#{1,4}\s|^\s*[-*]\s+\S/m;
 // The managed footer's own lines, not copy that merely mentions unsubscribing.
 const FOOTER_COPY = /\{\{\s*unsubscribe_url\s*\}\}|\byou(?:'| a)re receiving this (email|message)\b|^\s*(unsubscribe|manage (your )?(email )?preferences)\s*\.?$/i;
@@ -223,10 +235,12 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
             add("placeholder-link", "fix", `The link "${r.text.slice(0, 30)}" points at ${r.marks.link || "nothing"}; use the real URL (or a {{variable}}).`, b.id);
           }
         }
-        const ratio = contrastRatio(b.color ?? textColor, ctx.bg);
+        // A chip paints its own background; read the text against that.
+        const bg = ownBackground(b.customCss) ?? ctx.bg;
+        const ratio = contrastRatio(b.color ?? textColor, bg);
         const sev = contrastSeverity(ratio, b.fontSize >= 24 ? 3 : 4.5);
         if (t && sev) {
-          add("text-contrast", sev, `Text "${t.slice(0, 40)}" is hard to read (${ratio!.toFixed(1)}:1 on ${ctx.bg}); use ${shadeToContrast(b.color ?? textColor, ctx.bg)}.`, b.id);
+          add("text-contrast", sev, `Text "${t.slice(0, 40)}" is hard to read (${ratio!.toFixed(1)}:1 on ${bg}); use ${shadeToContrast(b.color ?? textColor, bg)}.`, b.id);
         }
         if (t.length > 0 && b.fontSize < 12) {
           add("small-text", "fix", `Text "${t.slice(0, 30)}" is ${b.fontSize}px; keep body copy at 14–16px and fine print at 12px or more.`, b.id);
@@ -285,6 +299,9 @@ export function lintEmailDesign(doc: EmailDocument, opts: { max?: number } = {})
   };
 
   const containers: ContainerVisit = (b) => {
+    if (b.backgroundImage && !b.backgroundColor) {
+      add("background-image-fallback", "fix", "A section with a background image has no background-color; set one the text reads on (the image's main colour). It's what shows with images off and in clients that drop background images, and the text contrast is checked against it.", b.id);
+    }
     if (/gradient\(/i.test(b.customCss ?? "") && !b.backgroundColor) {
       add("gradient-fallback", "fix", "A gradient band has no background-color; set one (the gradient's main colour) so Outlook and images-off clients still show the band and its text stays readable.", b.id);
     } else if (gradientShorthandWithoutColor(b.customCss ?? "")) {
@@ -455,7 +472,7 @@ const marginBottomOf = (b: unknown) => {
 const TAG: Record<string, string> = { text: "Text", heading: "Heading", list: "List", button: "Button", link: "Link", code: "Code", markdown: "Markdown" };
 
 // Gmail / Outlook (Word) drop or mangle these; layout comes from tables.
-const UNSAFE_CSS = /display\s*:\s*(inline-)?(flex|grid)|position\s*:\s*(absolute|fixed|relative|sticky)|\bfloat\s*:|(^|;)\s*(row-|column-)?gap\s*:|\btransform\s*:|calc\(|var\(--|\d(vh|vw|dvh)\b|\b(animation|transition|clip-path|z-index)\s*:|margin[a-z-]*\s*:\s*-\d/i;
+const UNSAFE_CSS = /display\s*:\s*(inline-)?(flex|grid)|position\s*:\s*(absolute|fixed|relative|sticky)|\bfloat\s*:|(^|;)\s*(row-|column-)?gap\s*:|(?<![\w-])transform\s*:|calc\(|var\(--|\d(vh|vw|dvh)\b|\b(animation|transition|clip-path|z-index)\s*:|margin[a-z-]*\s*:\s*-\d/i;
 const UNSAFE_CLASS = /(^|\s)(sm:|md:|lg:)?(flex|inline-flex|grid|absolute|fixed|relative|sticky|float-\w+|gap-\S+|-?translate-\S+|z-\S+|-m[trblxy]?-\S+)(\s|$)/;
 
 /** Spacing and CSS hints for the top-level band structure. */
@@ -512,17 +529,24 @@ export function layoutHints(doc: EmailDocument): DesignHint[] {
   type Band = { id: string; type: string; top: number; bottom: number; bg: string; content: boolean };
   let prev: Band | null = null;
   let spacer = 0;
+  // The tint of a spacer-only section just above: it adds to the next band's top padding when the colours match.
+  let spacerBg: string | null = null;
   for (const raw of doc.blocks as unknown[]) {
     const b = raw as { id: string; type: string; height?: number; backgroundColor?: string; children?: unknown[]; columns?: unknown[]; width?: number } & Spaced;
-    if (b.type === "spacer") {
-      spacer += b.height ?? 0;
+    const only = (type: string) => b.type === "section" && (b.children?.length ?? 0) > 0 && (b.children as { type: string }[]).every((c) => c.type === type);
+    if (b.type === "spacer" || only("spacer")) {
+      // A section holding only spacers is space, in its own colour (a tinted band's top or bottom).
+      spacer += b.type === "spacer" ? (b.height ?? 0) : (b.children as { height?: number }[]).reduce((n, c) => n + (c.height ?? 0), 0) + padOf(b).top + padOf(b).bottom;
+      if (b.type === "section" && b.backgroundColor) spacerBg = b.backgroundColor.toLowerCase();
       continue;
     }
-    if (b.type === "divider") {
+    // A section holding only a hairline is a divider inside the gutter.
+    if (b.type === "divider" || (only("divider") && b.children!.length === 1 && padOf(b).top === 0)) {
       // A hairline separates; each side needs its own breathing room.
       if (prev && prev.content && (prev.type === "section" || prev.type === "row") && prev.bottom + spacer < 12) add("tight-spacing", "check", `Content sits ${prev.bottom + spacer}px above a divider; give the section above padding-y of 24 or more.`, prev.id);
-      prev = { id: b.id, type: "divider", top: 0, bottom: marginBottomOf(b), bg: "", content: false };
+      prev = { id: b.id, type: "divider", top: 0, bottom: b.type === "divider" ? marginBottomOf(b) : padOf(b).bottom, bg: "", content: false };
       spacer = 0;
+      spacerBg = null;
       continue;
     }
     const container = b.type === "section" || b.type === "row";
@@ -540,7 +564,8 @@ export function layoutHints(doc: EmailDocument): DesignHint[] {
     // A leaf (or a band with no side padding) straight in an edge-to-edge card touches the card's edges.
     if (bodyPad < 12 && cur.content && b.type !== "image") {
       if (!container && TAG[b.type]) add("edge-gutter", "fix", `A <${TAG[b.type]}> sits directly in the card with no side padding (body-padding is ${bodyPad}); put it inside a <Section padding-x={32}>.`, b.id);
-      else if (container && pad.left < 12 && !b.backgroundColor) add("edge-gutter", "check", `A ${b.type === "row" ? "<Row>" : "<Section>"} has ${pad.left}px side padding in an edge-to-edge card, so its content touches the edges; use padding-x={32}.`, b.id);
+      // A section holding only images is a photo meant to bleed to the edges.
+      else if (container && pad.left < 12 && !b.backgroundColor && !(kids.length > 0 && (kids as { type: string }[]).every((k) => k.type === "image"))) add("edge-gutter", "check", `A ${b.type === "row" ? "<Row>" : "<Section>"} has ${pad.left}px side padding in an edge-to-edge card, so its content touches the edges; use padding-x={32}.`, b.id);
     }
     // Rhythm is between bands (Sections, Rows). Loose top-level blocks in a
     // padded card space like paragraphs, with their own margins.
@@ -554,11 +579,13 @@ export function layoutHints(doc: EmailDocument): DesignHint[] {
         else if (gap > 96) add("loose-spacing", "check", `${gap}px of empty space between two sections (padding ${prev.bottom} + spacer ${spacer} + padding ${cur.top}); padding alone spaces sections, so drop the spacer or a margin.`, cur.id);
       } else if (prev.content && !sameBg) {
         // A colour change separates on its own; each band still needs room inside.
-        if (container && b.backgroundColor && cur.top < 16) add("tight-spacing", "check", `Content starts ${cur.top}px from the top of a coloured band; give it padding-y of 24 or more.`, cur.id);
+        const tintAbove = spacerBg === cur.bg ? spacer : 0;
+        if (container && b.backgroundColor && cur.top + tintAbove < 16) add("tight-spacing", "check", `Content starts ${cur.top}px from the top of a coloured band; give it padding-y of 24 or more.`, cur.id);
       }
     }
     prev = cur;
     spacer = 0;
+    spacerBg = null;
   }
   return out;
 }

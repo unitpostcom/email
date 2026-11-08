@@ -37,6 +37,8 @@ import { BRAND, BRAND_THEME, DEFAULT_LOGO_URL, type SampleTemplate } from "./sam
 export { BRAND, BRAND_THEME, DEFAULT_LOGO_URL, type SampleTemplate };
 import { TRANSACTIONAL_V2 } from "./samples-transactional-v2";
 import { MARKETING_V2 } from "./samples-marketing-v2";
+import { NEWSLETTER_REBUILDS, NEWSLETTERS_V2 } from "./samples-newsletters";
+import { MARKETING_REBUILDS, MARKETING_V3 } from "./samples-marketing-v3";
 
 
 
@@ -67,17 +69,23 @@ const STOCK = {
 
 
 
-// The standard brand logo block — centered, hosted PNG, capped to a tidy width.
-// Shared by every sample so the header mark is identical (and never broken) out
-// of the box.
-function logo(id: string, alt = "Unitpost"): SampleBlocksInput[number] {
+// The header mark of the original samples: the sender's name set as a centred
+// text wordmark. A template is a starting point for a customer's own brand, so
+// it carries a fictional name (or the template's {{product_name}} /
+// {{company_name}}) instead of a logo image: there is no image to swap, nothing
+// to break when images are blocked, and the author replaces one word. (It used
+// to be the Unitpost app mark, which read as our logo in customers' emails.)
+function wordmark(id: string, name: string): SampleBlocksInput[number] {
   return {
-    type: "image",
+    type: "text",
     id,
-    src: DEFAULT_LOGO_URL,
-    alt,
+    text: name,
     align: "center",
-    width: 48,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+    color: BRAND.ink,
+    marginBottom: 0,
   };
 }
 
@@ -377,7 +385,7 @@ const welcome: EmailDocument = EmailDocumentSchema.parse({
     { name: "get_started_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("welcome", 1), "{{product_name}}"),
+    wordmark(makeId("welcome", 1), "{{product_name}}"),
     { type: "spacer", id: makeId("welcome", 2), height: 24 },
     {
       type: "heading",
@@ -451,7 +459,7 @@ const passwordReset: EmailDocument = EmailDocumentSchema.parse({
     { name: "expiry_minutes", type: "number", source: "input" },
   ],
   blocks: [
-    logo(makeId("reset", 1)),
+    wordmark(makeId("reset", 1), "Northwind"),
     { type: "spacer", id: makeId("reset", 2), height: 24 },
     {
       type: "heading",
@@ -498,7 +506,7 @@ const emailVerification: EmailDocument = EmailDocumentSchema.parse({
     { name: "verification_code", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("verify", 1)),
+    wordmark(makeId("verify", 1), "Northwind"),
     { type: "spacer", id: makeId("verify", 2), height: 24 },
     {
       type: "heading",
@@ -569,7 +577,7 @@ const magicLink: EmailDocument = EmailDocumentSchema.parse({
     { name: "expiry_minutes", type: "number", source: "input" },
   ],
   blocks: [
-    logo(makeId("magic", 1)),
+    wordmark(makeId("magic", 1), "Northwind"),
     { type: "spacer", id: makeId("magic", 2), height: 24 },
     {
       type: "heading",
@@ -614,7 +622,7 @@ const receipt: EmailDocument = EmailDocumentSchema.parse({
     { name: "receipt_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("receipt", 1)),
+    wordmark(makeId("receipt", 1), "Lumen"),
     { type: "spacer", id: makeId("receipt", 2), height: 20 },
     {
       type: "text",
@@ -675,7 +683,7 @@ const invoice: EmailDocument = EmailDocumentSchema.parse({
     { name: "pay_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("inv", 1)),
+    wordmark(makeId("inv", 1), "Northwind"),
     { type: "spacer", id: makeId("inv", 2), height: 24 },
     {
       type: "heading",
@@ -755,7 +763,7 @@ const teamInvite: EmailDocument = EmailDocumentSchema.parse({
     { name: "accept_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("invite", 1)),
+    wordmark(makeId("invite", 1), "Northwind"),
     { type: "spacer", id: makeId("invite", 2), height: 24 },
     {
       type: "heading",
@@ -804,7 +812,7 @@ const shippingConfirmation: EmailDocument = EmailDocumentSchema.parse({
     { name: "track_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("ship", 1)),
+    wordmark(makeId("ship", 1), "Alder & Finch"),
     { type: "spacer", id: makeId("ship", 2), height: 20 },
     eyebrow("ship", 1, "ON THE WAY", BRAND.success),
     {
@@ -856,7 +864,7 @@ const subscriptionRenewal: EmailDocument = EmailDocumentSchema.parse({
     { name: "manage_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("renew", 1)),
+    wordmark(makeId("renew", 1), "Northwind"),
     { type: "spacer", id: makeId("renew", 2), height: 24 },
     {
       type: "heading",
@@ -906,7 +914,7 @@ const trialEnding: EmailDocument = EmailDocumentSchema.parse({
     { name: "upgrade_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("trial", 1), "{{product_name}}"),
+    wordmark(makeId("trial", 1), "{{product_name}}"),
     { type: "spacer", id: makeId("trial", 2), height: 24 },
     eyebrow("trial", 1, "TRIAL ENDING"),
     {
@@ -959,7 +967,7 @@ const securityAlert: EmailDocument = EmailDocumentSchema.parse({
     { name: "secure_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("sec", 1)),
+    wordmark(makeId("sec", 1), "Northwind"),
     { type: "spacer", id: makeId("sec", 2), height: 24 },
     {
       type: "heading",
@@ -1010,7 +1018,7 @@ const commentMention: EmailDocument = EmailDocumentSchema.parse({
     { name: "thread_url", type: "string", source: "input" },
   ],
   blocks: [
-    logo(makeId("mention", 1)),
+    wordmark(makeId("mention", 1), "Northwind"),
     { type: "spacer", id: makeId("mention", 2), height: 24 },
     {
       type: "heading",
@@ -1087,808 +1095,16 @@ const MARKETING_FOOTER_VARS = [
   { name: "company_address", type: "string" as const, source: "input" as const },
 ];
 
-const newsletter: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "This month's highlights, tips, and what's new.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "headline", type: "string", source: "input" },
-    { name: "cta_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("news", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("news", 2), height: 24 },
-    eyebrow("news", 1, "THE MONTHLY"),
-    {
-      type: "heading",
-      id: makeId("news", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "{{headline}}",
-    },
-    {
-      type: "text",
-      id: makeId("news", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, here's a quick roundup of everything worth knowing this month.",
-    },
-    { type: "spacer", id: makeId("news", 5), height: 24 },
-    // A compact three-up strip — the "at a glance" highlights, then the deeper
-    // detail below. Built from real columns so it stacks cleanly on mobile.
-    featureColumns("news", 1, [
-      { title: "Faster", caption: "A quicker dashboard, end to end." },
-      { title: "Smarter", caption: "Shortcuts that halve your workflow." },
-      { title: "Together", caption: "1,200 of you joined last month." },
-    ]),
-    { type: "spacer", id: makeId("news", 10), height: 20 },
-    {
-      type: "divider",
-      id: makeId("news", 11),
-      color: BRAND.border,
-    },
-    { type: "spacer", id: makeId("news", 12), height: 20 },
-    {
-      type: "section",
-      id: makeId("news", 6),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 24,
-      border: { radius: 12 },
-      children: [
-        {
-          type: "heading",
-          id: makeId("news", 13),
-          level: 3,
-          align: "left",
-          color: BRAND.ink,
-          text: "Feature spotlight",
-          marginBottom: 8,
-        },
-        {
-          type: "text",
-          id: makeId("news", 7),
-          align: "left",
-          fontSize: 15,
-          color: BRAND.body,
-          text: "We rebuilt the dashboard from the ground up — it now loads in a fraction of the time, and the pages you use most are one tap away.",
-          marginBottom: 0,
-        },
-      ],
-    },
-    { type: "spacer", id: makeId("news", 8), height: 24 },
-    brandButton(makeId("news", 9), "Read the full update", "{{cta_url}}"),
-  ],
-});
-
-const productAnnouncement: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "Introducing {{feature_name}} — now available to everyone.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "feature_name", type: "string", source: "input" },
-    { name: "cta_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    {
-      type: "image",
-      id: makeId("ann", 1),
-      src: STOCK.launch,
-      alt: "{{feature_name}}",
-      align: "center",
-      borderRadius: 12,
-    },
-    { type: "spacer", id: makeId("ann", 2), height: 28 },
-    {
-      type: "text",
-      id: makeId("ann", 3),
-      align: "center",
-      fontSize: 13,
-      color: BRAND.muted,
-      letterSpacing: 1,
-      fontWeight: "600",
-      text: "NEW",
-    },
-    {
-      type: "heading",
-      id: makeId("ann", 4),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "Say hello to {{feature_name}}",
-    },
-    {
-      type: "text",
-      id: makeId("ann", 5),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, we've been working on something we think you'll love. It's live in your account today.",
-    },
-    { type: "spacer", id: makeId("ann", 6), height: 24 },
-    brandButton(makeId("ann", 7), "Try it now", "{{cta_url}}"),
-    { type: "spacer", id: makeId("ann", 8), height: 28 },
-    {
-      type: "divider",
-      id: makeId("ann", 9),
-      color: BRAND.border,
-    },
-    { type: "spacer", id: makeId("ann", 10), height: 24 },
-    featureColumns("ann", 1, [
-      { title: "Instant", caption: "Live in your account right now." },
-      { title: "Built in", caption: "No setup — it just works." },
-      { title: "For everyone", caption: "On every plan, at no extra cost." },
-    ]),
-  ],
-});
-
-// A single "what we shipped" entry: a small caps eyebrow, a bold title, and one
-// line of copy. Built from leaf blocks so it renders identically in the canvas,
-// the sent email, and Outlook (no custom HTML). Reused for each July highlight.
-function shippedItem(
-  prefix: string,
-  n: number,
-  eyebrow: string,
-  title: string,
-  body: string,
-): SampleBlocksInput {
-  return [
-    {
-      type: "text",
-      id: makeId(`${prefix}-item${n}`, 1),
-      align: "left",
-      fontSize: 12,
-      color: BRAND.muted,
-      letterSpacing: 1,
-      fontWeight: "600",
-      text: eyebrow,
-    },
-    {
-      type: "heading",
-      id: makeId(`${prefix}-item${n}`, 2),
-      level: 3,
-      align: "left",
-      color: BRAND.ink,
-      text: title,
-      marginBottom: 8,
-    },
-    {
-      type: "text",
-      id: makeId(`${prefix}-item${n}`, 3),
-      align: "left",
-      fontSize: 15,
-      color: BRAND.body,
-      text: body,
-    },
-  ];
-}
-
-const julyNewsletter: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "What we shipped in July — plus what's next.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "changelog_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("july", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("july", 2), height: 24 },
-    {
-      type: "text",
-      id: makeId("july", 3),
-      align: "center",
-      fontSize: 13,
-      color: BRAND.muted,
-      letterSpacing: 1,
-      fontWeight: "600",
-      text: "JULY · PRODUCT UPDATE",
-    },
-    {
-      type: "heading",
-      id: makeId("july", 4),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "Here's what we shipped in July",
-    },
-    {
-      type: "text",
-      id: makeId("july", 5),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, it was a busy month. Here are the three biggest things we built for you — all live in your account today.",
-    },
-    { type: "spacer", id: makeId("july", 6), height: 8 },
-    // The "what we shipped" list — each highlight in its own tinted section with
-    // a hairline divider between them, composed from leaf blocks.
-    {
-      type: "section",
-      id: makeId("july", 7),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 28,
-      border: { radius: 12 },
-      children: [
-        ...shippedItem(
-          "july",
-          1,
-          "FASTER SENDS",
-          "Batch & scheduled sending",
-          "Queue a whole segment and pick the exact moment it goes out — with a hard confirmation so nothing ships by accident.",
-        ),
-        { type: "spacer", id: makeId("july-div", 1), height: 20 },
-        { type: "divider", id: makeId("july-div", 2), color: BRAND.border },
-        { type: "spacer", id: makeId("july-div", 3), height: 20 },
-        ...shippedItem(
-          "july",
-          2,
-          "DELIVERABILITY",
-          "Automatic suppression list",
-          "Hard bounces and complaints are now suppressed for you automatically, so your sender reputation stays clean without any manual list hygiene.",
-        ),
-        { type: "spacer", id: makeId("july-div", 4), height: 20 },
-        { type: "divider", id: makeId("july-div", 5), color: BRAND.border },
-        { type: "spacer", id: makeId("july-div", 6), height: 20 },
-        ...shippedItem(
-          "july",
-          3,
-          "TEMPLATES",
-          "React & visual editor",
-          "Design once in the visual builder or in code — the same document renders pixel-for-pixel across every inbox, Outlook included.",
-        ),
-      ],
-    },
-    { type: "spacer", id: makeId("july", 8), height: 28 },
-    brandButton(makeId("july", 9), "Read the full changelog", "{{changelog_url}}"),
-    { type: "spacer", id: makeId("july", 10), height: 8 },
-    {
-      type: "text",
-      id: makeId("july", 11),
-      align: "center",
-      fontSize: 14,
-      color: BRAND.muted,
-      text: "More coming in August — inbound parsing and topic-level unsubscribes are next up.",
-    },
-  ],
-});
-
-const eventInvite: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "You're invited: {{event_name}} on {{event_date}}.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "event_name", type: "string", source: "input" },
-    { name: "event_date", type: "string", source: "input" },
-    { name: "register_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    {
-      type: "image",
-      id: makeId("event", 1),
-      src: STOCK.event,
-      alt: "{{event_name}}",
-      align: "center",
-      borderRadius: 12,
-    },
-    { type: "spacer", id: makeId("event", 2), height: 28 },
-    {
-      type: "text",
-      id: makeId("event", 3),
-      align: "center",
-      fontSize: 13,
-      color: BRAND.muted,
-      letterSpacing: 1,
-      fontWeight: "600",
-      text: "YOU'RE INVITED",
-    },
-    {
-      type: "heading",
-      id: makeId("event", 4),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "{{event_name}}",
-    },
-    {
-      type: "text",
-      id: makeId("event", 5),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, join us on {{event_date}} for a live session. Save your spot — seats are limited.",
-    },
-    { type: "spacer", id: makeId("event", 6), height: 24 },
-    brandButton(makeId("event", 7), "Save my spot", "{{register_url}}"),
-  ],
-});
-
-const discountOffer: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "A little something for you — {{discount}} off, this week only.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "discount", type: "string", source: "input" },
-    { name: "promo_code", type: "string", source: "input" },
-    { name: "shop_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("offer", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("offer", 2), height: 24 },
-    {
-      type: "heading",
-      id: makeId("offer", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "{{discount}} off — just for you",
-    },
-    {
-      type: "text",
-      id: makeId("offer", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, thanks for being with us. Here's a little thank-you — use it before the week is out.",
-    },
-    { type: "spacer", id: makeId("offer", 5), height: 20 },
-    {
-      type: "section",
-      id: makeId("offer", 6),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 24,
-      border: { radius: 12 },
-      children: [
-        {
-          type: "text",
-          id: makeId("offer", 7),
-          align: "center",
-          fontSize: 13,
-          color: BRAND.muted,
-          letterSpacing: 1,
-          fontWeight: "600",
-          text: "YOUR CODE",
-          marginBottom: 8,
-        },
-        {
-          type: "heading",
-          id: makeId("offer", 8),
-          level: 2,
-          align: "center",
-          color: BRAND.ink,
-          letterSpacing: 3,
-          text: "{{promo_code}}",
-          marginBottom: 0,
-        },
-      ],
-    },
-    { type: "spacer", id: makeId("offer", 9), height: 24 },
-    brandButton(makeId("offer", 10), "Shop now", "{{shop_url}}"),
-  ],
-});
-
-const reEngagement: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "We miss you, {{first_name}} — here's what's new.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "product_name", type: "string", source: "input" },
-    { name: "return_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("reeng", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("reeng", 2), height: 24 },
-    {
-      type: "heading",
-      id: makeId("reeng", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "We miss you, {{first_name}}",
-    },
-    {
-      type: "text",
-      id: makeId("reeng", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "It's been a while. We've shipped a lot since you last stopped by {{product_name}} — come see what's new.",
-    },
-    { type: "spacer", id: makeId("reeng", 5), height: 16 },
-    {
-      type: "section",
-      id: makeId("reeng", 6),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 24,
-      border: { radius: 12 },
-      children: [
-        {
-          type: "markdown",
-          id: makeId("reeng", 7),
-          fontSize: 15,
-          color: BRAND.body,
-          markdown:
-            "**Faster than ever** — the whole experience got a speed pass.\n\n**New integrations** — connect the tools you already use.\n\n**Simpler workflows** — fewer clicks to get things done.",
-        },
-      ],
-    },
-    { type: "spacer", id: makeId("reeng", 8), height: 24 },
-    ctaBand(
-      "reeng",
-      1,
-      "Pick up where you left off",
-      "Your account and data are exactly as you left them.",
-      "Take another look",
-      "{{return_url}}",
-    ),
-    { type: "spacer", id: makeId("reeng", 10), height: 12 },
-    {
-      type: "text",
-      id: makeId("reeng", 11),
-      align: "center",
-      fontSize: 14,
-      color: BRAND.muted,
-      text: "Not for you anymore? No hard feelings — you can unsubscribe below.",
-    },
-  ],
-});
-
-const feedbackSurvey: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "Got a minute? Tell us how we're doing.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "product_name", type: "string", source: "input" },
-    { name: "survey_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("survey", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("survey", 2), height: 24 },
-    {
-      type: "heading",
-      id: makeId("survey", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "How are we doing?",
-    },
-    {
-      type: "text",
-      id: makeId("survey", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, we're always trying to make {{product_name}} better. A quick two-minute survey would mean a lot — and it genuinely shapes what we build next.",
-    },
-    { type: "spacer", id: makeId("survey", 5), height: 24 },
-    brandButton(makeId("survey", 6), "Share your feedback", "{{survey_url}}"),
-    { type: "spacer", id: makeId("survey", 7), height: 16 },
-    {
-      type: "text",
-      id: makeId("survey", 8),
-      align: "center",
-      fontSize: 14,
-      color: BRAND.muted,
-      text: "Thanks for helping us improve. Every response is read by a real person on the team.",
-    },
-  ],
-});
-
 // A waitlist "you're in" invite — the anticipation-builder. Eyebrow, a warm
 // headline, and a CTA band to claim the spot, closed with a scarcity line.
-const waitlistInvite: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "You're off the waitlist — your spot is ready.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "product_name", type: "string", source: "input" },
-    { name: "claim_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("wait", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("wait", 2), height: 24 },
-    eyebrow("wait", 1, "YOU'RE IN"),
-    {
-      type: "heading",
-      id: makeId("wait", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "Your spot is ready, {{first_name}}",
-    },
-    {
-      type: "text",
-      id: makeId("wait", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Thanks for waiting. {{product_name}} is ready for you — claim your spot and jump straight in.",
-    },
-    { type: "spacer", id: makeId("wait", 5), height: 24 },
-    ctaBand(
-      "wait",
-      1,
-      "Claim your early-access spot",
-      "It's reserved for you — no code needed.",
-      "Get started",
-      "{{claim_url}}",
-    ),
-    { type: "spacer", id: makeId("wait", 6), height: 12 },
-    {
-      type: "text",
-      id: makeId("wait", 7),
-      align: "center",
-      fontSize: 14,
-      color: BRAND.muted,
-      text: "Spots are released in small batches, so we'd grab yours in the next few days.",
-    },
-  ],
-});
-
 // An abandoned-cart nudge — a compact receipt of left-behind items (thumb +
 // name + price) and a return-to-cart CTA.
-const abandonedCart: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "You left 3 items behind — they're still in your cart.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "item_name", type: "string", source: "input" },
-    { name: "cart_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("cart", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("cart", 2), height: 20 },
-    {
-      type: "heading",
-      id: makeId("cart", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "You left something behind",
-    },
-    {
-      type: "text",
-      id: makeId("cart", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, {{item_name}} and 2 more are still in your cart.",
-    },
-    { type: "spacer", id: makeId("cart", 5), height: 16 },
-    cartLine("cart", 1, {
-      src: STOCK.product,
-      name: "{{item_name}}",
-      meta: "Navy · M",
-      price: "$78",
-    }),
-    { type: "spacer", id: makeId("cart", 14), height: 8 },
-    cartLine("cart", 2, {
-      src: STOCK.jacket,
-      name: "Wool overshirt",
-      meta: "Camel · S",
-      price: "$128",
-    }),
-    { type: "spacer", id: makeId("cart", 16), height: 8 },
-    keyValueRow("cart", 1, [{ label: "Subtotal", value: "$248" }]),
-    { type: "spacer", id: makeId("cart", 6), height: 20 },
-    brandButton(makeId("cart", 7), "Return to your cart", "{{cart_url}}"),
-    { type: "spacer", id: makeId("cart", 8), height: 12 },
-    {
-      type: "text",
-      id: makeId("cart", 9),
-      align: "center",
-      fontSize: 14,
-      color: BRAND.muted,
-      text: "Carts don't hold forever — popular items can sell out.",
-    },
-  ],
-});
-
 // A customer case-study / social-proof send — a quote callout, a results strip,
 // and a read-the-story CTA. The most "trust-building" marketing template.
-const caseStudy: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "How {{customer_name}} got results with {{product_name}}.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "product_name", type: "string", source: "input" },
-    { name: "customer_name", type: "string", source: "input" },
-    { name: "story_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("case", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("case", 2), height: 24 },
-    eyebrow("case", 1, "CUSTOMER STORY"),
-    {
-      type: "heading",
-      id: makeId("case", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "How {{customer_name}} did it",
-    },
-    {
-      type: "text",
-      id: makeId("case", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, we sat down with the team at {{customer_name}} to hear how {{product_name}} changed the way they work.",
-    },
-    { type: "spacer", id: makeId("case", 5), height: 20 },
-    {
-      type: "section",
-      id: makeId("case", 6),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 24,
-      border: { radius: 12 },
-      children: [
-        {
-          type: "text",
-          id: makeId("case", 7),
-          align: "left",
-          fontSize: 17,
-          color: BRAND.ink,
-          text: "“It paid for itself in the first month. We can't imagine going back.”",
-          marginBottom: 6,
-        },
-        {
-          type: "text",
-          id: makeId("case", 8),
-          align: "left",
-          fontSize: 13,
-          color: BRAND.muted,
-          text: "— Head of Growth, {{customer_name}}",
-          marginBottom: 0,
-        },
-      ],
-    },
-    { type: "spacer", id: makeId("case", 9), height: 20 },
-    featureColumns("case", 1, [
-      { title: "3×", caption: "Faster turnaround." },
-      { title: "40%", caption: "Lower costs." },
-      { title: "2 wks", caption: "To full rollout." },
-    ]),
-    { type: "spacer", id: makeId("case", 10), height: 24 },
-    brandButton(makeId("case", 11), "Read the full story", "{{story_url}}"),
-  ],
-});
-
 // A post-event / webinar recap — thanks-for-joining, a link to the recording,
 // and a next-step CTA. The follow-up companion to the event invite.
-const webinarRecap: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "Thanks for joining — here's the recording.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "event_name", type: "string", source: "input" },
-    { name: "recording_url", type: "string", source: "input" },
-    { name: "cta_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("recap", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("recap", 2), height: 24 },
-    eyebrow("recap", 1, "THANKS FOR JOINING"),
-    {
-      type: "heading",
-      id: makeId("recap", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "The {{event_name}} recording is ready",
-    },
-    {
-      type: "text",
-      id: makeId("recap", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, thanks for coming to {{event_name}}. Missed a moment — or want to share it with a colleague? The full recording is up.",
-    },
-    { type: "spacer", id: makeId("recap", 5), height: 24 },
-    brandButton(makeId("recap", 6), "Watch the recording", "{{recording_url}}"),
-    { type: "spacer", id: makeId("recap", 7), height: 28 },
-    {
-      type: "divider",
-      id: makeId("recap", 8),
-      color: BRAND.border,
-    },
-    { type: "spacer", id: makeId("recap", 9), height: 20 },
-    {
-      type: "text",
-      id: makeId("recap", 10),
-      align: "center",
-      color: BRAND.body,
-      text: "Ready to put it into practice? Here's the best next step.",
-    },
-    { type: "spacer", id: makeId("recap", 11), height: 16 },
-    brandButton(makeId("recap", 12), "Get started", "{{cta_url}}"),
-  ],
-});
-
 // A referral / invite-a-friend send — a warm ask backed by a clear incentive in
 // a tinted callout, with a share CTA. The growth-loop template.
-const referral: EmailDocument = EmailDocumentSchema.parse({
-  category: "marketing",
-  previewText: "Give {{reward}}, get {{reward}} — invite a friend.",
-  theme: BRAND_THEME,
-  variables: [
-    { name: "first_name", type: "string", source: "contact", contactField: "first_name" },
-    { name: "product_name", type: "string", source: "input" },
-    { name: "reward", type: "string", source: "input" },
-    { name: "referral_url", type: "string", source: "input" },
-    ...MARKETING_FOOTER_VARS,
-  ],
-  blocks: [
-    logo(makeId("ref", 1), "{{company_name}}"),
-    { type: "spacer", id: makeId("ref", 2), height: 24 },
-    {
-      type: "heading",
-      id: makeId("ref", 3),
-      level: 1,
-      align: "center",
-      color: BRAND.ink,
-      text: "Give {{reward}}, get {{reward}}",
-    },
-    {
-      type: "text",
-      id: makeId("ref", 4),
-      align: "center",
-      color: BRAND.body,
-      text: "Hi {{first_name}}, love using {{product_name}}? Share it with a friend — when they join, you both get {{reward}}.",
-    },
-    { type: "spacer", id: makeId("ref", 5), height: 20 },
-    {
-      type: "section",
-      id: makeId("ref", 6),
-      backgroundColor: BRAND.tint,
-      paddingX: 28,
-      paddingY: 24,
-      border: { radius: 12 },
-      children: [
-        {
-          type: "text",
-          id: makeId("ref", 7),
-          align: "center",
-          fontSize: 13,
-          color: BRAND.muted,
-          letterSpacing: 1,
-          fontWeight: "600",
-          text: "THE DEAL",
-          marginBottom: 8,
-        },
-        {
-          type: "heading",
-          id: makeId("ref", 8),
-          level: 2,
-          align: "center",
-          color: BRAND.ink,
-          text: "{{reward}} for you, {{reward}} for them",
-          marginBottom: 0,
-        },
-      ],
-    },
-    { type: "spacer", id: makeId("ref", 9), height: 24 },
-    brandButton(makeId("ref", 10), "Share your link", "{{referral_url}}"),
-  ],
-});
-
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -1911,22 +1127,15 @@ const SAMPLE_VALUES: Record<string, Record<string, string>> = {
   "trial-ending": { first_name: "Ada", product_name: "Northwind", days_left: "3", upgrade_url: `${EX}/upgrade` },
   "security-alert": { first_name: "Ada", device: "Chrome on macOS", location: "Lisbon, Portugal", sign_in_time: "Today at 09:41", secure_url: `${EX}/security` },
   "comment-mention": { first_name: "Ada", actor_name: "Priya Natarajan", context_name: "Q4 launch plan", comment_body: "Can you take a look at the pricing section before Thursday? I think we're underselling the free plan.", thread_url: `${EX}/thread` },
-  newsletter: { first_name: "Jules", headline: "What we shipped in October", cta_url: `${EX}/update`, ...COMPANY },
-  "july-newsletter": { first_name: "Jules", changelog_url: `${EX}/changelog`, ...COMPANY },
-  "product-announcement": { first_name: "Jules", feature_name: "Smart folders", cta_url: `${EX}/folders`, ...COMPANY },
-  "event-invite": { first_name: "Jules", event_name: "Design Systems Live", event_date: "Thu 20 Nov, 10:00 PT", register_url: `${EX}/register`, ...COMPANY },
-  "discount-offer": { first_name: "Maya", discount: "20%", promo_code: "THANKS20", shop_url: `${EX}/shop`, ...COMPANY },
-  "re-engagement": { first_name: "Jules", product_name: "Northwind", return_url: `${EX}/app`, ...COMPANY },
-  "feedback-survey": { first_name: "Jules", product_name: "Northwind", survey_url: `${EX}/survey`, ...COMPANY },
-  "waitlist-invite": { first_name: "Jules", product_name: "Northwind", claim_url: `${EX}/claim`, ...COMPANY },
-  "abandoned-cart": { first_name: "Maya", item_name: "Linen crew tee", cart_url: `${EX}/cart`, ...COMPANY },
-  "case-study": { first_name: "Jules", product_name: "Northwind", customer_name: "Lumen", story_url: `${EX}/story`, ...COMPANY },
-  "webinar-recap": { first_name: "Jules", event_name: "Design Systems Live", recording_url: `${EX}/recording`, cta_url: `${EX}/start`, ...COMPANY },
-  referral: { first_name: "Jules", product_name: "Northwind", reward: "$20", referral_url: `${EX}/refer`, ...COMPANY },
 };
 
 type Original = Omit<SampleTemplate, "sampleValues">;
-const ORIGINAL: readonly Original[] = [
+const rebuilt = (key: string): SampleTemplate => {
+  const t = [...NEWSLETTER_REBUILDS, ...MARKETING_REBUILDS].find((r) => r.key === key);
+  if (!t) throw new Error(`samples: no rebuilt sample "${key}"`);
+  return t;
+};
+const ORIGINAL: readonly (Original | SampleTemplate)[] = [
   { key: "welcome", name: "Welcome", category: "transactional", subject: "Welcome to {{product_name}}!", design: welcome },
   { key: "email-verification", name: "Email verification", category: "transactional", subject: "Confirm your email address", design: emailVerification },
   { key: "magic-link", name: "Magic sign-in link", category: "transactional", subject: "Your sign-in link", design: magicLink },
@@ -1939,27 +1148,30 @@ const ORIGINAL: readonly Original[] = [
   { key: "trial-ending", name: "Trial ending", category: "transactional", subject: "Your trial ends in {{days_left}} days", design: trialEnding },
   { key: "security-alert", name: "Security alert", category: "transactional", subject: "New sign-in to your account", design: securityAlert },
   { key: "comment-mention", name: "Comment mention", category: "transactional", subject: "{{actor_name}} mentioned you", design: commentMention },
-  { key: "newsletter", name: "Newsletter", category: "marketing", subject: "{{headline}}", design: newsletter },
-  { key: "july-newsletter", name: "July newsletter", category: "marketing", subject: "What we shipped in July", design: julyNewsletter },
-  { key: "product-announcement", name: "Product announcement", category: "marketing", subject: "Introducing {{feature_name}}", design: productAnnouncement },
-  { key: "event-invite", name: "Event invite", category: "marketing", subject: "You're invited: {{event_name}}", design: eventInvite },
-  { key: "discount-offer", name: "Discount offer", category: "marketing", subject: "{{discount}} off — this week only", design: discountOffer },
-  { key: "re-engagement", name: "Re-engagement", category: "marketing", subject: "We miss you", design: reEngagement },
-  { key: "feedback-survey", name: "Feedback survey", category: "marketing", subject: "Got a minute? Tell us how we're doing", design: feedbackSurvey },
-  { key: "waitlist-invite", name: "Waitlist invite", category: "marketing", subject: "You're off the waitlist", design: waitlistInvite },
-  { key: "abandoned-cart", name: "Abandoned cart", category: "marketing", subject: "You left something behind", design: abandonedCart },
-  { key: "case-study", name: "Customer story", category: "marketing", subject: "How {{customer_name}} did it", design: caseStudy },
-  { key: "webinar-recap", name: "Webinar recap", category: "marketing", subject: "Thanks for joining — here's the recording", design: webinarRecap },
-  { key: "referral", name: "Referral invite", category: "marketing", subject: "Give {{reward}}, get {{reward}}", design: referral },
+  // Rebuilt in the house style (samples-newsletters.ts, samples-marketing-v3.ts); same keys, same place.
+  rebuilt("newsletter"),
+  rebuilt("july-newsletter"),
+  rebuilt("product-announcement"),
+  rebuilt("event-invite"),
+  rebuilt("discount-offer"),
+  rebuilt("re-engagement"),
+  rebuilt("feedback-survey"),
+  rebuilt("waitlist-invite"),
+  rebuilt("abandoned-cart"),
+  rebuilt("case-study"),
+  rebuilt("webinar-recap"),
+  rebuilt("referral"),
 ];
 
 // The full registry: the original set first, then the v2 sets. Order here is
 // the fallback display order for pickers that don't group; the public gallery
 // (apps/web lib/templates/library.ts) curates its own order and grouping.
 export const SAMPLE_TEMPLATES: readonly SampleTemplate[] = [
-  ...ORIGINAL.map((t) => ({ ...t, sampleValues: SAMPLE_VALUES[t.key] ?? {} })),
+  ...ORIGINAL.map((t) => ("sampleValues" in t ? t : { ...t, sampleValues: SAMPLE_VALUES[t.key] ?? {} })),
   ...TRANSACTIONAL_V2,
   ...MARKETING_V2,
+  ...NEWSLETTERS_V2,
+  ...MARKETING_V3,
 ];
 
 export function getSampleTemplate(key: string): SampleTemplate | undefined {

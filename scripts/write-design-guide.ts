@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { emailDesignGuideMarkdown } from "../src/design-guide.ts";
+import { emailDesignGuideMarkdown } from "../src/design-guide-doc.ts";
 
 const file = join(dirname(fileURLToPath(import.meta.url)), "..", "EMAIL_DESIGN.md");
 writeFileSync(file, emailDesignGuideMarkdown());

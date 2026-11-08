@@ -48,6 +48,8 @@ export * from "./layouts";
 // starter emails), the themed bands and palette it builds from, our hosted
 // icons/placeholders, and the design lint that checks its measurable rules.
 export * from "./design-guide";
+// EMAIL_DESIGN.md generator (moved out of design-guide.ts in 0.6.0; same export).
+export * from "./design-guide-doc";
 export { BAND_GUTTER, NEUTRAL_PALETTE, brandPalette, type BandBrand, type BrandPalette } from "./bands";
 export * as emailBands from "./bands";
 export * from "./color";

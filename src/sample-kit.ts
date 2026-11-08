@@ -14,17 +14,17 @@
 // existing imports keep working.
 
 import * as bands from "./bands";
-import { BAND_GUTTER, brandPalette, type BandBlock, type BrandPalette } from "./bands";
+import { BAND_GUTTER, brandPalette, type BandBlock, type BrandPalette, type Cta } from "./bands";
 import { EMAIL_ICON_SIZE, emailIconUrl, type EmailIconName } from "./email-assets";
-import { EmailDocumentSchema, type Block, type EmailDocument } from "./schema";
+import { EmailDocumentSchema, type Block, type EmailDocument, type InlineMark, type InlineRun } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Brand defaults shared by both sample generations
 // ---------------------------------------------------------------------------
 
-// Unitpost brand palette — keep every sample on-identity and in light mode by
-// default. Mirrors the app tokens (near-black primary on white, zinc grays).
-// Authors can recolor in the editor; these are just good-looking defaults.
+// Neutral palette of the original samples — light mode by default, near-black
+// primary on white with zinc grays. Authors recolour in the editor; these are
+// just good-looking defaults.
 export const BRAND = {
   ink: "#18181b", // primary text + buttons (zinc-900, ≈ --primary)
   onInk: "#ffffff", // text on the ink button
@@ -39,10 +39,12 @@ export const BRAND = {
   successTint: "#f0fdf4", // success section fill
 } as const;
 
-// The default brand logo used in sample templates — a CDN/prod-hosted PNG (the
-// Unitpost app mark). PNG (not SVG) so it resolves in Gmail/Outlook, at an
-// absolute origin so it loads in every inbox AND in the logged-out gallery
-// preview. Authors swap it for their own logo in the editor.
+// The Unitpost app mark as a hosted PNG (PNG so it resolves in Gmail/Outlook,
+// at an absolute origin so it loads in every inbox and in the logged-out
+// gallery). No sample template uses it: a template is the start of a
+// CUSTOMER's email, so each one carries a text wordmark of a fictional brand
+// (or its {{product_name}} / {{company_name}}) instead of our logo. It stays
+// exported for the editor's logo layouts and the callers that look for it.
 export const DEFAULT_LOGO_URL =
   "https://www.unitpost.com/web-app-manifest-192x192.png";
 
@@ -111,11 +113,11 @@ export const STOCK_IDS = {
   laptopDark: "photo-1531297484001-80022131f5a1",
   codeScreen: "photo-1555066931-4365d14bab8c",
   // places and travel
-  mountainLake: "photo-1500530855697-b586d89ba3ee",
+  desertRoad: "photo-1500530855697-b586d89ba3ee",
   valley: "photo-1506744038136-46273834b3fb",
-  hiker: "photo-1464822759023-fed622ff2c3b",
-  beach: "photo-1476514525535-07fb3b4ae5f1",
-  airplane: "photo-1502920917128-1aa500764cbd",
+  pineRidge: "photo-1464822759023-fed622ff2c3b",
+  lakeBoat: "photo-1476514525535-07fb3b4ae5f1",
+  cameraWhite: "photo-1502920917128-1aa500764cbd",
   cityStreet: "photo-1513635269975-59663e0ac1ad",
   houseModern: "photo-1600585154340-be6161a56a0c",
   apartment: "photo-1560448204-e02f11c3d0e2",
@@ -127,16 +129,90 @@ export const STOCK_IDS = {
   party: "photo-1530103862676-de8c9debad1d",
   crowd: "photo-1501281668745-f7f57925c3b4",
   // food
-  coffee: "photo-1511988617509-a57c8a288659",
+  friendsLaughing: "photo-1511988617509-a57c8a288659",
   pizza: "photo-1565299624946-b28f40a0ae38",
   salad: "photo-1546069901-ba9599a7e63c",
   plate: "photo-1504674900247-0877df9cc836",
   // abstract
+  // Despite the name, a photo of a real analytics product's dashboard: no
+  // template uses it (owner review 2026-11-05: a real product UI in a
+  // customer template reads wrong). Pick by looking, not by name.
   gradient3d: "photo-1560472354-b33ff0c44a43",
   launch: "photo-1620121692029-d088224ddc74",
   texture: "photo-1557683316-973673baf926",
   event: "photo-1505373877841-8d25f7d46678",
   desk: "photo-1497032628192-86f99bcd76bc",
+  // Added 2026-11-06 for the openers (.audit/email-design-2026-11-06/stock-picks.md),
+  // each named by what it shows after looking at it on a contact sheet.
+  // 3D renders and abstract art: banners, panels, cards.
+  softDiscs: "photo-1622547748225-3fc4abd2cca0",
+  pastelSphere: "photo-1618005198919-d3d4b5a92ead",
+  blueRuffle: "photo-1627637819794-fba32f82be16",
+  lavenderCurve: "photo-1672080070762-764c74ee1227",
+  colourBlocks: "photo-1651611243377-2c15b94ad613",
+  tealSpiral: "photo-1650943574955-ac02c65cfc71",
+  steelWaves: "photo-1653481351422-91ceed9c94bd",
+  glowCubes: "photo-1622737133809-d95047b9e673",
+  violetGlass: "photo-1671519821564-ced7e41ee7ae",
+  violetFolds: "photo-1757167301187-5777536c564c",
+  mintCubes: "photo-1653549892798-c8596ad08ee6",
+  lavenderSpiral: "photo-1618172193763-c511deb635ca",
+  violetPanels: "photo-1671869203911-cdaab14b9811",
+  greyWave: "photo-1676731820551-4b2988ae4e29",
+  violetRibbon: "photo-1617791160505-6f00504e3519",
+  spheresOnBlue: "photo-1710244182004-1c708b3f146d",
+  pastelShapes: "photo-1706588465813-bd9939a3b73e",
+  lavenderPills: "photo-1626544827763-d516dce335e2",
+  peachShapes: "photo-1645708759654-c90504369738",
+  // Soft gradients and painted textures.
+  orangeBlur: "photo-1604079628040-94301bb21b91",
+  orangeWaves: "photo-1761429528505-e153940c62a1",
+  pinkSwirl: "photo-1604076913837-52ab5629fba9",
+  violetWave: "photo-1618005182384-a83a8bd57fbe",
+  violetDusk: "photo-1635776062127-d379bfcba9f8",
+  watercolour: "photo-1564951434112-64d74cc2a2d7",
+  skyBlush: "photo-1554034483-04fda0d3507b",
+  // Food, coffee, bakery.
+  tableSpread: "photo-1670710028442-06a2df4bdf85",
+  fruitFlatlay: "photo-1490818387583-1baba5e638af",
+  soupChillies: "photo-1612192666307-8dbd0c8a535a",
+  croissants: "photo-1623334044303-241021148842",
+  coffeeOnMint: "photo-1458819714733-e5ab3d536722",
+  espressoDark: "photo-1504630083234-14187a9df0f5",
+  takeawayCup: "photo-1598908314732-07113901949e",
+  cupOnWood: "photo-1595434091143-b375ced5fe5c",
+  latteArt: "photo-1502462041640-b3d7e50d0662",
+  // Gifts and celebration.
+  giftPink: "photo-1549465220-1a8b9238cd48",
+  giftKraft: "photo-1513201099705-a9746e1e201f",
+  giftSage: "photo-1707944145479-12755f0434d8",
+  confettiTeal: "photo-1513151233558-d860c5398176",
+  confettiBlue: "photo-1584890132374-d69d5d01483e",
+  confettiPink: "photo-1559456474-507a0d806eb7",
+  // Books and writing.
+  openBooks: "photo-1610116306796-6fea9f4fae38",
+  readingSun: "photo-1506880018603-83d5b814b5a6",
+  readingBlanket: "photo-1630343710506-89f8b9f21d31",
+  bookStack: "photo-1497633762265-9d179a990aa6",
+  writingHand: "photo-1517971071642-34a2d3ecc9cd",
+  fountainPen: "photo-1462642109801-4ac2971a3a51",
+  // Nature and city.
+  peakDusk: "photo-1554629947-334ff61d85dc",
+  seaOfClouds: "photo-1506905925346-21bda4d32df4",
+  waveCurl: "photo-1505142468610-359e7d316be0",
+  oceanAerial: "photo-1518837695005-2083093ee35b",
+  cityNight: "photo-1514439827219-9137a0b99245",
+  neonStreet: "photo-1580895456895-cfdf02e4c23f",
+  // People.
+  handsTogether: "photo-1582213782179-e0d53f98f2ca",
+  friendsLying: "photo-1625283518288-00362afc8663",
+  hikersGroup: "photo-1539635278303-d4002c07eae3",
+  twoFriends: "photo-1530047139082-5435ca3c4614",
+  // Things.
+  headphonesDesk: "photo-1546435770-a3e426bf472b",
+  plantShelf: "photo-1604762524889-3e2fcc145683",
+  snakePlant: "photo-1567225557594-88d73e55f2cb",
+  worldMap: "photo-1524661135-423995f22d0b",
 } as const;
 
 export type StockName = keyof typeof STOCK_IDS;
@@ -149,6 +225,23 @@ export const stockLandscape = (name: StockName) => stockUrl(STOCK_IDS[name], 960
 export const stockSquare = (name: StockName) => stockUrl(STOCK_IDS[name], 800, 800);
 /** A person (1:1, shown round). */
 export const stockAvatar = (name: StockName) => stockUrl(STOCK_IDS[name], 240, 240);
+/** A masthead or banner strip (about 3:1) at twice the 536px band width. */
+export const stockBanner = (name: StockName) => stockUrl(STOCK_IDS[name], 1072, 380);
+/** Art inside a panel (472px wide, about 16:9). */
+export const stockPanel = (name: StockName) => stockUrl(STOCK_IDS[name], 944, 520);
+/** A thumbnail for story rows (152px, 4:3). */
+export const stockThumb = (name: StockName) => stockUrl(STOCK_IDS[name], 304, 228);
+/** A card or media-row picture (about 3:2). */
+export const stockCard = (name: StockName) => stockUrl(STOCK_IDS[name], 520, 348);
+/** Any exact crop, so the picture is cut to its frame at the source. */
+export const stockCrop = (name: StockName, width: number, height: number) => stockUrl(STOCK_IDS[name], width, height);
+/**
+ * A crop darkened at the source (an ink blend baked into the picture), for
+ * live text set over it with Section backgroundImage. The scrim is in the
+ * image itself, so it holds in every client, Outlook's VML included.
+ */
+export const stockShaded = (name: StockName, width: number, height: number, alpha = 45) =>
+  `${stockUrl(STOCK_IDS[name], width, height)}&blend=0b1220&blend-alpha=${alpha}&blend-mode=normal`;
 
 // ---------------------------------------------------------------------------
 // Palettes
@@ -566,6 +659,139 @@ export function peopleColumns(p: BrandPalette, people: { image: string; name: st
     ),
     { paddingX: BAND_GUTTER, paddingY: 8, columnGap: 8 },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter pieces (samples-newsletters.ts)
+// ---------------------------------------------------------------------------
+
+/** The serif stack of EMAIL_DESIGN.md, for letters and essays. */
+export const SERIF = "Georgia, 'Times New Roman', Times, serif";
+
+/** One piece of inline copy: plain text, or text with a bold, colour or link mark. */
+export type RichPart = string | { text: string; bold?: boolean; color?: string; href?: string };
+
+/** Inline runs for a Text block or a list item (`text` mirrors the runs, as the schema expects). */
+export function runs(parts: RichPart[]): { text: string; content?: InlineRun[] } {
+  const content: InlineRun[] = parts.map((part) => {
+    if (typeof part === "string") return { text: part };
+    const marks: InlineMark = {};
+    if (part.bold) marks.bold = true;
+    if (part.color) marks.color = part.color;
+    if (part.href) marks.link = part.href;
+    return { text: part.text, marks };
+  });
+  const plain = content.map((r) => r.text).join("");
+  // Unmarked copy stays plain text, as the editor and parseTsx store it.
+  return content.some((r) => r.marks) ? { text: plain, content } : { text: plain };
+}
+export const richText = (parts: RichPart[], extra: B = {}): B => {
+  const r = runs(parts);
+  return text(r.text, { ...(r.content ? { content: r.content } : {}), ...extra });
+};
+export const richList = (items: RichPart[][], color: string, extra: B = {}): B => ({ ...list([], color, extra), items: items.map(runs) });
+
+/** "In this issue": a tinted card with a numbered list of what's inside. */
+export function issueIndex(p: BrandPalette, c: { title?: string; items: RichPart[][] }): B[] {
+  return [
+    band(
+      [
+        section(
+          [overline(c.title ?? "In this issue", p.accentText, { marginBottom: 10 }), richList(c.items, p.body, { ordered: true, lineHeight: "1.7", marginBottom: 0 })],
+          { backgroundColor: p.tint, paddingX: 24, paddingY: 20, border: { width: 1, style: "solid", color: p.border, radius: 12 } },
+        ),
+      ],
+      { paddingY: 16 },
+    ),
+  ];
+}
+
+/** A full-width tinted bar naming a newsletter section, with an optional ink icon. */
+export function sectionBar(p: BrandPalette, label: string, iconName?: EmailIconName): B {
+  const name = text(bands.upperLabel(label), { fontSize: 13, fontWeight: "700", letterSpacing: 0.9, color: p.ink, marginBottom: 0 });
+  return row(
+    [
+      ...(iconName ? [column([icon(iconName, "ink")], 8, { paddingX: 0, customCss: "width: 36px; vertical-align: middle" })] : []),
+      column([name], iconName ? 92 : 100, { paddingX: 0, customCss: "vertical-align: middle" }),
+    ],
+    { paddingX: BAND_GUTTER, paddingY: 12, columnGap: 0, backgroundColor: p.tint, stackOnMobile: false },
+  );
+}
+
+export type BriefItem = { title: string; href: string; meta: string; summary: string };
+
+/** News items, text only: a linked headline, a meta line (read time, source) and a two-line summary each. */
+export function briefItems(p: BrandPalette, items: BriefItem[]): B {
+  return band(
+    items.flatMap((it, i) => [
+      link(it.title, it.href, p.ink, { fontSize: 17, customCss: "font-weight: 700; line-height: 1.35", marginBottom: 4 }),
+      text(it.meta, { fontSize: 13, color: p.muted, marginBottom: 6 }),
+      text(it.summary, { fontSize: 15, lineHeight: "1.6", color: p.body, marginBottom: i === items.length - 1 ? 0 : 24 }),
+    ]),
+    { paddingY: 24 },
+  );
+}
+
+export type NumberedLink = { title: string; href: string; summary: string; source: string };
+
+/** A numbered link: a large accent numeral, the linked title, one line on why, and the source. */
+export function numberedLink(p: BrandPalette, n: number, l: NumberedLink): B {
+  return row(
+    [
+      column([text(String(n).padStart(2, "0"), { fontSize: 20, fontWeight: "700", lineHeight: "1.3", letterSpacing: -0.4, color: p.accentText, marginBottom: 0 })], 10, {
+        paddingX: 0,
+        customCss: "width: 52px; vertical-align: top",
+      }),
+      column(
+        [
+          link(l.title, l.href, p.ink, { fontSize: 17, customCss: "font-weight: 600; line-height: 1.35", marginBottom: 4 }),
+          text(l.summary, { fontSize: 15, lineHeight: "1.55", color: p.body, marginBottom: 4 }),
+          text(l.source, { fontSize: 13, color: p.muted, marginBottom: 0 }),
+        ],
+        90,
+        { paddingX: 0, customCss: "vertical-align: top" },
+      ),
+    ],
+    { paddingX: BAND_GUTTER, paddingY: 12, columnGap: 0, stackOnMobile: false },
+  );
+}
+
+/** A pull quote: large type beside a rule in the accent, with an optional attribution. */
+export function pullQuote(p: BrandPalette, c: { quote: string; cite?: string; serif?: boolean; paddingY?: number }): B[] {
+  return [
+    band(
+      [
+        section(
+          [
+            text(c.quote, { fontSize: 20, lineHeight: "1.45", color: p.ink, marginBottom: c.cite ? 10 : 0, ...(c.serif ? { fontFamily: SERIF } : {}) }),
+            ...(c.cite ? [text(c.cite, { fontSize: 13, color: p.muted, marginBottom: 0 })] : []),
+          ],
+          { paddingX: 20, paddingY: 4, customCss: `border-left: 3px solid ${p.accent}` },
+        ),
+      ],
+      { paddingY: c.paddingY ?? 28 },
+    ),
+  ];
+}
+
+/** A paid placement, labelled as one: "Sponsored by …", a title, two lines and a link, in a bordered card. */
+export function sponsorCard(p: BrandPalette, c: { sponsor: string; title: string; body: string; link: Cta }): B[] {
+  return [
+    band(
+      [
+        section(
+          [
+            overline(`Sponsored by ${c.sponsor}`, p.muted),
+            text(c.title, { fontSize: 17, fontWeight: "600", lineHeight: "1.35", color: p.ink, marginBottom: 6 }),
+            copy(c.body, p.body, { marginBottom: 12 }),
+            link(c.link.label, c.link.href, p.accentText),
+          ],
+          { backgroundColor: p.surface, paddingX: 24, paddingY: 20, border: { width: 1, style: "dashed", color: p.border, radius: 12 } },
+        ),
+      ],
+      { paddingY: 16 },
+    ),
+  ];
 }
 
 /** The whole bands.ts builder set, re-exported so a sample file imports one module. */

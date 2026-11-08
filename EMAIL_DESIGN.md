@@ -36,6 +36,17 @@ This guide is about the emails our customers send. The Unitpost app's own UI fol
 - Inside a band, blocks space with margin-bottom: overline → heading 8, heading → body 12, paragraph → paragraph 16, body → button 24, rows 20 apart; inside a card 20–32 padding. The LAST block in a band or card has margin-bottom={0}, or its margin stacks on the padding. Every band keeps its 32px side padding: nothing sits directly in an edge-to-edge card.
 - Rows (`<Row>`) only for genuinely parallel content: label/value lines, 2–3 stats, two product tiles, icon + text. Side-by-side text columns stack on phones; keep label/value and icon rows `stack-on-mobile={false}`.
 
+### Openers and composition
+
+- One visual anchor in the first screen (the top ~500px), from an opener: campaign art, a colour panel, a poster, a masthead, a spot, a split hero or a photo (see Openers). A heading and a paragraph alone suit only a deliberate letter or a transactional notice. Pick the opener by the email's type, never the same one for every email; with no images, use one that needs none: the poster, the panel, the masthead, or the spot with an icon. ([source](https://reallygoodemails.com/))
+- Change the shape from section to section: after a list comes a picture, a number, a quote or a tinted band, never two sections of the same shape in a row. A tinted band marks each new part of a long email.
+- One accent, one tint family and the neutrals. Pictures share one radius (12px in content, 16 for a banner, 20 for a panel) and one treatment; a gradient only as a hero or panel surface.
+- Type contrast carries the hierarchy: the H1 at about twice the body size (28–34px; 44px upper-case on a poster), a serif masthead or title for editorial letters, body copy in two-to-four-line paragraphs.
+- A recurring email keeps a fixed frame (masthead, issue line, section labels, one format per item), so only the content changes from issue to issue.
+- A person is visible where the type allows: "Hi {{first_name}}," or a byline at the top, and a signature with a name, role and photo at the end.
+- Design the closer: a CTA card, a quote band, the reader loop (a P.S., "Was this useful? Yes · No", "Forwarded this? Subscribe") or the brand signature, never a dangling last line.
+- Imagery follows one recipe per email: crops of the product's own UI, its output, one render or illustration style, or real photos of one subject. Never generic stock that could belong to any company, never a grey box where art should be.
+
 ### Typography
 
 - Scale: H1 28px (32 on a contrast hero), section H2 22px, row titles 16px semibold, lead 16px, body 15–16px with line-height 1.6, notes 13px, fine print 12px. Nothing under 12px; body never under 14px (iOS enlarges anything below 13px). ([source](https://www.campaignmonitor.com/dev-resources/guides/mobile/))
@@ -51,7 +62,7 @@ This guide is about the emails our customers send. The Unitpost app's own UI fol
 - Use one contrast band per email for weight: a brand or near-black hero, offer card or closing CTA card, with light text and a light button. Two at most.
 - Gradients only as a band background with a solid `background-color` (the gradient's first stop) and the gradient as `custom-css="background: #4f46e5 linear-gradient(…)"`, the same solid colour first inside the shorthand (on its own the shorthand clears background-color, and some mail apps then darken white text). Outlook, Outlook.com and Yahoo show only the solid colour, so the text must pass contrast on it. ([source](https://www.caniemail.com/features/css-linear-gradient/))
 - Never pure #000000 on large areas; near-black inverts more gracefully in dark mode. Hex colours only (6 digits), no rgba(). ([source](https://www.litmus.com/blog/background-colors-html-email))
-- Email-safe CSS only. Layout comes from Section / Row / Column (tables), never display:flex or grid, position, float, gap, transform, calc(), CSS variables or negative margins — Gmail and Outlook drop them. custom-css is for touches that degrade gracefully: an inline-block pill, border-radius (square in Outlook), a gradient as `background:` over a solid background-color, vertical-align, a fixed px width on a column. ([source](https://www.caniemail.com/))
+- Email-safe CSS only. Layout comes from Section / Row / Column (tables), never display:flex or grid, position, float, gap, transform, calc(), CSS variables or negative margins — Gmail and Outlook drop them. custom-css is for touches that degrade gracefully: an inline-block pill, border-radius (square in Outlook), a gradient as `background:` over a solid background-color, vertical-align, a fixed px width on a column. Text over a picture uses `<Section background-image={{ src, size, position }}>` with a background-color it reads on, never a CSS background-image in custom-css. ([source](https://www.caniemail.com/))
 
 ### Buttons and links
 
@@ -65,7 +76,9 @@ This guide is about the emails our customers send. The Unitpost app's own UI fol
 - No image is better than a fake one. With no brand imagery, carry the email with type, colour and icons: a contrast or gradient hero, an offer card, icon rows, stats. Use a neutral placeholder only where the email needs a picture the user must supply (product tiles, a product screenshot, a speaker photo) — and tell them to swap it before sending.
 - Every image gets alt text that says what it shows (a logo's alt is the brand name). Decorative icons next to a text label get alt="". Never put the headline, offer, price or date only inside an image: many inboxes block images by default.
 - Icons are PNG (Gmail and classic Outlook don't render SVG): the `soft` chip (ink on a light chip) beside text on white, `ink` for small inline markers, `white` on dark or brand bands, `solid` for emphasis. Pick by the background the icon sits on, never by habit: an ink icon on a dark band (or a white one on white) disappears. A dark-mode email swaps ink icons on the card to white by itself. Emoji only inline in copy, at most one per block. ([source](https://www.caniemail.com/features/image-svg/))
-- Set `width` on every image (536 for a full-width image inside the 32px gutters) so Outlook doesn't render it at its natural size; round photos 10–12px.
+- Set `width` on every image (536 for a full-width image inside the 32px gutters, 472 inside a panel) so Outlook doesn't render it at its natural size; round photos 10–12px. Crop each picture to its frame at the source (the exact width and ratio it shows at): object-fit and CSS background images don't survive classic Outlook.
+- Keep each photo under about 200KB and the whole email under about 1MB of images; export at twice the display width.
+- Live text over a photo (Section background-image) needs the photo darkened or lightened in the picture itself, so the text passes contrast on every part of it, and a background-color in the photo's main tone for clients that show no image. Keep the words over a quiet area; never put the only copy of the headline in the picture.
 
 ### Dark mode
 
@@ -81,15 +94,107 @@ This guide is about the emails our customers send. The Unitpost app's own UI fol
 
 - Write for skimmers: short paragraphs (1–3 sentences), the most important item first, a heading for every section. ([source](https://www.nngroup.com/articles/e-mail-newsletters-usability/))
 - Subject: plain and specific, about 30–50 characters, the key fact first (amount, feature, offer, date). Preview text complements it in one line — the payoff, the deadline or a question — and never repeats it.
-- Specific beats generic: name the product, the plan, the amount, the date with its time zone. Never lorem ipsum, never [brackets].
+- Specific beats generic: name the product, the plan, the amount, the date with its time zone; a deadline is a weekday, a date and why. Never lorem ipsum, never [brackets].
 - Never invent facts: features, numbers, prices, policies, dates, durations, materials, and anything the recipient did come only from the ask, the Brand Kit or a tool result. When a section needs news you weren't given, write it from what the Brand Kit says the product is, or leave the section out. An example line you can't avoid stays free of specifics (no percentages, schedules or materials) and your reply names it as one to replace. Never a made-up price, discount or policy. A newsletter, launch or event the ask gives no content for: ask for it once, offering to draft with examples; examples you then write are listed in your reply for the user to replace.
 - Variables sparingly: only what changes per recipient or per send and is supplied then — {{first_name}} from the contact, an order total, a code or a reset link the app passes. Write in what you already know (product, website, plans, the offer, an event's name). A template should read finished in the preview; more than about five custom variables means you left the user work. {{company_name}} fills itself only on campaigns and marketing sends.
 - Transactional or marketing decides consent and the footer: marketing email gets the managed unsubscribe / reason / postal-address footer at send, so never write any of it; transactional email has none and needs none. When an ask could be either (a bare welcome, a pricing or policy change, an announcement), ask; when one reading is the common one, decide and say so in one line.
+- Copy that works has a person in it, exact numbers, one ask and a P.S.: a named sender ("automated, but replies come to me"), the real figure ("22,235 of 25,000 used"), one question to reply to, and the second action in a P.S. ([source](https://www.goodemailcopy.com/))
+- Offers show the maths and how to redeem: now and was (only for a real previous price), the pack against single units or "from $X", what the percentage applies to, and one line on how ("no code needed" or "enter X at checkout") next to the terms. Never "up to N% off" without saying what is at N.
+- Operational email (payment failed, incident, maintenance, price change, shutdown) follows one order: what happened, what it means for the reader, what to do or "no action needed", by when, who to ask. The subject carries the fact (amount, date, duration, time zone).
 - Sign as the team or a named person. Transactional email is neutral and factual; marketing can be warmer. Marketing email never carries a hand-written unsubscribe line or postal address: the managed footer adds them.
 
 ### Mobile and weight
 
 - Single column reads on every phone; keep two-column rows to short, parallel content. Keep the HTML under about 90KB: Gmail clips at about 102KB and hides the rest, including the footer. ([source](https://help.blueshift.com/hc/en-us/articles/42292160006675-Understanding-Gmail-email-clipping))
+
+## Openers
+
+The first screen carries the email's one visual anchor. Pick the opener by type; each is a layout in `design_library` (topic `layouts`) and in the editor's Layouts rail, drawn in the brand's colours.
+
+| Opener | Layouts | Use for | Picture | Drawn from |
+|---|---|---|---|---|
+| Newsletter masthead | `hero-masthead`, `hero-masthead-serif` | Any recurring newsletter: the name, the issue line between two rules, then the issue's headline. Serif for essays and curated letters. | optional | Tiny Startups, Morning Brew, Lenny's Newsletter, Thira |
+| Panel | `hero-panel`, `hero-panel-soft`, `hero-split-panel`, `hero-panel-photo` | Monthly updates, digests, launches: a date or issue pill, a big title and art inside a rounded gradient or pale-wash panel, beside it (split panel) or behind the words (photo panel). | optional | Bubble, Stripe, Stripe developer digest, foodpanda |
+| Event poster | `hero-event` | Invites, webinars, save-the-dates: key art first, the date as a pill above the title, on near-black. | optional | Zapier ZapConnect, Unspam |
+| Poster | `hero-poster` | Sales, loyalty, statements, win-backs: a big upper-case title on the brand colour in a framed panel, optionally over a dark texture. No picture needed. | none | Starbucks Rewards, Kayak, Figma |
+| Banner | `hero-banner` | Seasonal promos, welcomes, announcements with a mood: rounded campaign art across the email, then a centred headline. | needed | foodpanda, Gamma, Internet Brunch |
+| Spot | `hero-spot` | Monthly letters, welcomes, gentle news: one round picture (or an icon) over a big centred title, a subtitle in the accent and a hairline. | optional | Todoist, Apollo |
+| Split | `hero-split` | Webinars, reports, B2B news: a brand-colour band with the headline beside a picture. | needed | Front, Webflow, Chargebee |
+| Photo | `hero-photo` | Collections, trips, recaps: a photo bleeding to the card's edges over a brand-colour band with the headline. | needed | Squarespace, CETTE, Starbucks |
+| Contrast or gradient | `hero-contrast`, `hero-gradient` | Big news with no art: a full-width brand band with light text and a light button. | none | Google AI Studio, Ollama |
+| Status | `hero-status` | Receipts, confirmations, account states: a status chip, the state as an overline, the fact as the headline. | none | Uber One, Vercel |
+| Headline | `hero-headline`, `hero-media` | Plain product and transactional notices, or a letter that should read as one: overline, headline, line, button (an image above with hero-media). | optional | Framer, Linear, Claude Code |
+
+## Sections
+
+Change the shape from one section to the next. Every band below is palette-aware and carries its own 32px gutter.
+
+### Header
+
+- `header-brand` (Brand header): Logo and brand name on the left, a small label pill on the right (issue, date, 'New').
+- `header-wordmark` (Wordmark header): The brand name set as a wordmark — the header for a brand with no logo image yet.
+- `header-centered` (Centred header): The logo or wordmark centred, with a small line under it: the issue, the month, 'Your monthly letter'.
+- `header-strip` (Header strip): A thin strip above the logo with one to three facts: free delivery over an amount, the order-by date, the code.
+
+### Hero
+
+- `hero-headline` (Headline hero): Overline, big headline, one or two lines and a pill button, left-aligned — the default opener for product and marketing email.
+- `hero-contrast` (Contrast hero): A full-width brand-coloured (or near-black) band with light text and a light button — launches, sales, big news.
+- `hero-gradient` (Gradient hero): The contrast hero on a brand gradient. Clients without gradient support (Outlook, Yahoo) show the solid band colour, so text stays readable.
+- `hero-status` (Status hero): A centred status chip, label, headline and line — order confirmed, payment received, booking set.
+- `hero-media` (Media hero): A wide image (a placeholder until you add yours), then headline, line and button — image-led launches.
+- `hero-banner` (Banner hero): Rounded campaign art across the email, then a centred headline, line and button: seasonal promos, welcomes, announcements with a mood.
+- `hero-panel` (Panel hero): A rounded panel in the brand colour fading into a neighbouring hue: a date pill, a big title, a line and art inside. The cover of a monthly update or digest.
+- `hero-panel-soft` (Soft panel hero): The panel hero as a pale two-tone wash of the brand with dark text and the brand button: gentle news, roundups, letters.
+- `hero-panel-photo` (Photo panel hero): The panel hero with a photo behind the words (live text over the picture, Outlook included). Pick a dark or quiet photo; the panel colour shows where images don't.
+- `hero-split-panel` (Split panel hero): A rounded colour panel inside the gutter with the title, line and button beside a picture; stacks on phones. The cover of a monthly roundup or a launch.
+- `hero-event` (Event poster hero): A near-black panel: key art first, then the date, time and place as a pill above the event title and the button. Invites, webinars, save-the-dates.
+- `hero-poster` (Poster hero): A big upper-case title on the brand colour in a pale frame with a fine inset rule. Needs no image: sales, loyalty, statements, re-engagement.
+- `hero-masthead` (Newsletter masthead): The publication's name set large over the issue line between two rules, with optional masthead art above: the fixed frame of a recurring newsletter.
+- `hero-masthead-serif` (Editorial masthead): The masthead in serif with an italic tagline: essays, long reads, curated letters.
+- `hero-spot` (Spot hero): One round picture centred over a big title, a subtitle in the brand colour and a hairline: monthly letters, welcomes, gentle news.
+- `hero-split` (Split hero): A brand-colour band edge to edge: the headline, line and button beside a rounded picture, stacking on phones. Webinars, reports, B2B news.
+- `hero-photo` (Photo hero): A photo bleeding to the card's edges over a band of the brand colour with the headline and button. Place it under a header.
+
+### Content
+
+- `content-feature` (Feature section): Overline, section headline, a paragraph, three bullets and a text link — one topic of a launch or newsletter.
+- `content-icon-rows` (Icon rows): Three rows of icon + title + line — getting-started steps, what's included, why it matters.
+- `content-stats` (Stats row): Three big numbers with labels on a tinted band — a digest, a year in review, results.
+- `content-summary` (Order summary): A tinted band of label/value lines with a bold total — receipts, invoices, order and booking summaries.
+- `content-code-card` (Code card): A big spaced one-time code in a tinted card, with how long it lasts — sign-in and verification.
+- `content-callout` (Callout card): A brand-tinted card with a label, headline, line and link — a 'coming soon', a tip, a side note.
+- `content-offer` (Offer card): A contrast card with the offer as the headline, the code in a pill and a light button — sales and promos.
+- `content-event` (Event details): Date, time and place (or video link) as icon rows, then an add-to-calendar link — invites, bookings, reminders.
+- `content-byline` (Byline): Who wrote it: a round photo, the name and the date with read time, and a 'Read online' link on the right.
+- `content-contents` (In this issue): A numbered list of what's inside a long issue, each with its read time.
+- `content-story-rows` (Story rows): Secondary stories: a rounded thumbnail beside an overline, a linked title and a line, with hairlines between.
+- `content-quote-band` (Quote band): A quote set large on a tinted band, with the person's round photo, name and role. Testimonials, pull quotes, closers.
+- `content-sponsor` (Sponsor slot): A paid placement, labelled 'Together with …', in a dashed card: a title, two lines and a link.
+- `content-link-list` (Link list): Curated links: a big accent numeral, the linked title, one line on why, and the source with its read time.
+- `content-section-label` (Section label): A tinted bar with an icon and a section's name: opens each section of a long newsletter.
+- `content-steps` (Numbered steps): Big accent numerals with a title and a line each: onboarding steps, a how-to, three reasons.
+- `content-trust-strip` (Trust strip): Three or four facts that remove a doubt (delivery, returns, warranty, secure checkout), an icon over two or three words each.
+- `content-price-list` (Price list): Menu-style rows: a name and a line on the left, the price on the right (the old price struck through when there's a real one), hairlines between.
+
+### Columns
+
+- `columns-products` (Product grid): Two product tiles (image, name, price, link) — promos, new arrivals, abandoned cart. Placeholders until you add photos.
+- `columns-media-row` (Media row): A picture on one side, an overline, title, paragraph and link on the other. Alternate sides from row to row.
+- `columns-two-cards` (Two cards): Two cards side by side on a tinted band: picture, overline, title, two lines and a link. Highlights, articles, offers.
+- `columns-gallery` (Photo row): Three pictures in a row with captions: a collection, an event recap, a gallery. Stays side by side on phones.
+- `columns-reviews` (Reviews): Two short reviews on tinted cards: stars as text, the quote, the name. Real reviews only.
+
+### Call to action
+
+- `cta-contrast` (Contrast CTA): A rounded brand (or near-black) card with a headline, a line and a light button — the closing ask.
+
+### Footer
+
+- `footer-signoff` (Sign-off): A hairline, a 'just reply' help line and a team sign-off. No unsubscribe or address — the managed footer adds those to marketing email.
+- `footer-signature` (Signature): A closing line, then the sender's round photo, name and role: letters, founder notes, newsletters.
+- `footer-reader-loop` (Reader loop): A P.S., a one-click 'Was this useful? Yes · No' and a 'Forwarded this? Subscribe' line. Links only.
+- `footer-brand-signature` (Brand signature): The brand's name set large in a soft grey at the very end: a quiet signature before the footer.
 
 ## Recipes
 
@@ -101,9 +206,9 @@ Right after sign-up: confirm they're in and get them to the first useful action.
 
 Skeleton:
 
-1. Logo or wordmark header [header-brand / header-wordmark]
-2. Headline hero: "Welcome to {Product}" + one line of what it does for them + ONE button to the first action [hero-headline]
-3. 2–4 next-step rows: icon + bold title + one line, ordered by first value [content-icon-rows]
+1. Centred logo or wordmark [header-centered]
+2. Spot hero: the brand's art in a circle, or an icon, over "Welcome to {Product}", one line of what it does for them and ONE button to the first action [hero-spot]
+3. 2–4 numbered first steps: title + one line each, ordered by first value [content-steps]
 4. Sign-off: how to get help (reply / docs) + the team [footer-signoff]
 
 - **Subject:** Welcome to {Product}
@@ -111,7 +216,7 @@ Skeleton:
 - 55–200 words. Lead with one benefit, then one action.
 - Name links by what they open ("Read the guide"), not "Learn more".
 - Warm, second person; sign as the team or a named founder.
-- **Imagery:** None needed: logo + icon rows. A product screenshot only if the user has one.
+- **Imagery:** None needed: the spot takes an icon. The brand's own art or a product screenshot in the spot when the user has one.
 - **Avoid:** Feature dumps: 3–4 next steps at most. Competing buttons: repeat the same one at the end instead. A headline baked into a hero image.
 - **Drawn from:** <https://reallygoodemails.com/emails/welcome-to-linear>, <https://reallygoodemails.com/emails/welcome-to-figma>, <https://reallygoodemails.com/emails/welcome-to-calendly>, <https://knock.app/blog/welcome-email-examples>
 
@@ -183,7 +288,7 @@ Something new shipped: what it is, who gets it, how to try it. Category: **marke
 Skeleton:
 
 1. Logo header with a 'New' label [header-brand]
-2. Contrast or gradient hero: overline "Introducing" + the benefit as the headline + who gets it + ONE button [hero-gradient / hero-contrast]
+2. Panel hero: a 'New' or date pill + the benefit as the headline + who gets it + ONE button, with a product screenshot inside the panel when the user has one [hero-panel]
 3. 2–4 feature sections or icon rows: benefit first, one line each; a screenshot only if the user has one [content-feature / content-icon-rows]
 4. Availability / pricing / what's next as a callout [content-callout]
 5. Closing CTA card repeating the action [cta-contrast]
@@ -194,7 +299,7 @@ Skeleton:
 - 30–250 words.
 - Show the benefit before the mechanism; one line per feature.
 - Say who gets it and when (plans, rollout, beta).
-- **Imagery:** A screenshot or GIF when the user has one; otherwise a contrast/gradient hero and icon rows (never a stock photo standing in for the product).
+- **Imagery:** A screenshot or GIF inside the panel when the user has one; otherwise the gradient panel and icon rows carry it (never a stock photo standing in for the product).
 - **Avoid:** Copy only inside an image. Several buttons for different goals. A changelog dump — link to the changelog.
 - **Drawn from:** <https://reallygoodemails.com/emails/introducing-dropbox-rewind>, <https://reallygoodemails.com/emails/meet-the-new-notion-projects>, <https://reallygoodemails.com/emails/introducing-dashboards>
 
@@ -204,19 +309,19 @@ A periodic round-up: what's new this month, top stories, a usage digest. Categor
 
 Skeleton:
 
-1. Brand header with the issue or month as the label [header-brand]
-2. Headline hero: "What's new in {Month}" + 1–3 sentences naming the top items, no button [hero-headline]
-3. Optional stats band for a digest [content-stats]
-4. 3–5 feature sections, the most important first: overline + H2 + 2–3 lines (+ bullets when there are details) + one text link each, hairlines between [content-feature]
-5. Optional 'coming soon' callout [content-callout]
-6. Sign-off asking for replies [footer-signoff]
+1. Masthead: the newsletter's name, then the issue line (issue or month, date) between two rules; serif for an editorial letter [hero-masthead / hero-masthead-serif]
+2. The issue's headline as the H1 + 1–3 sentences naming the top items, no button [hero-headline]
+3. 'In this issue': the items with read times [content-contents]
+4. 3–5 sections, the most important first, each a different shape: a feature with its picture, story rows, two cards, a quote on a tinted band, a link list [content-feature / content-story-rows / columns-two-cards / content-quote-band / content-link-list]
+5. Optional sponsor slot, labelled as one [content-sponsor]
+6. The reader loop: a P.S., 'Was this useful? Yes · No', 'Forwarded this? Subscribe' [footer-reader-loop]
 
 - **Subject:** Name the lead item (or the top two or three), not "Newsletter #12"
 - **Preview:** The other items: "Plus: …, … and …"
 - One heading per item; title + 1–2 sentences + a verb link.
 - Most readers skim: the best item goes first.
 - Text links per item, at most one button per issue.
-- **Imagery:** One image per major item when the user has them; otherwise none — overlines and section rhythm carry it.
+- **Imagery:** The masthead carries the first screen with no art; one picture per major item when the user has them (a feature image, story thumbnails, two cards). Without pictures, change the shape instead: contents, quote band, link list.
 - **Avoid:** One button per item. Long sections with no headings. Images without alt text.
 - **Drawn from:** <https://reallygoodemails.com/emails/release-notes-new-things-to-love-in-figma>, <https://reallygoodemails.com/emails/framer-monthly-product-update>, <https://reallygoodemails.com/emails/stripe-developer-digest-workbench-is-now-available-to-everyone>, <https://www.nngroup.com/articles/e-mail-newsletters-usability/>
 
@@ -226,18 +331,18 @@ A time-limited offer: a sale, a discount code, a free month. Category: **marketi
 
 Skeleton:
 
-1. Logo header [header-brand]
-2. Offer card: overline with the occasion + the offer as a big headline + one line + the code in a pill + a button that carries the offer + terms [content-offer]
+1. Centred logo or wordmark [header-centered]
+2. Poster hero: the occasion as the overline, the offer as the big upper-case title, the code and deadline in one line, a button that carries the offer; or a banner hero with campaign art when the user has it [hero-poster / hero-banner]
 3. 2–3 reasons or how-to-redeem rows [content-icon-rows]
 4. Optional product tiles (placeholders until they add photos) [columns-products]
-5. Sign-off [footer-signoff]
+5. Sign-off with the terms in small print [footer-signoff]
 
 - **Subject:** {Offer} + deadline: "30% off everything — ends Sunday"
 - **Preview:** The deadline or the benefit
 - 60–200 words. One offer.
 - Benefit first, then the number; the button label carries the offer ("Get 30% off").
 - Real deadlines as absolute dates; terms in small print next to the button.
-- **Imagery:** Product photos only when the user has them; a typographic offer on a brand band is the default.
+- **Imagery:** The poster carries it with no picture; campaign art in a banner hero or product photos only when the user has them.
 - **Avoid:** The offer only in an image. Fake urgency, vague "save big", ALL CAPS paragraphs. Several unrelated offers.
 - **Drawn from:** <https://reallygoodemails.com/emails/final-hours-40-off-headspace-ends-tonight>, <https://reallygoodemails.com/emails/duolingo-back-school-family-sale>, <https://reallygoodemails.com/emails/last-chance-to-save-40-off-on-grammarly-premium>
 
@@ -248,7 +353,7 @@ Someone went quiet: a specific reason to come back, and an easy way out. Categor
 Skeleton:
 
 1. Logo header [header-brand]
-2. Headline hero naming the gap ("We miss you, {name}") + why it's worth coming back, from the Brand Kit + ONE button [hero-headline]
+2. Soft panel hero naming the gap ("We miss you, {name}") + why it's worth coming back, from the Brand Kit + ONE button [hero-panel-soft]
 3. 2–3 'new since you left' rows ONLY with news the user gave; otherwise an invitation to reply with what would bring them back, or an incentive callout when they named one [content-callout / content-icon-rows]
 4. Sign-off: a reply-to-us help line and the team [footer-signoff]. No opt-down or unsubscribe line in the body: the managed footer carries unsubscribe and preferences
 
@@ -268,9 +373,9 @@ An invitation, save-the-date or registration confirmation for an online or in-pe
 Skeleton:
 
 1. Logo header with the format as the label ("Live webinar") [header-brand]
-2. Contrast hero: overline with format + date, the event name as the headline, why attend, ONE button (Register / Save my spot) [hero-contrast]
+2. Event poster hero: key art when the user has it, the format and date as a pill, the event name as the headline, why attend, ONE button (Register / Save my spot) [hero-event]
 3. Event details: date, time with time zone, place or 'Online', price [content-event]
-4. What you'll learn: 3–4 bullets; speakers as name + role when known [content-feature]
+4. What you'll learn: 3 numbered takeaways; speakers as name + role when known [content-steps]
 5. Can't make it? Recording line [footer-signoff]
 
 - **Subject:** You're invited: {Event} on {date}
@@ -278,9 +383,30 @@ Skeleton:
 - 80–250 words (under 120 for a confirmation).
 - Absolute date + time + time zone, always live text.
 - Say the format, cost and length up front.
-- **Imagery:** Optional speaker photos (placeholders until supplied); the contrast hero and the details rows carry it.
+- **Imagery:** Key art in the event poster and speaker photos when the user has them; without them the dark poster and the details rows carry it.
 - **Avoid:** The date only in an image. "Tomorrow" without a date; no time zone. Long speaker bios.
 - **Drawn from:** <https://reallygoodemails.com/emails/save-the-date-for-webflow-conf-2023>, <https://reallygoodemails.com/emails/youre-invited-to-asanas-virtual-workshops>, <https://reallygoodemails.com/emails/you-are-registered-building-products-on-claude-opus-46>
+
+### Service notice (payment failed, incident, maintenance, price change, shutdown) — `service-notice`
+
+Something about the account or the service changed or will change: say what, what it means, what to do and by when. Category: **transactional**. Length: 60–180 words.
+
+Skeleton:
+
+1. Logo header [header-brand]
+2. Status hero: the state as the overline ("Payment failed", "Scheduled maintenance", "Price change"), the fact as the headline, one line on what it means for them [hero-status]
+3. The facts as label/value lines: what, when (date, time, time zone), the amount or who is affected, the deadline [content-summary]
+4. What to do, as one button, or "No action needed" [button / text]
+5. Who to ask, signed by a named person when it costs the reader [footer-signoff]
+
+- **Subject:** The fact first: "Your payment of $29 didn't go through", "Maintenance on Sat 9 Nov, 02:00–03:00 UTC"
+- **Preview:** What to do and by when, or "No action needed"
+- 60–180 words, in this order: what happened, what it means for them, what to do (or "no action needed"), by when, who to ask.
+- Exact numbers and times with the time zone; a deadline is a weekday, a date and what happens after it.
+- No preamble before the news and no blame. An incident says what was and wasn't affected, the cause in plain words and what changes; a price change gives old and new numbers and the date.
+- **Imagery:** None: the status icon and the facts lines carry it.
+- **Avoid:** A corporate preamble before the fact. Vague timing ("soon", "shortly"). Burying the action under the explanation.
+- **Drawn from:** <https://www.goodemailcopy.com/>, <https://reallygoodemails.com/emails/your-zapier-trial-has-ended>
 
 ## Assets
 

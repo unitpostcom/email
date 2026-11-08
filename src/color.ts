@@ -89,3 +89,27 @@ export function shadeToContrast(fg: string, bg: string, target = 4.5): string {
   }
   return toward;
 }
+
+/**
+ * The same colour with its hue turned by `degrees` (lightness and saturation
+ * kept). Gives a one-colour brand a second, related stop for a gradient
+ * panel; a grey has no hue to turn and comes back unchanged.
+ */
+export function rotateHue(color: string, degrees: number): string {
+  const rgb = parseColor(color);
+  if (!rgb) return color;
+  const [r, g, b] = rgb.map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return normalizeHex(color);
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (((h * 60 + degrees) % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return toHex([(r1 + m) * 255, (g1 + m) * 255, (b1 + m) * 255]);
+}

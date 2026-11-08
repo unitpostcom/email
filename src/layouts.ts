@@ -949,6 +949,177 @@ registerThemed(
   (p, b) => bands.signoff(p, { help: "Questions? Reply to this email — a real person reads every reply.", signature: `The ${b.name} team` }),
 );
 
+// The openers and sections from the 2026-11-06 research (bands.ts "openers",
+// design-guide.ts EMAIL_OPENERS): one visual anchor per first screen, and a
+// different shape for each section. Neutral placeholders stand in for art.
+const wide = { src: emailPlaceholderUrl("wide"), alt: "Describe the image" };
+const landscape = { src: emailPlaceholderUrl("landscape"), alt: "Describe the image" };
+const square = { src: emailPlaceholderUrl("square"), alt: "Describe the image" };
+const avatar = emailPlaceholderUrl("avatar");
+
+registerThemed("header-centered", "Centred header", "Header", "The logo or wordmark centred, with a small line under it: the issue, the month, 'Your monthly letter'.", (p, b) =>
+  bands.headerCentered(p, b, { line: "Issue 18 · November 2026" }),
+);
+registerThemed(
+  "hero-banner",
+  "Banner hero",
+  "Hero",
+  "Rounded campaign art across the email, then a centred headline, line and button: seasonal promos, welcomes, announcements with a mood.",
+  (p) => bands.heroBanner(p, { image: wide, overline: "This week only", title: "A headline that sells the picture", lead: "One line on what it is and why now.", cta: { label: "Take a look", href: sampleHref } }),
+);
+registerThemed(
+  "hero-panel",
+  "Panel hero",
+  "Hero",
+  "A rounded panel in the brand colour fading into a neighbouring hue: a date pill, a big title, a line and art inside. The cover of a monthly update or digest.",
+  (p) => bands.heroPanel(p, { label: "November 2026", title: "What we shipped this month", lead: "Three new things and the fixes you asked for.", image: landscape }),
+);
+registerThemed(
+  "hero-panel-soft",
+  "Soft panel hero",
+  "Hero",
+  "The panel hero as a pale two-tone wash of the brand with dark text and the brand button: gentle news, roundups, letters.",
+  (p) => bands.heroPanel(p, { tone: "wash", label: "Monthly roundup", title: "The month in one email", lead: "What changed, what's next, and one thing to try.", cta: { label: "Read the roundup", href: sampleHref } }),
+);
+registerThemed(
+  "hero-panel-photo",
+  "Photo panel hero",
+  "Hero",
+  "The panel hero with a photo behind the words (live text over the picture, Outlook included). Pick a dark or quiet photo; the panel colour shows where images don't.",
+  (p) =>
+    bands.heroPanel(p, { tone: "ink", photo: wide, label: "New season", title: "A headline set over the picture", lead: "One line that sells it.", cta: { label: "Take a look", href: sampleHref } }),
+);
+registerThemed(
+  "hero-split-panel",
+  "Split panel hero",
+  "Hero",
+  "A rounded colour panel inside the gutter with the title, line and button beside a picture; stacks on phones. The cover of a monthly roundup or a launch.",
+  (p) => bands.heroSplitPanel(p, { label: "November 2026", title: "What we shipped this month", lead: "Three new things and the fixes you asked for.", cta: { label: "See what's new", href: sampleHref }, image: square }),
+);
+registerThemed(
+  "hero-event",
+  "Event poster hero",
+  "Hero",
+  "A near-black panel: key art first, then the date, time and place as a pill above the event title and the button. Invites, webinars, save-the-dates.",
+  (p) =>
+    bands.heroPanel(p, { tone: "ink", imageFirst: true, image: wide, label: "Thu, Nov 13 · 10:00 PT · Online", title: "The event title goes here", cta: { label: "Save my seat", href: sampleHref } }),
+);
+registerThemed(
+  "hero-poster",
+  "Poster hero",
+  "Hero",
+  "A big upper-case title on the brand colour in a pale frame with a fine inset rule. Needs no image: sales, loyalty, statements, re-engagement.",
+  (p) => bands.heroPoster(p, { overline: "Members only", title: "Double points weekend", line: "One line with the offer and the dates.", cta: { label: "Start earning", href: sampleHref } }),
+);
+registerThemed(
+  "hero-masthead",
+  "Newsletter masthead",
+  "Hero",
+  "The publication's name set large over the issue line between two rules, with optional masthead art above: the fixed frame of a recurring newsletter.",
+  () => bands.heroMasthead(NEUTRAL_PALETTE, { name: "The Weekly", tagline: "One line on what the letter is about", issue: "Issue 42", date: "Nov 6, 2026" }),
+);
+registerThemed(
+  "hero-masthead-serif",
+  "Editorial masthead",
+  "Hero",
+  "The masthead in serif with an italic tagline: essays, long reads, curated letters.",
+  (p) => bands.heroMasthead(p, { name: "The Long Read", tagline: "Essays on one subject, every other Friday", issue: "Issue 42", date: "Nov 6, 2026", serif: true }),
+);
+registerThemed(
+  "hero-spot",
+  "Spot hero",
+  "Hero",
+  "One round picture centred over a big title, a subtitle in the brand colour and a hairline: monthly letters, welcomes, gentle news.",
+  (p) => bands.heroSpot(p, { image: square, title: "Your November letter", subtitle: "November 2026", lead: "Hey {{first_name}}, here's what changed and what's next." }),
+);
+registerThemed(
+  "hero-split",
+  "Split hero",
+  "Hero",
+  "A brand-colour band edge to edge: the headline, line and button beside a rounded picture, stacking on phones. Webinars, reports, B2B news.",
+  (p) => bands.heroSplit(p, { overline: "Webinar", title: "The headline goes here", lead: "One line on what they'll learn.", cta: { label: "Register", href: sampleHref }, image: square }),
+);
+registerThemed(
+  "hero-photo",
+  "Photo hero",
+  "Hero",
+  "A photo bleeding to the card's edges over a band of the brand colour with the headline and button. Place it under a header.",
+  (p) => bands.heroPhoto(p, { image: wide, overline: "New season", title: "The headline goes here", lead: "One line that sells the picture.", cta: { label: "Shop the collection", href: sampleHref } }),
+);
+registerThemed("content-byline", "Byline", "Content", "Who wrote it: a round photo, the name and the date with read time, and a 'Read online' link on the right.", (p) =>
+  bands.byline(p, { image: avatar, name: "Author name", meta: "Nov 6 · 5 min read", link: { label: "Read online →", href: sampleHref } }),
+);
+registerThemed("content-contents", "In this issue", "Content", "A numbered list of what's inside a long issue, each with its read time.", (p) =>
+  bands.contents(p, { items: [{ title: "The lead story", meta: "6 min" }, { title: "The second story", meta: "4 min" }, { title: "Quick hits" }] }),
+);
+registerThemed("content-story-rows", "Story rows", "Content", "Secondary stories: a rounded thumbnail beside an overline, a linked title and a line, with hairlines between.", (p) =>
+  bands.storyRows(p, {
+    title: "More this week",
+    items: [
+      { image: emailPlaceholderUrl("landscape"), overline: "Essay", title: "A story headline", line: "One line on why it's worth reading.", href: sampleHref },
+      { image: emailPlaceholderUrl("landscape"), overline: "Guide", title: "Another story headline", line: "One line on what they'll learn.", href: sampleHref },
+    ],
+  }),
+);
+registerThemed("columns-media-row", "Media row", "Columns", "A picture on one side, an overline, title, paragraph and link on the other. Alternate sides from row to row.", (p) =>
+  bands.mediaRow(p, { image: landscape, overline: "Feature", title: "A feature headline", body: "Two lines on what it does for the reader.", link: { label: "Learn more →", href: sampleHref } }),
+);
+registerThemed("columns-two-cards", "Two cards", "Columns", "Two cards side by side on a tinted band: picture, overline, title, two lines and a link. Highlights, articles, offers.", (p) =>
+  bands.cards(p, {
+    title: "Highlights",
+    tone: "tint",
+    items: [
+      { image: landscape, overline: "New", title: "The first highlight", line: "Two short lines about it.", link: { label: "Read more →", href: sampleHref } },
+      { image: landscape, overline: "Improved", title: "The second highlight", line: "Two short lines about it.", link: { label: "Read more →", href: sampleHref } },
+    ],
+  }),
+);
+registerThemed("columns-gallery", "Photo row", "Columns", "Three pictures in a row with captions: a collection, an event recap, a gallery. Stays side by side on phones.", (p) =>
+  bands.gallery(p, { images: [{ ...square, caption: "Caption" }, { ...square, caption: "Caption" }, { ...square, caption: "Caption" }] }),
+);
+registerThemed("content-quote-band", "Quote band", "Content", "A quote set large on a tinted band, with the person's round photo, name and role. Testimonials, pull quotes, closers.", (p) =>
+  bands.quote(p, { quote: "A short quote that says the thing better than you could.", name: "Name Surname", role: "Role, Company", image: avatar, serif: true }),
+);
+registerThemed("content-sponsor", "Sponsor slot", "Content", "A paid placement, labelled 'Together with …', in a dashed card: a title, two lines and a link.", (p) =>
+  bands.sponsor(p, { sponsor: "Sponsor", title: "What the sponsor offers", body: "Two lines in the same voice as the rest of the issue.", link: { label: "Learn more →", href: sampleHref } }),
+);
+registerThemed("content-link-list", "Link list", "Content", "Curated links: a big accent numeral, the linked title, one line on why, and the source with its read time.", (p) =>
+  bands.linkList(p, {
+    title: "Worth your time",
+    items: [
+      { title: "A link worth reading", href: sampleHref, summary: "One line on why.", source: "Source · 6 min" },
+      { title: "Another link", href: sampleHref, summary: "One line on why.", source: "Source · 4 min" },
+    ],
+  }),
+);
+registerThemed("content-section-label", "Section label", "Content", "A tinted bar with an icon and a section's name: opens each section of a long newsletter.", (p) =>
+  bands.sectionLabel(p, { label: "This week", icon: "sparkles" }),
+);
+registerThemed("content-steps", "Numbered steps", "Content", "Big accent numerals with a title and a line each: onboarding steps, a how-to, three reasons.", (p) =>
+  bands.steps(p, { title: "Get started", items: [{ title: "The first step", line: "One line on what to do." }, { title: "The second step", line: "One line on what to do." }, { title: "The third step", line: "One line on what to do." }] }),
+);
+registerThemed("header-strip", "Header strip", "Header", "A thin strip above the logo with one to three facts: free delivery over an amount, the order-by date, the code.", (p) =>
+  bands.headerStrip(p, { items: ["Free delivery over $45", "Order by Monday for the 31st"] }),
+);
+registerThemed("content-trust-strip", "Trust strip", "Content", "Three or four facts that remove a doubt (delivery, returns, warranty, secure checkout), an icon over two or three words each.", (p) =>
+  bands.trustStrip(p, { items: [{ icon: "truck", label: "Free delivery over $45" }, { icon: "refresh-cw", label: "30-day returns" }, { icon: "shield-check", label: "Two-year warranty" }, { icon: "lock", label: "Secure checkout" }] }),
+);
+registerThemed("content-price-list", "Price list", "Content", "Menu-style rows: a name and a line on the left, the price on the right (the old price struck through when there's a real one), hairlines between.", (p) =>
+  bands.priceList(p, { title: "On the menu", items: [{ name: "Item name", line: "One line on what it is.", price: "$12" }, { name: "Item name", line: "One line on what it is.", price: "$9", was: "$12" }, { name: "Item name", price: "$14" }] }),
+);
+registerThemed("columns-reviews", "Reviews", "Columns", "Two short reviews on tinted cards: stars as text, the quote, the name. Real reviews only.", (p) =>
+  bands.reviews(p, { title: "What customers say", items: [{ quote: "A short review in the customer's words.", name: "First name", meta: "Verified buyer" }, { quote: "Another short review.", name: "First name", meta: "Verified buyer" }] }),
+);
+registerThemed("footer-signature", "Signature", "Footer", "A closing line, then the sender's round photo, name and role: letters, founder notes, newsletters.", (p) =>
+  bands.signature(p, { line: "Thanks for reading. Hit reply and tell me what you'd like next.", name: "Name Surname", role: "Founder", image: avatar }),
+);
+registerThemed("footer-reader-loop", "Reader loop", "Footer", "A P.S., a one-click 'Was this useful? Yes · No' and a 'Forwarded this? Subscribe' line. Links only.", (p) =>
+  bands.readerLoop(p, { ps: "One last thing worth knowing.", feedback: { question: "Was this issue useful?", yes: sampleHref, no: sampleHref }, forward: { label: "Subscribe here", href: sampleHref } }),
+);
+registerThemed("footer-brand-signature", "Brand signature", "Footer", "The brand's name set large in a soft grey at the very end: a quiet signature before the footer.", (p, b) =>
+  bands.brandSignature(p, b),
+);
+
 export const SECTION_LAYOUTS: readonly SectionLayout[] = LAYOUTS;
 
 // Lookup by key (rail insert + docs deep links).
