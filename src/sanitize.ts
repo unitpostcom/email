@@ -271,12 +271,52 @@ const STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
 // A placeholder we swap <style> blocks out for BEFORE sanitize-html runs (so it
 // never sees / strips them), then swap back AFTER. sanitize-html strips HTML
 // comments, so we use a bare alphanumeric text sentinel (no markup chars, so it
-// passes through untouched as a text node) that we replace back verbatim. The
-// long random-looking token makes a collision with real body text effectively
-// impossible.
-const STYLE_PLACEHOLDER = (i: number) =>
-  `unitpoststyleblockplaceholderx7f3a${i}endx7f3a`;
-const STYLE_PLACEHOLDER_RE = /unitpoststyleblockplaceholderx7f3a(\d+)endx7f3a/g;
+// passes through untouched as a text node).
+//
+// Security (V140): the placeholder must not be forgeable and must only come
+// back at a TEXT position. A fixed sentinel let an author write it into an
+// attribute (`<img alt="unitpoststyle...">`) next to a <style> block whose CSS
+// was `" onerror="alert(1)" x="`; re-injection then closed the attribute and
+// produced a live handler. So each call mints a fresh random nonce (an author
+// can't type a value they can't know), and re-injection skips anything inside
+// a tag (see reinjectStyleBlocks).
+function newStyleNonce(): string {
+  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint32Array) => Uint32Array } }).crypto;
+  const words = new Uint32Array(3);
+  if (c?.getRandomValues) c.getRandomValues(words);
+  else for (let i = 0; i < words.length; i++) words[i] = Math.floor(Math.random() * 2 ** 32);
+  // Fixed width (7 base-36 digits hold 2^32), so the placeholder pattern can't
+  // run one placeholder into the next one (adjacent <style> blocks).
+  return Array.from(words, (w) => w.toString(36).padStart(7, "0")).join("x");
+}
+const stylePlaceholder = (nonce: string, i: number) =>
+  `unitpoststyle${nonce}q${i}qend`;
+// A literal pattern (no RegExp built from a string): the nonce is captured and
+// compared, so a look-alike carrying another nonce is left as typed.
+const STYLE_PLACEHOLDER_RE = /unitpoststyle([0-9a-z]{7}x[0-9a-z]{7}x[0-9a-z]{7})q(\d+)qend/g;
+
+// Put the sanitized <style> blocks back into sanitize-html's output, but only
+// where a placeholder sits in text. sanitize-html escapes `<` and `>` in text
+// and attribute values, so in its output a raw `<` always opens a tag and the
+// next raw `>` closes it: splitting on /<[^>]*>/ separates tags from text
+// reliably. A placeholder found inside a tag (an attribute value: the input
+// had a <style> block inside an attribute) is dropped, never expanded. Each
+// block is used at most once.
+function reinjectStyleBlocks(html: string, blocks: string[], nonce: string): string {
+  const used = new Set<number>();
+  return html.replace(/(<[^>]*>)|([^<]+)/g, (_m, tag?: string, text?: string) => {
+    if (tag !== undefined) {
+      return tag.replace(STYLE_PLACEHOLDER_RE, (p, n: string) => (n === nonce ? "" : p));
+    }
+    return (text ?? "").replace(STYLE_PLACEHOLDER_RE, (p, n: string, i: string) => {
+      if (n !== nonce) return p;
+      const idx = Number(i);
+      if (used.has(idx)) return "";
+      used.add(idx);
+      return blocks[idx] ?? "";
+    });
+  });
+}
 
 // Pull every <style> block out of the HTML, returning the HTML with each block
 // replaced by an inert placeholder plus the sanitized CSS for each. The caller
@@ -285,6 +325,7 @@ const STYLE_PLACEHOLDER_RE = /unitpoststyleblockplaceholderx7f3a(\d+)endx7f3a/g;
 function extractStyleBlocks(
   html: string,
   report: SanitizeReport,
+  nonce: string,
 ): { html: string; blocks: string[] } {
   const blocks: string[] = [];
   STYLE_BLOCK_RE.lastIndex = 0;
@@ -295,7 +336,7 @@ function extractStyleBlocks(
     // Re-wrap in a clean <style> tag (drop any attributes on the original — a
     // <style> needs none, and dropping them removes another injection surface).
     blocks.push(`<style>${safe}</style>`);
-    return STYLE_PLACEHOLDER(idx);
+    return stylePlaceholder(nonce, idx);
   });
   return { html: replaced, blocks };
 }
@@ -365,18 +406,14 @@ export function sanitizeEmailHtml(input: string): SanitizeResult {
   // responsive email needs them. We sanitize each block's CSS ourselves and
   // swap in an inert placeholder so sanitize-html only sees the body markup;
   // the cleaned <style> blocks are re-injected after.
-  const { html: withoutStyles, blocks } = extractStyleBlocks(input, report);
+  const nonce = newStyleNonce();
+  const { html: withoutStyles, blocks } = extractStyleBlocks(input, report, nonce);
   // Pre-scan so we can tell the user WHAT was forbidden (sanitize-html only
   // returns the cleaned string).
   scanForRemovals(withoutStyles, report);
   let html = sanitizeHtmlLib(withoutStyles, baseOptions(report));
   // Re-inject the sanitized <style> blocks where their placeholders landed.
-  if (blocks.length > 0) {
-    html = html.replace(STYLE_PLACEHOLDER_RE, (_m, i: string) => {
-      const idx = Number(i);
-      return blocks[idx] ?? "";
-    });
-  }
+  if (blocks.length > 0) html = reinjectStyleBlocks(html, blocks, nonce);
   const changed =
     html !== input ||
     report.tags.size > 0 ||

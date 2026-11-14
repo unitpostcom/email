@@ -191,3 +191,59 @@ test("parseTsx preserves base document metadata (theme/category/etc), swapping o
   assert.equal(bare.theme.bodyColor, "#ffffff");
   assert.notEqual(bare.category, "marketing");
 });
+
+// --- DP-1: arbitrary values can't break out of the hoisted <style> ---------
+
+const BREAKOUT = "sm:p-[1px}</style><img_src=x_onerror=alert(document.domain)>]";
+
+test("arbitrary values outside the safe charset are dropped as unknown", () => {
+  const c = compileClasses(`${BREAKOUT} text-[13px] sm:w-[calc(50%-4px)] bg-[rgb(1,2,3)]`);
+  assert.deepEqual(c.unknown, [BREAKOUT]);
+  assert.equal(c.inline["font-size"], "13px");
+  assert.equal(c.inline["background-color"], "rgb(1,2,3)");
+  const css = rulesToCss(c.rules);
+  assert.match(css, /width:calc\(50%-4px\)/);
+  assert.doesNotMatch(css, /<|onerror/);
+  for (const bad of ["p-[1px;color:red]", "text-[#fff}]", "rounded-[a@b]", "text-['x']"]) {
+    assert.deepEqual(compileClasses(bad).unknown, [bad], bad);
+  }
+});
+
+test("rulesToCss drops selectors and declarations carrying {}<>;@\\", () => {
+  const css = rulesToCss([
+    { selector: ".ok", declarations: { padding: "1px", color: "red}</style><img>" } },
+    { selector: ".x{}<img>", declarations: { padding: "1px" } },
+  ]);
+  assert.equal(css, ".ok{padding:1px;}");
+});
+
+test("schema drops a className token with a breakout character, keeps the rest", () => {
+  const block = { type: "text", id: "t1", text: "Hi", align: "left", fontSize: 16 };
+  // Stripped, not refused: the same schema parses stored documents, and a
+  // refusal there would empty a template saved before the check.
+  const stripped = parseDocument({
+    version: 5,
+    blocks: [{ ...block, className: `p-4 ${BREAKOUT} text-center` }],
+  });
+  assert.doesNotMatch(stripped.blocks[0].className ?? "", /[<>{}]/);
+  assert.match(stripped.blocks[0].className ?? "", /^p-4\b/);
+  assert.match(stripped.blocks[0].className ?? "", /text-center$/);
+  const ok = parseDocument({
+    version: 5,
+    blocks: [{ ...block, className: "sm:p-[12px] text-[#abcdef] w-1/2 hover:underline -mt-2" }],
+  });
+  assert.equal(ok.blocks[0].className, "sm:p-[12px] text-[#abcdef] w-1/2 hover:underline -mt-2");
+});
+
+test("a stored document with a breakout className renders no live markup", () => {
+  // A document saved before the schema check: build it valid, then set the
+  // className directly, as a raw DB row would carry it.
+  const doc = parseDocument({
+    version: 5,
+    blocks: [{ type: "text", id: "t1", text: "Hello", align: "left", fontSize: 16 }],
+  });
+  (doc.blocks[0] as { className?: string }).className = BREAKOUT;
+  const html = renderToHtml(doc);
+  assert.doesNotMatch(html, /onerror/);
+  assert.doesNotMatch(html, /<img/);
+});

@@ -137,6 +137,10 @@ export const DEV_UI_HTML = `<!doctype html>
     if (state.tab === "preview") {
       const frame = document.createElement("iframe");
       frame.title = "Email preview";
+      // No allow-scripts: the previewed template must not run script in this
+      // page's origin (V140). allow-same-origin keeps contentDocument readable
+      // for the height measurement below.
+      frame.setAttribute("sandbox", "allow-same-origin");
       frame.style.width = state.width + "px";
       frame.style.colorScheme = state.scheme;
       frame.srcdoc = d.html;

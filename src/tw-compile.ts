@@ -161,17 +161,30 @@ function resolveColor(token: string): string | undefined {
   // when the inner value actually looks like a color, so `text-[13px]` (a
   // length) isn't misread as a color by the `text` resolver.
   const arb = /^\[(.+)\]$/.exec(token);
-  if (arb) {
+  if (arb && isSafeArbitraryValue(arb[1])) {
     const inner = arb[1].replace(/_/g, " ").trim();
     if (/^(#|rgb|hsl|currentcolor$|transparent$)/i.test(inner)) return inner;
   }
   return undefined;
 }
 
+// Characters allowed inside an arbitrary value `[...]`. Enough for lengths,
+// percentages, hex/rgb()/hsl() colors and calc() (`_` stands for a space, as in
+// Tailwind). Security (DP-1): the value is written verbatim into a hoisted
+// <head><style> rule for `sm:`/`hover:` variants and into inline `style=`, so a
+// value like `1px}</style><img onerror=...>` broke out of the stylesheet into
+// live markup. Anything outside this set (`{}<>;@\\`, quotes, `*`, ...) makes
+// the whole class unknown, so it is dropped rather than escaped.
+const SAFE_ARBITRARY_VALUE_RE = /^[A-Za-z0-9#%.,()_\-/+]+$/;
+function isSafeArbitraryValue(inner: string): boolean {
+  return SAFE_ARBITRARY_VALUE_RE.test(inner);
+}
+
 // Arbitrary length value like `[12px]`, `[2rem]`, `[50%]`.
 function arbitraryLength(token: string): string | undefined {
   const arb = /^\[(.+)\]$/.exec(token);
-  return arb ? arb[1].replace(/_/g, " ") : undefined;
+  if (!arb || !isSafeArbitraryValue(arb[1])) return undefined;
+  return arb[1].replace(/_/g, " ");
 }
 
 // ---------------------------------------------------------------------------
@@ -484,12 +497,19 @@ export function compileClasses(
 // Serialize a list of CssRule into a <style> body (no <style> tag itself).
 // Identical selectors are NOT merged (callers dedupe rules upstream); media
 // rules are wrapped individually for simplicity and Outlook tolerance.
+// Defence in depth for DP-1: whatever reaches here is written raw into a
+// <style> element, so a selector, property or value carrying a character that
+// can end a declaration/rule or the element itself is dropped. The compiler
+// above never produces one; this guards future utilities and other callers.
+const UNSAFE_CSS_CHARS_RE = /[{}<>;@\\]/;
 export function rulesToCss(rules: CssRule[]): string {
   const decl = (d: Record<string, string>) =>
     Object.entries(d)
+      .filter(([k, v]) => !UNSAFE_CSS_CHARS_RE.test(k) && !UNSAFE_CSS_CHARS_RE.test(v))
       .map(([k, v]) => `${k}:${v};`)
       .join("");
   return rules
+    .filter((r) => !UNSAFE_CSS_CHARS_RE.test(r.selector))
     .map((r) => {
       const body = `${r.selector}{${decl(r.declarations)}}`;
       return r.media != null

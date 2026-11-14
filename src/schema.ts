@@ -157,7 +157,23 @@ const CustomCss = z.string();
 // customCss. Precedence (locked in render.ts): theme -> className (compiled) ->
 // schema style props -> customCss (wins last). Optional on every block + the
 // document, so v4 documents migrate forward with className simply absent.
-const ClassName = z.string();
+//
+// Security (DP-1): the value reaches a <style> element through tw-compile, so a
+// class token carrying a character that can end a CSS rule or the element
+// (`{}<>;@\`, quotes, backtick) is dropped on parse. We strip rather than
+// refuse: this schema also parses stored documents, and a refusal there would
+// turn a template saved before this check into an empty document. tw-compile
+// filters arbitrary values with its own, stricter allow-list, so rendering is
+// safe even for a value that bypassed this schema.
+const UNSAFE_CLASS_TOKEN_RE = /[{}<>;@\\"'`]/;
+export function stripUnsafeClassTokens(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter((token) => token !== "" && !UNSAFE_CLASS_TOKEN_RE.test(token))
+    .join(" ");
+}
+// `.overwrite` keeps the type a plain string, so z.toJSONSchema still works.
+const ClassName = z.string().overwrite(stripUnsafeClassTokens);
 
 // ---------------------------------------------------------------------------
 // Component instance link

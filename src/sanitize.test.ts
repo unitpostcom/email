@@ -197,3 +197,37 @@ test("sanitizeDesignHtml leaves clean designs unchanged", () => {
   const { changed } = sanitizeDesignHtml(design);
   assert.equal(changed, false);
 });
+
+// V140: the <style> placeholder must not be forgeable, and a <style> block can
+// never be re-injected inside an attribute value.
+test("a forged style placeholder in an attribute can't produce a live handler (V140)", () => {
+  const input =
+    '<style>" onerror="alert(1)" x="</style><img src=x alt="unitpoststyleblockplaceholderx7f3a0endx7f3a">';
+  const { html } = sanitizeEmailHtml(input);
+  // The CSS stays raw text inside its own <style>; the img attributes are intact.
+  assert.equal(/<img[^>]*\sonerror=/i.test(html), false);
+  assert.match(html, /<img src="x" alt="unitpoststyleblockplaceholderx7f3a0endx7f3a" \/>/);
+  assert.equal(sanitizeEmailHtml(html).html, html);
+});
+
+test("a <style> block written inside an attribute value is dropped, not re-injected (V140)", () => {
+  const input = '<img src=x alt="<style>" onerror="alert(1)" x="</style>">';
+  const { html } = sanitizeEmailHtml(input);
+  assert.equal(html.includes("onerror"), false);
+  assert.equal(html, '<img src="x" alt="" />');
+});
+
+test("style blocks still come back at text positions, in order", () => {
+  const input = "<p>a</p><style>.a{color:red}</style><p>b</p><style>.b{color:blue}</style>";
+  const { html } = sanitizeEmailHtml(input);
+  assert.equal(html, input);
+});
+
+// Verifier on #1381: adjacent placeholders ran together under a greedy nonce
+// pattern, so neither stylesheet came back and placeholder text leaked.
+test("adjacent <style> blocks both survive, and no placeholder text is left", () => {
+  const { html } = sanitizeEmailHtml("<style>.a{color:red}</style><style>.b{color:blue}</style><p>x</p>");
+  assert.match(html, /\.a\s*\{\s*color:\s*red/);
+  assert.match(html, /\.b\s*\{\s*color:\s*blue/);
+  assert.equal(html.includes("unitpoststyle"), false);
+});
