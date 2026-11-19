@@ -2,6 +2,14 @@
 
 Notable changes to `@unitpost/email`. A change to the HTML a published document renders to is a breaking change.
 
+## 0.6.1
+
+Security fixes. **Not breaking:** every document that isn't an attack renders byte-for-byte as in 0.6.0 (`golden.json` is unchanged).
+
+- `sanitizeEmailHtml`: a `<style>` block can no longer be smuggled into an attribute value and come back as a live event handler. Each call uses a fresh random placeholder, and a style block is put back only where text can stand. Two `<style>` blocks in a row now both survive.
+- Tailwind classes: an arbitrary value (`[...]`) outside lengths, percentages, colors and `calc()`, or a class name carrying `{ } < > ; @ \`, quotes or a backtick, is dropped instead of written into the hoisted `<style>` rule or an inline `style=`. Such a value could close the stylesheet and inject markup.
+- The `unitpost-email` preview sandboxes the template's iframe without scripts.
+
 ## 0.6.0
 
 Publishes when this version reaches `main` (`publish-email.yml`). **Not breaking:** every existing document renders byte-for-byte as before (`golden.json` pins the parity fixtures and every layout that existed in 0.5.0; they're unchanged). Everything new is optional. Sections can carry a background picture and rows can sit inset in the gutter, there are new openers and sections to build with, the design guide has rules for openers and composition, and the sample templates are rebuilt. The samples' own HTML changes because their content changed, and so do the two `welcome` fixtures that render the welcome sample with dark mode and with the branding mark.
